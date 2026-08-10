@@ -47,10 +47,17 @@ const Avatar = forwardRef((props, ref) => {
   let chars;
 
   if (name) {
-    chars = name
-      .match(/\b(\w)/g)
-      .slice(0, 2)
-      .join("");
+    const cleanName = name.replace(/\b(Er|Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+/gi, "");
+    const words = cleanName.split(/\s+/).filter(w => w.replace(/[^A-Za-z]/g, '').length > 1);
+    
+    if (words.length > 1) {
+      chars = (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    } else if (words.length === 1) {
+      chars = words[0].substring(0, 2).toUpperCase();
+    } else {
+      chars = name.match(/\b(\w)/g)?.slice(0, 2).join("").toUpperCase() || "U";
+    }
+
     if (initialColor === "auto") {
       resolvedColor = colorFromText(chars);
     }

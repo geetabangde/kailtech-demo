@@ -223,7 +223,7 @@ export default function OrdersDatatableV1() {
               "transition-content flex grow flex-col pt-3",
               tableSettings.enableFullScreen
                 ? "overflow-hidden"
-                : "px-[var(--margin-x)]",
+                : "",
             )}
           >
             <Card

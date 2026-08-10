@@ -16,7 +16,20 @@ export const columns = [
   columnHelper.accessor("entry_date", {
     id: "entry_date",
     header: "Date",
-    cell: (info) => info.getValue() || "N/A",
+    cell: (info) => {
+      const val = info.getValue();
+      if (!val) return "N/A";
+      const parts = val.split(" ");
+      if (parts.length > 1) {
+        return (
+          <div className="flex flex-col">
+            <span>{parts[0]}</span>
+            <span className="text-sm text-gray-500">{parts.slice(1).join(" ")}</span>
+          </div>
+        );
+      }
+      return val;
+    },
   }),
 
   // ✅ Purpose
@@ -31,7 +44,7 @@ export const columns = [
     id: "description",
     header: "Description",
     cell: (info) => (
-      <div className="whitespace-normal min-w-[250px] max-w-[400px]">
+      <div className="whitespace-normal break-words max-w-[200px]">
         {info.getValue() || "N/A"}
       </div>
     ),

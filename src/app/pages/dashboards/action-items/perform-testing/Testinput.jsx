@@ -433,8 +433,10 @@ export default function TestInput() {
     try {
       setRetesting(true);
       await axios.get(`/actionitem/request-reset/${teid}`);
-      toast.success("Retest requested ✅");
-      navigate(`/dashboards/action-items/perform-testing/${trfproduct}`);
+      toast.success("Reload : Re-Test Requested");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // Small delay so the user can read the toast before refresh
     } catch (err) {
       toast.error(err?.response?.data?.message ?? "Retest request failed ❌");
     } finally {

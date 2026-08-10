@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import clsx from "clsx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import axios from "utils/axios";
 
@@ -31,7 +31,7 @@ const isSafari = getUserAgentBrowser() === "Safari";
 export default function RemnantRegister() {
   const { cardSkin } = useThemeContext();
   const navigate = useNavigate();
-  const permissions = JSON.parse(localStorage.getItem("userPermissions") || "[]");
+  const permissions = useMemo(() => JSON.parse(localStorage.getItem("userPermissions") || "[]"), []);
 
   useEffect(() => {
     // Permission 163 as per PHP code: if(!in_array(163, $permissions)){ header("location:index.php"); }
@@ -57,49 +57,49 @@ export default function RemnantRegister() {
   const [customerTypes, setCustomerTypes] = useState([]);
   const [specificPurposes, setSpecificPurposes] = useState([]);
 
-  // Fetch departments dropdown data with permission check
-  const fetchDepartments = async () => {
-    try {
-      // PHP logic: if (!(in_array(346, $permissions) || in_array(391, $permissions))) { $search1 = " and id in ($employeedepartment) "; }
-      const hasPermission = permissions.includes(346) || permissions.includes(391);
-      const res = await axios.get("/register/get-lab-by-vertical/2", {
-        params: {
-          vertical: 2,
-          // Add employee department filter if no permission
-          ...(hasPermission ? {} : { employee_department: true })
-        }
-      });
-      setDepartments(res.data?.data || []);
-    } catch (err) {
-      console.error("Error fetching departments:", err);
-    }
-  };
-
-  const fetchCustomerTypes = async () => {
-    try {
-      const res = await axios.get("/people/get-customer-type-list");
-      const data = res.data?.Data || res.data?.data || res.data || [];
-      setCustomerTypes(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching customer types:", err);
-    }
-  };
-
-  const fetchSpecificPurposes = async () => {
-    try {
-      const res = await axios.get("/people/get-specific-purpose-list");
-      const data = res.data?.Data || res.data?.data || res.data || [];
-      setSpecificPurposes(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching specific purposes:", err);
-    }
-  };
-
   useEffect(() => {
+    // Fetch departments dropdown data with permission check
+    const fetchDepartments = async () => {
+      try {
+        // PHP logic: if (!(in_array(346, $permissions) || in_array(391, $permissions))) { $search1 = " and id in ($employeedepartment) "; }
+        const hasPermission = permissions.includes(346) || permissions.includes(391);
+        const res = await axios.get("/register/get-lab-by-vertical/2", {
+          params: {
+            vertical: 2,
+            // Add employee department filter if no permission
+            ...(hasPermission ? {} : { employee_department: true })
+          }
+        });
+        setDepartments(res.data?.data || []);
+      } catch (err) {
+        console.error("Error fetching departments:", err);
+      }
+    };
+
+    const fetchCustomerTypes = async () => {
+      try {
+        const res = await axios.get("/people/get-customer-type-list");
+        const data = res.data?.Data || res.data?.data || res.data || [];
+        setCustomerTypes(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching customer types:", err);
+      }
+    };
+
+    const fetchSpecificPurposes = async () => {
+      try {
+        const res = await axios.get("/people/get-specific-purpose-list");
+        const data = res.data?.Data || res.data?.data || res.data || [];
+        setSpecificPurposes(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching specific purposes:", err);
+      }
+    };
+
     fetchDepartments();
     fetchCustomerTypes();
     fetchSpecificPurposes();
-  }, [fetchDepartments, fetchCustomerTypes, fetchSpecificPurposes]);
+  }, [permissions]);
 
   const fetchReceivedData = async () => {
     try {

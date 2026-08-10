@@ -1,5 +1,6 @@
 // Import Dependencies
 import { createColumnHelper } from "@tanstack/react-table";
+import dayjs from "dayjs";
 import { 
   StatusCell, 
   DateCell, 
@@ -15,6 +16,10 @@ export const columns = [
   columnHelper.accessor("id", {
     id: "id",
     header: "ID",
+    filterFn: (row, columnId, filterValue) => {
+      const val = row.getValue(columnId);
+      return val ? String(val).toLowerCase().includes(String(filterValue).toLowerCase()) : false;
+    },
     cell: ({ row, getValue }) => {
       return (
         <div className="flex items-center gap-2">
@@ -43,12 +48,23 @@ export const columns = [
   columnHelper.accessor("dindate", {
     id: "din_date",
     header: "Date",
+    filterFn: (row, columnId, filterValue) => {
+      const val = row.getValue(columnId);
+      if (!val) return false;
+      // Format the date just like the DateCell does for searching
+      const formatted = dayjs(val).format("DD/MM/YYYY");
+      return formatted.includes(filterValue);
+    },
     cell: DateCell,
   }),
 
   columnHelper.accessor("challanno", {
     id: "challan_no",
     header: "Challan No",
+    filterFn: (row, columnId, filterValue) => {
+      const val = row.getValue(columnId);
+      return val ? String(val).toLowerCase().includes(String(filterValue).toLowerCase()) : false;
+    },
     cell: (info) => info.getValue() || "N/A",
   }),
 

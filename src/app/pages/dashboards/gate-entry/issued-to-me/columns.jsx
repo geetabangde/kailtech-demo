@@ -22,7 +22,15 @@ export const columns = [
     header: "Date",
     cell: (info) => {
       const val = info.getValue();
-      return val ? dayjs(val).format('DD/MM/YYYY HH:mm:ss') : " ";
+      if (!val) return " ";
+      const formatted = dayjs(val).format('DD/MM/YYYY HH:mm:ss');
+      const parts = formatted.split(" ");
+      return (
+        <div className="flex flex-col">
+          <span>{parts[0]}</span>
+          <span className="text-sm text-gray-500">{parts.slice(1).join(" ")}</span>
+        </div>
+      );
     },
   }),
 
@@ -37,7 +45,11 @@ export const columns = [
   columnHelper.accessor("description", {
     id: "description",
     header: "Description",
-    cell: (info) => info.getValue() || " ",
+    cell: (info) => (
+      <div className="whitespace-normal break-words max-w-[200px]">
+        {info.getValue() || " "}
+      </div>
+    ),
   }),
 
   // ✅ Quantity

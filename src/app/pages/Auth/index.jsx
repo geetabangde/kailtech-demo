@@ -100,9 +100,11 @@ export default function SignIn() {
       }
 
       setErrorMessage(
-        err?.response?.data?.message ||
+        err?.error ||
         err?.message ||
-        "Login failed. Please try again.",
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        (typeof err === 'string' ? err : "Login failed. Please try again.")
       );
     }
   };

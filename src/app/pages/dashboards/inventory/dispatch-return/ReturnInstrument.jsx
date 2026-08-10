@@ -40,9 +40,9 @@ export default function ReturnInstrument() {
     const [inwardDins, setInwardDins] = useState([]);
     const [trfDins, setTrfDins] = useState([]);
     const [masterDins, setMasterDins] = useState([]);
-    
+
     // State for the loaded table data
-    const [issueItems, setIssueItems] = useState([]); 
+    const [issueItems, setIssueItems] = useState([]);
     const [inwardItems, setInwardItems] = useState([]);
     const [trfItems, setTrfItems] = useState([]);
 
@@ -61,10 +61,10 @@ export default function ReturnInstrument() {
     const fetchInitialData = async () => {
         try {
             const response = await axios.get("inventory/get-add-dispatch-data");
-            
+
             if (response.data.status && response.data.data) {
                 const { purposes, employees, inward_din, trf_din, din_master } = response.data.data;
-                
+
                 if (purposes) {
                     setPurposes(purposes.filter(p => ![8, 9, 10, 11].includes(p.id)));
                 }
@@ -136,7 +136,7 @@ export default function ReturnInstrument() {
         const notfillreturn = document.querySelectorAll('.item-chklist').length;
         const totalmasterid = document.getElementById('totalmasterid')?.value;
         const items = document.querySelectorAll('.item-issue').length;
-        
+
         if (items === 0 && notfillreturn === 0) {
             toast.error("No Item is Added");
             return;
@@ -150,33 +150,51 @@ export default function ReturnInstrument() {
         if (String(formData.purpose) === "7") activeDinId = formData.inwarddinid;
         if (String(formData.purpose) === "6") activeDinId = formData.trfdinid;
 
-        // Helper to ensure value is an array
-        const parseArray = (val) => {
-            if (val === undefined || val === null || val === '') return [];
-            return Array.isArray(val) ? val : [val];
-        };
+        // Extract native form data to handle identical name[] inputs correctly
+        const formElement = document.getElementById("returninhouse");
+        const nativeFormData = new FormData(formElement);
 
-        const payload = {
-            ...formData,
-            dinid: activeDinId,
-            returnqty: parseArray(formData['qty[]']),
-            itemid: parseArray(formData['itemid[]']),
-            issuedto: parseArray(formData['issuedto[]']),
-            issueid: parseArray(formData['issueid[]']),
-            returnlocation: parseArray(formData['returnlocation[]']),
-            instissuetype: parseArray(formData['instissuetype[]']),
-            ids: parseArray(formData.ids || formData['ids[]']),
-        };
+        let payload = {};
 
-        // Clean up UI-specific or raw bracketed keys
-        Object.keys(payload).forEach(key => {
-            if (key.endsWith('[]')) {
-                delete payload[key];
-            }
-        });
-        delete payload.qty;
-        delete payload.inwarddinid;
-        delete payload.trfdinid;
+        if (['1', '2', '3', '4', '5'].includes(String(formData.purpose))) {
+            const validItems = formData.items || [];
+
+            payload = {
+                purpose: Number(formData.purpose),
+                dinid: Number(activeDinId),
+                returnby: Number(formData.returnby),
+                itemid: validItems.map(i => Number(i.itemid)),
+                issuedto: validItems.map(i => Number(i.issuedto)),
+                issueid: validItems.map(i => Number(i.issueid)),
+                returnlocation: validItems.map(i => i.returnlocation),
+                returnqty: validItems.map(i => Number(i.qty)),
+                instissuetype: validItems.map(i => Number(i.instissuetype))
+            };
+        } else {
+            // For TRF and Inward (purposes 6 and 7)
+            payload = {
+                ...formData,
+                purpose: Number(formData.purpose),
+                dinid: Number(activeDinId),
+                returnqty: nativeFormData.getAll('qty[]').map(Number),
+                itemid: nativeFormData.getAll('itemid[]').map(Number),
+                issuedto: nativeFormData.getAll('issuedto[]').map(Number),
+                issueid: nativeFormData.getAll('issueid[]').map(Number),
+                returnlocation: nativeFormData.getAll('returnlocation[]'),
+                instissuetype: nativeFormData.getAll('instissuetype[]').map(Number),
+                ids: nativeFormData.getAll('ids').length > 0 ? nativeFormData.getAll('ids') : nativeFormData.getAll('ids[]'),
+            };
+
+            // Clean up UI-specific or raw bracketed keys
+            Object.keys(payload).forEach(key => {
+                if (key.endsWith('[]')) {
+                    delete payload[key];
+                }
+            });
+            delete payload.qty;
+            delete payload.inwarddinid;
+            delete payload.trfdinid;
+        }
 
         try {
             setLoading(true);
@@ -340,28 +358,28 @@ export default function ReturnInstrument() {
 
                         {/* Renders the correct child component based on loaded state arrays */}
                         {String(purpose) === "7" && inwardItems.length > 0 && (
-                            <ReturnInwardInst 
-                                inwardItems={inwardItems} 
-                                setInwardItems={setInwardItems} 
-                                register={register} 
+                            <ReturnInwardInst
+                                inwardItems={inwardItems}
+                                setInwardItems={setInwardItems}
+                                register={register}
                                 setValue={setValue}
                                 watch={watch}
                             />
                         )}
 
                         {String(purpose) === "6" && trfItems.length > 0 && (
-                            <ReturnTRFInst 
-                                trfItems={trfItems} 
-                                setTrfItems={setTrfItems} 
-                                register={register} 
+                            <ReturnTRFInst
+                                trfItems={trfItems}
+                                setTrfItems={setTrfItems}
+                                register={register}
                                 setValue={setValue}
                             />
                         )}
 
                         {[1, 2, 3, 4, 5].includes(Number(purpose)) && issueItems.length > 0 && (
-                            <ReturnInsta 
-                                issueItems={issueItems} 
-                                register={register} 
+                            <ReturnInsta
+                                issueItems={issueItems}
+                                register={register}
                             />
                         )}
 
@@ -369,7 +387,7 @@ export default function ReturnInstrument() {
                 </div>
                 <div className="flex justify-end border-t border-gray-100 p-4 sm:p-5">
                     <Button
-                        type="button" 
+                        type="button"
                         color="success"
                         size="lg"
                         className="font-bold"

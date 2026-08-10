@@ -9,7 +9,6 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState(filters.startdate || "");
   const [endDate, setEndDate] = useState(filters.enddate || "");
-  const [month, setMonth] = useState(filters.month || "");
   const [customer, setCustomer] = useState(filters.customerid || "");
   const [bd, setBd] = useState(filters.bd || "");
   const [typeOfInvoice, setTypeOfInvoice] = useState(filters.typeofinvoice || "");
@@ -17,7 +16,6 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
   const handleInput = (name, value) => {
     if (name === "startdate") setStartDate(value);
     if (name === "enddate") setEndDate(value);
-    if (name === "month") setMonth(value);
     if (name === "customerid") setCustomer(value);
     if (name === "bd") setBd(value);
     if (name === "typeofinvoice") setTypeOfInvoice(value);
@@ -57,11 +55,12 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
       >
         {/* Start Date */}
         <DatePicker
+          autoComplete="off"
+          name="invoice_start_date_no_autofill"
           options={{
-            dateFormat: "Y-m-d",
-            altInput: true,
-            altFormat: "d/m/Y",
+            dateFormat: "d/m/Y",
             allowInput: true,
+            maxDate: endDate || "today", // Start date cannot be after today OR selected End Date
           }}
           value={startDate}
           onChange={(dates, dateStr) => handleInput("startdate", dateStr)}
@@ -74,11 +73,13 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
 
         {/* End Date */}
         <DatePicker
+          autoComplete="off"
+          name="invoice_end_date_no_autofill"
           options={{
-            dateFormat: "Y-m-d",
-            altInput: true,
-            altFormat: "d/m/Y",
+            dateFormat: "d/m/Y",
             allowInput: true,
+            minDate: startDate, // End date cannot be before selected Start Date
+            maxDate: "today",   // End date cannot be in the future
           }}
           value={endDate}
           onChange={(dates, dateStr) => handleInput("enddate", dateStr)}
@@ -89,17 +90,7 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
           )}
         />
 
-        {/* Month Filter — select a month to view all invoices of that month */}
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => handleInput("month", e.target.value)}
-          placeholder="Month"
-          className={clsx(
-            "h-10 w-full rounded border border-gray-300 px-3 text-sm outline-none dark:border-dark-500 dark:bg-dark-800 dark:text-dark-100",
-            "focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30",
-          )}
-        />
+
 
         {/* Customer — using react-select to match AddCreditNote.jsx */}
         <Select

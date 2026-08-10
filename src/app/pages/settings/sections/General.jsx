@@ -1,6 +1,6 @@
 // Import Dependencies
 import { PhoneIcon, XMarkIcon } from "@heroicons/react/20/solid";
-import { EnvelopeIcon, UserIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon, UserIcon, MapPinIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import { useState, useEffect } from "react";
 import { HiPencil } from "react-icons/hi";
 import axios from "utils/axios";
@@ -19,6 +19,8 @@ export default function General() {
     fullName: "",
     email: "",
     mobile: "",
+    location: "",
+    dob: ""
   });
 
   useEffect(() => {
@@ -31,6 +33,8 @@ export default function General() {
           fullName: [data.prefix, data.firstname, data.lastname].filter(Boolean).join(" ") || "",
           email: data.email || "",
           mobile: data.mobile || "",
+          location: data.localaddress || "",
+          dob: data.dob || "",
         });
       } catch (err) {
         console.error("Failed to fetch profile:", err);
@@ -63,7 +67,9 @@ export default function General() {
           size={20}
           imgComponent={PreviewImg}
           imgProps={{ file: avatar }}
-          src="/images/200x200.png"
+          name={formData.fullName}
+          initialColor="neutral"
+          alt={formData.fullName}
           classNames={{
             root: "rounded-xl ring-primary-600 ring-offset-[3px] ring-offset-white transition-all hover:ring-3 dark:ring-primary-500 dark:ring-offset-dark-700",
             display: "rounded-xl",
@@ -97,7 +103,7 @@ export default function General() {
           value={formData.username}
           onChange={handleChange}
           placeholder="Enter Nickname"
-          label="Display name"
+          label="User name"
           className="rounded-xl"
           prefix={<UserIcon className="size-4.5" />}
           disabled={isLoading}
@@ -132,9 +138,30 @@ export default function General() {
           prefix={<PhoneIcon className="size-4.5" />}
           disabled={isLoading}
         />
+        <Input
+          name="location"
+          value={formData.location}
+          onChange={handleChange}
+          placeholder="Location"
+          label="Location"
+          className="rounded-xl"
+          prefix={<MapPinIcon className="size-4.5" />}
+          disabled={isLoading}
+        />
+        <Input
+          name="dob"
+          type="date"
+          value={formData.dob}
+          onChange={handleChange}
+          placeholder="Date of Birth"
+          label="Date of Birth"
+          className="rounded-xl"
+          prefix={<CalendarIcon className="size-4.5" />}
+          disabled
+        />
       </div>
 
-      <div className="mt-8 flex justify-end space-x-3 ">
+      <div className="mt-8 flex justify-start space-x-3 ">
         <Button className="min-w-[7rem]">Cancel</Button>
         <Button className="min-w-[7rem]" color="primary" disabled={isLoading}>
           Save

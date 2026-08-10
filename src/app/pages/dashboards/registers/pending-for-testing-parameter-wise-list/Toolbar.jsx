@@ -1,5 +1,5 @@
 // Import Dependencies
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 import Select from "react-select";
 import { DatePicker } from "components/shared/form/Datepicker";
@@ -10,12 +10,20 @@ export function Toolbar({ filters, onChange, onSearch, chemists = [] }) {
   const [chemist, setChemist] = useState(filters.chemist || "");
   const [search, setSearch] = useState(filters.search || "");
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (filters.search !== search) {
+        onChange("search", search);
+      }
+    }, 150);
+    return () => clearTimeout(timeout);
+  }, [search, filters.search, onChange]);
+
   const handleInput = (name, value) => {
-    if (name === "startdate") setStartDate(value);
-    if (name === "enddate") setEndDate(value);
-    if (name === "chemist") setChemist(value);
-    if (name === "search") setSearch(value);
-    onChange(name, value);
+    if (name === "startdate") { setStartDate(value); onChange(name, value); }
+    else if (name === "enddate") { setEndDate(value); onChange(name, value); }
+    else if (name === "chemist") { setChemist(value); onChange(name, value); }
+    else if (name === "search") { setSearch(value); }
   };
 
   const selectStyles = {
@@ -88,14 +96,14 @@ export function Toolbar({ filters, onChange, onSearch, chemists = [] }) {
           value={
             chemist
               ? {
-                  value: String(chemist),
-                  label: (() => {
-                    const found = chemists.find((c) => String(c.id) === String(chemist));
-                    return found
-                      ? `${found.firstname || ""} ${found.lastname || ""}`.trim() || found.name
-                      : String(chemist);
-                  })(),
-                }
+                value: String(chemist),
+                label: (() => {
+                  const found = chemists.find((c) => String(c.id) === String(chemist));
+                  return found
+                    ? `${found.firstname || ""} ${found.lastname || ""}`.trim() || found.name
+                    : String(chemist);
+                })(),
+              }
               : null
           }
           onChange={(option) => handleInput("chemist", option ? option.value : "")}

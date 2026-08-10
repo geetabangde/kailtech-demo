@@ -46,18 +46,7 @@ export function NameCell({ row }) {
   );
 }
 
-export function BrandCell({ row }) {
-  return (
-    <div className="size-9">
-      <img
-        data-tooltip
-        data-tooltip-content={row.original.brand}
-        src={row.original.brand_image}
-        alt={row.original.brand}
-      />
-    </div>
-  );
-}
+
 
 export function PriceCell({ getValue }) {
   return <span className="font-semibold">{getValue()}</span>;
@@ -108,9 +97,7 @@ NameCell.propTypes = {
   row: PropTypes.object,
 };
 
-BrandCell.propTypes = {
-  row: PropTypes.object,
-};
+
 
 PriceCell.propTypes = {
   getValue: PropTypes.func,

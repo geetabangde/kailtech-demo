@@ -7,7 +7,7 @@ import {
     SelectHeader,
 } from "components/shared/table/SelectCheckbox";
 import { RowActions } from "./RowActions";
-import { BrandCell, NameCell, PriceCell, StockCell, ViewCell } from "./rows";
+import { NameCell, PriceCell, StockCell, ViewCell } from "./rows";
 
 // ----------------------------------------------------------------------
 
@@ -28,11 +28,7 @@ export const columns = [
         id: "category",
         header: "category",
     }),
-    columnHelper.accessor((row) => row.brand, {
-        id: "brand",
-        header: "brand",
-        cell: BrandCell,
-    }),
+
     columnHelper.accessor((row) => row.price, {
         id: "price",
         header: "Price",

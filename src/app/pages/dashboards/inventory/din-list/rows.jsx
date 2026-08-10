@@ -7,6 +7,8 @@ import axios from "utils/axios";
 
 // ----------------------------------------------------------------------
 
+import { Link } from "react-router-dom";
+
 export function StatusCell({ row }) {
   const statusValue = row.original.status;
   const option = dinStatusOptions.find((opt) => opt.value === parseInt(statusValue)) || {
@@ -23,12 +25,12 @@ export function StatusCell({ row }) {
         {option.label}
       </Badge>
       {isReturnable && isReturned && (
-        <a
-          href={`/dashboards/inventory/din-list/dispatch-return-record?hakuna=${row.original.id}`}
+        <Link
+          to={`/dashboards/inventory/dispatch-return?hakuna=${row.original.id}`}
           className="text-sm font-semibold text-primary-600 hover:underline"
         >
           (Returned)
-        </a>
+        </Link>
       )}
     </div>
   );

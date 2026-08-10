@@ -1,8 +1,30 @@
+import { useState } from "react";
+import axios from "utils/axios";
+
 export default function ReturnInsta({ issueItems, register }) {
+    const [fetchedData, setFetchedData] = useState({});
+
     if (!issueItems || issueItems.length === 0) return null;
 
-    // Total master id is the total number of items
     const totalid = issueItems.length;
+
+    const handleIssuedToChange = async (issueId) => {
+        if (!issueId) return;
+        try {
+            const response = await axios.get(`inventory/get-return-quantity/${issueId}`);
+            if (response.data && response.data.status) {
+                setFetchedData(prev => ({
+                    ...prev,
+                    [issueId]: {
+                        qty: response.data.return_qty,
+                        type: response.data.type_of_use
+                    }
+                }));
+            }
+        } catch (err) {
+            console.error("Error fetching return quantity", err);
+        }
+    };
 
     return (
         <div className="mt-6 border-t border-gray-100 pt-6">
@@ -24,62 +46,101 @@ export default function ReturnInsta({ issueItems, register }) {
                             // Render Checklist Error Row if checklist_not_filled is true
                             if (item.checklist_not_filled) {
                                 return (
-                                    <tr key={item.id || index} className="item-chklist">
+                                    <tr key={item.issue_id || item.id || index} className="item-chklist">
                                         <td colSpan="6" className="px-4 py-3 text-sm text-red-500 font-medium">
-                                            {item.checklist_error_msg || `${item.name} ${item.idno} Return Check List Not Filled`}
+                                            {item.checklist_error_msg || `${item.instrument_name || item.name} ${item.instrument_code || item.idno} Return Check List Not Filled`}
                                         </td>
                                     </tr>
                                 );
                             }
 
                             // Regular Row
+                            const issueId = item.issue_id || item.id;
+                            const currentQty = fetchedData[issueId]?.qty ?? item.qty;
+                            const currentType = fetchedData[issueId]?.type ?? item.inst_issue_type ?? item.instissuetype;
+
                             return (
-                                <tr key={item.id} className="item-issue">
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-dark-100">{item.idno}</td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-dark-100">{item.name}</td>
+                                <tr key={issueId} className="item-issue">
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-dark-100">{item.instrument_code || item.idno}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-dark-100">{item.instrument_name || item.name}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm">
                                         <select
-                                            className="w-full rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
-                                            {...register(`issuedto[]`)}
+                                            className="w-full min-w-[180px] rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
+                                            {...register(`items.${index}.issuedto`, {
+                                                onChange: () => {
+                                                    handleIssuedToChange(issueId);
+                                                }
+                                            })}
+                                            defaultValue=""
                                         >
                                             <option value="">Select</option>
-                                            {/* Note: The PHP had a single option for the specific admin user who was issued the item */}
-                                            <option value={item.id}>{item.issuedtoname}</option>
-                                        </select>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                        <select
-                                            className="w-full rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
-                                            {...register(`returnlocation[]`)}
-                                        >
-                                            <option value="">choose one..</option>
-                                            {item.return_locations && item.return_locations.length > 0 ? (
-                                                item.return_locations.map(loc => (
-                                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                                ))
-                                            ) : (
-                                                <option value="24">Store</option>
+                                            {/* Support both new structure (issued_to object) and old structure */}
+                                            {(item.issued_to?.id || item.id) && (
+                                                <option value={item.issued_to?.id || item.id}>
+                                                    {item.issued_to?.name || item.issuedtoname}
+                                                </option>
                                             )}
                                         </select>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                        <div className="locqty">
-                                            <input
-                                                type="text"
-                                                className="w-full rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
-                                                {...register(`qty[]`)}
-                                                defaultValue={item.qty || ""}
-                                                placeholder="Qty"
-                                            />
+                                        <select
+                                            className="w-full min-w-[180px] rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
+                                            {...register(`items.${index}.returnlocation`, {
+                                                required: "Return Location is required"
+                                            })}
+                                            defaultValue=""
+                                        >
+                                            <option value="">choose one..</option>
+                                            {item.return_locations && item.return_locations.length > 0 ? (
+                                                item.return_locations.map(loc => (
+                                                    <option key={loc.id} value={loc.name}>{loc.name}</option>
+                                                ))
+                                            ) : (
+                                                <option value="Store">Store</option>
+                                            )}
+                                        </select>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                        <div className="locqty flex gap-2">
+                                            {fetchedData[issueId] ? (
+                                                String(currentType) === "1" ? (
+                                                    <>
+                                                        <input
+                                                            type="text"
+                                                            disabled
+                                                            value={currentQty || ""}
+                                                            className="w-1/2 rounded border border-gray-300 dark:border-dark-500 bg-gray-100 dark:bg-dark-800 p-2 text-sm cursor-not-allowed"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            className="w-1/2 rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
+                                                            {...register(`items.${index}.qty`, { 
+                                                                required: true, 
+                                                                min: 1, 
+                                                                max: Number(currentQty || 0) 
+                                                            })}
+                                                            placeholder="Qty"
+                                                        />
+                                                    </>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        className="w-full rounded border border-gray-300 dark:border-dark-500 bg-gray-100 dark:bg-dark-800 p-2 text-sm cursor-not-allowed"
+                                                        {...register(`items.${index}.qty`)}
+                                                        value="1"
+                                                    />
+                                                )
+                                            ) : null}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-dark-100">{item.remark}</td>
 
                                     {/* Hidden fields just like PHP logic */}
                                     <td className="hidden">
-                                        <input type="hidden" {...register(`instissuetype[]`)} value={item.instissuetype} />
-                                        <input type="hidden" {...register(`itemid[]`)} value={item.instrumentid} />
-                                        <input type="hidden" {...register(`issueid[]`)} value={item.id} />
+                                        <input type="hidden" {...register(`items.${index}.instissuetype`)} value={currentType} />
+                                        <input type="hidden" {...register(`items.${index}.itemid`)} value={item.instrument_id || item.instrumentid} />
+                                        <input type="hidden" {...register(`items.${index}.issueid`)} value={issueId} />
 
                                         {/* Added a hidden checkbox so the "Please select at least one instrument" validation passes if this row exists */}
                                         <input type="checkbox" defaultChecked className="hidden" />

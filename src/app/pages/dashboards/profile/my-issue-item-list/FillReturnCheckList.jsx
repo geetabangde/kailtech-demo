@@ -111,15 +111,39 @@ export default function FillReturnCheckList() {
             setSubmitting(true);
 
             const payload = {
-                gatepass: id,
-                checklistmatrix: matrixList,
-                generalmatrix: generalList,
+                // Checklist Record (Matrix)
+                checklistrecordid: matrixList.map((row) => row.checklistrecordid || row.id || ""),
+                equipformverif: matrixList.map((row) => row.equipformverif || ""),
+                generalcheck: matrixList.map((row) => row.generalcheck || ""),
+                checkpoint: matrixList.map((row) => row.checkpoint || ""),
+                checkpointbeforemoving: matrixList.map((row) => row.checkpointbeforemoving || ""),
+                checkpointaftermoving: matrixList.map((row) => row.checkpointaftermoving || ""),
+                error: matrixList.map((row) => row.error || ""),
+                acceptancelimit: matrixList.map((row) => row.acceptancelimit || ""),
+                result: matrixList.map((row) => row.result || ""),
+                remark: matrixList.map((row) => row.remark || ""),
+                rremark: matrixList.map((row) => row.rremark || ""),
+                dicipline: matrixList.map((row) => row.dicipline || row.discipline || ""),
+                issueid: matrixList.map((row) => row.issueid || ""),
+                masterid: matrixList.map((row) => row.masterid || ""),
+
+                // General Checklist Record
+                checklistgeneralrecordid: generalList.map((row) => row.checklistgeneralrecordid || row.id || ""),
+                quantity: generalList.map((row) => row.quantity || row.qty || ""),
+                condition: generalList.map((row) => row.condition || ""),
+                remark1: generalList.map((row) => row.remark1 || row.remark || ""),
+                rcondition: generalList.map((row) => row.return_condition || row.rcondition || ""),
+                rremark1: generalList.map((row) => row.return_remarks || row.rremark1 || ""),
+                accessoriesname: generalList.map((row) => row.accessoriesname || ""),
+                issueid1: generalList.map((row) => row.issueid || row.issueid1 || ""),
+                masterid1: generalList.map((row) => row.masterid || row.masterid1 || "")
             };
 
-            // NOTE: Update this API path to match insertReturnChecklist.php equivalent
-            const res = await axios.post("/profile/add-issue-check-list", payload);
+            console.log("Submitting Return Checklist Payload:", payload);
 
-            if (res.data?.status) {
+            const res = await axios.post("/profile/add-return-checklist", payload);
+
+            if (res.data?.status || res.data?.success) {
                 toast.success(res.data.message || "Return Checklist Submitted Successfully");
                 navigate(-1); // Or back to specific issue list
             } else {

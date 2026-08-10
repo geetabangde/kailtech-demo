@@ -1,7 +1,6 @@
 // Import Dependencies
 import { createColumnHelper } from "@tanstack/react-table";
-import { RowActions } from "./RowActions";
-
+import { Link } from "react-router-dom";
 const columnHelper = createColumnHelper();
 
 export const columns = [
@@ -14,7 +13,24 @@ export const columns = [
   columnHelper.accessor("gatpassnumber", {
     id: "gatepass_no",
     header: "Gatepass Number",
-    cell: (info) => info.getValue() || "N/A",
+    cell: ({ row, getValue }) => {
+      const val = getValue();
+      if (!val) return "N/A";
+      // Fallback to dinid from the row if available, otherwise just render the text
+      const dinid = row.original.dinid; 
+      if (dinid) {
+        return (
+          <Link
+            to={`/dashboards/inventory/din-list/view-din-form?hakuna=${dinid}`}
+            target="_blank"
+            className="text-primary-600 hover:underline"
+          >
+            {val}
+          </Link>
+        );
+      }
+      return val;
+    },
   }),
 
   columnHelper.accessor("dinpname", {
@@ -57,9 +73,4 @@ export const columns = [
     },
   }),
 
-  columnHelper.display({
-    id: "action",
-    header: "Actions",
-    cell: ({ row }) => <RowActions row={row} />,
-  }),
 ];

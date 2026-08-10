@@ -203,7 +203,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       dispatch({
         type: "LOGIN_ERROR",
-        payload: err?.response?.data?.message || err?.message || "Login failed",
+        payload: err?.error || err?.message || err?.response?.data?.error || err?.response?.data?.message || (typeof err === 'string' ? err : "Login failed")
       });
 
       throw err;

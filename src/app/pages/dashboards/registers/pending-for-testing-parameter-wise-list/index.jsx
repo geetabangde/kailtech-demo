@@ -61,15 +61,14 @@ export default function PendingForTestingLrnWiseList() {
   // Chemist dropdown — PHP: selectextrawhere("admin", "status=1")
   const [chemists, setChemists] = useState([]);
 
-  const fetchRegisterData = async () => {
+  const fetchRegisterData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setSearched(true);
       const params = { status: 1 };
       if (filters.startdate) params.startdate = filters.startdate;
       if (filters.enddate) params.enddate = filters.enddate;
       if (filters.chemist) params.chemist = filters.chemist;
-      if (filters.search) params.search = filters.search;
 
       const res = await axios.get("/register/parameter-wise-list", { params });
 
@@ -79,7 +78,7 @@ export default function PendingForTestingLrnWiseList() {
     } catch (err) {
       console.error("Error fetching LRN-wise list:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -96,6 +95,7 @@ export default function PendingForTestingLrnWiseList() {
   useEffect(() => {
     fetchRegisterData();
     fetchChemists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFilterChange = (name, value) => {
@@ -111,10 +111,13 @@ export default function PendingForTestingLrnWiseList() {
     enableFullScreen: false,
     enableRowDense: false,
   });
-
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
 
+  // The debounce is now handled in Toolbar.jsx, so we can update the table immediately when filters.search changes
+  useEffect(() => {
+    setGlobalFilter(filters.search);
+  }, [filters.search]);
   const [columnVisibility, setColumnVisibility] = useLocalStorage(
     "column-visibility-pending-testing-lrn-wise-1",
     {},
@@ -142,7 +145,7 @@ export default function PendingForTestingLrnWiseList() {
     meta: {
       setTableSettings,
       deleteRow: (row) => {
-        setTableData((prev) => prev.filter((_, i) => i !== row.index));
+        setTableData((prev) => prev.filter((r) => r.id !== row.original.id));
       },
     },
     filterFns: {
@@ -155,7 +158,12 @@ export default function PendingForTestingLrnWiseList() {
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
-    globalFilterFn: fuzzyFilter,
+    globalFilterFn: (row, columnId, value) => {
+      const queryWords = String(value).toLowerCase().split(/\s+/).filter(Boolean);
+      if (queryWords.length === 0) return true;
+      const rowText = Object.values(row.original).join(" ").toLowerCase();
+      return queryWords.every(word => rowText.includes(word));
+    },
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
