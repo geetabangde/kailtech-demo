@@ -55,19 +55,25 @@ export default function EquipmentList() {
   });
   const [categories, setCategories] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
 
   // Fetch categories dropdown data
   const fetchCategories = async () => {
+    setCategoriesLoading(true);
     try {
       const res = await axios.get("inventory/category-list");
       setCategories(res.data?.data || []);
     } catch (err) {
       console.error("Error fetching categories:", err);
+    } finally {
+      setCategoriesLoading(false);
     }
   };
 
   // Fetch departments dropdown data
   const fetchDepartments = async () => {
+    setDepartmentsLoading(true);
     try {
       const res = await axios.get("master/list-lab", {
         params: { status: 1 }
@@ -75,6 +81,8 @@ export default function EquipmentList() {
       setDepartments(res.data?.data || []);
     } catch (err) {
       console.error("Error fetching departments:", err);
+    } finally {
+      setDepartmentsLoading(false);
     }
   };
 
@@ -266,6 +274,8 @@ export default function EquipmentList() {
         onExport={handleExport}
         categories={categories}
         departments={departments}
+        categoriesLoading={categoriesLoading}
+        departmentsLoading={departmentsLoading}
       />
       <div className="transition-content w-full pb-5">
         <div

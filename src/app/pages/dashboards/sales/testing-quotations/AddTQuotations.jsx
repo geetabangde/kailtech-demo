@@ -5,6 +5,7 @@ import { Button, Card, Table, TBody, Tr, Td } from "components/ui";
 import axios from "utils/axios";
 import { toast } from "sonner";
 import Select from "react-select";
+import CreatableSelect from "react-select/creatable";
 import { DatePicker } from "components/shared/form/Datepicker";
 import dayjs from "dayjs";
 import { TextEditor } from "components/shared/form/TextEditor";
@@ -48,6 +49,7 @@ export default function AddTestingQuotation() {
   });
 
   const [customers, setCustomers] = useState([]);
+  const [customerAddresses, setCustomerAddresses] = useState([]);
   const [customerTypes, setCustomerTypes] = useState([]);
   const [specificPurposes, setSpecificPurposes] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -104,6 +106,7 @@ export default function AddTestingQuotation() {
 
     if (val === "new") {
       setIsNewCustomer(true);
+      setCustomerAddresses([]);
       setFormData((prev) => ({
         ...prev,
         customername: "",
@@ -126,15 +129,45 @@ export default function AddTestingQuotation() {
           axios.get(`/people/get-single-customer/${val}`).catch(() => null),
         ]);
 
-        const addrData = addrRes?.data?.data?.[0] || {};
+        const addresses = addrRes?.data?.data || [];
         const custData = custRes?.data?.data || {};
+
+        const allAddresses = [];
+        if (custData.address) {
+          allAddresses.push({
+            id: "main",
+            address: custData.address,
+            city: "",
+            pincode: "",
+            contact_person: custData.pname,
+            email: custData.email,
+            mobile: custData.mobile || custData.pnumber,
+            contact_person_id: custData.contact_person_id,
+          });
+        }
+        addresses.forEach((addr) => {
+          allAddresses.push({
+            id: addr.id,
+            address: addr.address,
+            city: addr.city,
+            pincode: addr.pincode,
+            contact_person: addr.contact_person,
+            email: addr.email,
+            mobile: addr.mobile,
+            contact_person_id: addr.contact_person_id,
+          });
+        });
+        setCustomerAddresses(allAddresses);
+
+        const addrData = allAddresses[0] || {};
+        const defaultAddressStr = addrData.address
+            ? `${addrData.address || ""} ${addrData.city || ""} ${addrData.pincode || ""}`.trim()
+            : "";
 
         setFormData((prev) => ({
           ...prev,
           customername: custData.name || prev.customername,
-          customeraddress: addrData.address
-            ? `${addrData.address || ""} ${addrData.city || ""} ${addrData.pincode || ""}`.trim()
-            : (custData.address || ""),
+          customeraddress: defaultAddressStr,
           contactpersonname: addrData.contact_person || custData.pname || "",
           concernpersonemail: addrData.email || custData.email || "",
           concernpersonmobile: addrData.mobile || custData.mobile || custData.pnumber || "",
@@ -142,7 +175,7 @@ export default function AddTestingQuotation() {
           country: custData.country || "",
           state: custData.state || "",
           stateid: custData.stateid || "",
-          caddress: addrData.id || "",
+          caddress: addrData.id === "main" ? "" : (addrData.id || ""),
           cperson: addrData.contact_person_id || custData.contact_person_id || "",
         }));
       } catch (err) {
@@ -156,6 +189,35 @@ export default function AddTestingQuotation() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressChange = (selectedOption) => {
+    if (selectedOption) {
+      if (selectedOption.__isNew__) {
+        setFormData((prev) => ({
+          ...prev,
+          customeraddress: selectedOption.label,
+          caddress: "", // New custom address
+        }));
+      } else {
+        const addrData = selectedOption.original;
+        setFormData((prev) => ({
+          ...prev,
+          customeraddress: selectedOption.label,
+          caddress: addrData.id === "main" ? "" : addrData.id,
+          contactpersonname: addrData.contact_person || prev.contactpersonname,
+          concernpersonemail: addrData.email || prev.concernpersonemail,
+          concernpersonmobile: addrData.mobile || prev.concernpersonmobile,
+          cperson: addrData.contact_person_id || prev.cperson,
+        }));
+      }
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        customeraddress: "",
+        caddress: "",
+      }));
+    }
   };
 
   const handleSelectChange = (name, selectedOption) => {
@@ -338,14 +400,29 @@ export default function AddTestingQuotation() {
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">
                       Customer Address
                     </label>
-                    <input
-                      name="customeraddress"
-                      value={formData.customeraddress}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      required
-                      placeholder="Enter address"
-                    />
+                    {isNewCustomer ? (
+                      <input
+                        name="customeraddress"
+                        value={formData.customeraddress}
+                        onChange={handleChange}
+                        className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                        placeholder="Enter address"
+                      />
+                    ) : (
+                      <CreatableSelect
+                        options={customerAddresses.map((addr) => ({
+                          value: addr.id,
+                          label: `${addr.address || ""} ${addr.city || ""} ${addr.pincode || ""}`.trim(),
+                          original: addr
+                        }))}
+                        value={formData.customeraddress ? { label: formData.customeraddress, value: formData.caddress || "main" } : null}
+                        onChange={handleAddressChange}
+                        placeholder="Select or enter address..."
+                        className="react-select-container"
+                        isClearable
+                      />
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">

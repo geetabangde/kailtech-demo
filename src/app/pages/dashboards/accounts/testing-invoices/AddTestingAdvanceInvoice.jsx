@@ -351,7 +351,7 @@ export default function AddDirectTestingInvoice() {
 
   const [charges, setCharges] = useState({
     discnumber: 0,
-    disctype: "amount",
+    disctype: "%",
     mobilisation: 0,
     freight: 0,
     witnesstype: "amount",

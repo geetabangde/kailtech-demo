@@ -52,7 +52,7 @@ export const columns = [
   columnHelper.display({
     id: "s_no",
     header: "Sr No",
-    cell: (info) => info.row.index + 1,
+    cell: (info) => info.table.getSortedRowModel().flatRows.findIndex((r) => r.id === info.row.id) + 1,
   }),
 
   // ID — PHP: id

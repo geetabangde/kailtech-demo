@@ -132,17 +132,28 @@ export default function FinalReportDetail() {
 
           <div className="px-5 py-5">
 
-            {/* ── NABL / QAI logo ─────────────────────────────────────── */}
-            {nablStatus === 1 && (
-              <div className="mb-4 flex justify-center">
-                <img src={report.nabl?.logo || "/images/nabl2348.png"} alt="NABL" className="h-24 w-auto object-contain" />
+            {/* ── Top Logos Section ───────────────────────────────────── */}
+            <div className="mb-4 flex items-start justify-between">
+              {/* Left: NABL QR Code */}
+              <div className="flex w-32 justify-start">
+                {report.nabl?.is_nabl && (
+                  <img src="/images/nabl_qr.png" alt="NABL QR" className="h-24 w-auto object-contain" />
+                )}
               </div>
-            )}
-            {nablStatus === 3 && (
-              <div className="mb-4 flex justify-center">
-                <img src="/images/qai.jpeg" alt="QAI" className="h-24 w-auto object-contain" />
+
+              {/* Center: NABL / QAI logo */}
+              <div className="flex flex-1 justify-center">
+                {nablStatus === 1 && (
+                  <img src={report.nabl?.logo || "/images/nabl2348.png"} alt="NABL" className="h-24 w-auto object-contain" />
+                )}
+                {nablStatus === 3 && (
+                  <img src="/images/qai.jpeg" alt="QAI" className="h-24 w-auto object-contain" />
+                )}
               </div>
-            )}
+
+              {/* Right: Spacer to keep center logo perfectly centered */}
+              <div className="w-32"></div>
+            </div>
 
             {/* ── TEST REPORT title + ULR + KTRC ref ──────────────────── */}
             <h2 className="mb-1 text-center text-xl font-bold underline">TEST REPORT</h2>

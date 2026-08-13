@@ -79,6 +79,12 @@ const protectedRoutes = {
               }),
             },
             {
+              path: "notifications",
+              lazy: async () => ({
+                Component: (await import("app/pages/dashboards/notifications")).default,
+              }),
+            },
+            {
               path: "material-list",
               children: [
                 {
@@ -472,6 +478,21 @@ const protectedRoutes = {
                         Component: (
                           await import(
                             "app/pages/dashboards/master-data/UnitTypes/EditUnitType"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "mom-list",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/master-data/mom-list"
                           )
                         ).default,
                       }),
@@ -5421,6 +5442,16 @@ const protectedRoutes = {
                     Component: (
                       await import(
                         "app/pages/dashboards/hrm/view-all-attendance"
+                      )
+                    ).default,
+                  }),
+                },
+                {
+                  path: "search-attendance",
+                  lazy: async () => ({
+                    Component: (
+                      await import(
+                        "app/pages/dashboards/hrm/view-all-attendance/SearchAttendence"
                       )
                     ).default,
                   }),

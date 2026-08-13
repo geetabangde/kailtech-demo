@@ -152,6 +152,7 @@ export function extractData(report) {
   });
 
   const nablLogo = typeof nablObj === "object" ? nablObj?.logo : null;
+  const isNabl = typeof nablObj === "object" ? Boolean(nablObj?.is_nabl) : false;
 
   return {
     ulr, ktrcRef, displayLRN, receiptDate,
@@ -160,7 +161,7 @@ export function extractData(report) {
     customerName, customerAddress, contactPerson, showContact, customerRef,
     productDesc, productName, grade, batchnoClean, brandValue,
     hasSpecs, test_results: toArray(test_results), remarkLines, signatories: finalSignatories,
-    nablStatus, nablLogo, isDraft,
+    nablStatus, nablLogo, isDraft, isNabl,
   };
 }
 
@@ -295,25 +296,25 @@ export function HtmlResultsTable({ data }) {
 
             const match = displayResult.match(/^(.*?)([-+]?\d+(?:\.\d+)?)$/);
             if (match && !/\d/.test(match[1])) {
-                prefix = match[1];
-                numberPart = match[2];
+              prefix = match[1];
+              numberPart = match[2];
             }
 
             if (/^-?\d+(\.\d+)?$/.test(numberPart)) {
-               let decimalPlaces = row.result?.decimal !== undefined && row.result?.decimal !== "" && row.result?.decimal !== null
-                                   ? parseInt(row.result.decimal, 10) : null;
-               
-               if (decimalPlaces !== null && !isNaN(decimalPlaces)) {
-                   numberPart = parseFloat(numberPart).toFixed(decimalPlaces);
-               } else if (!numberPart.includes(".")) {
-                   numberPart = numberPart + ".0";
-               }
+              let decimalPlaces = row.result?.decimal !== undefined && row.result?.decimal !== "" && row.result?.decimal !== null
+                ? parseInt(row.result.decimal, 10) : null;
+
+              if (decimalPlaces !== null && !isNaN(decimalPlaces)) {
+                numberPart = parseFloat(numberPart).toFixed(decimalPlaces);
+              } else if (!numberPart.includes(".")) {
+                numberPart = numberPart + ".0";
+              }
             }
 
             displayResult = prefix + numberPart;
 
             if (displayResult.startsWith("<") && !displayResult.toUpperCase().includes("BDL")) {
-                displayResult = "BDL " + displayResult;
+              displayResult = "BDL " + displayResult;
             }
             const unitDisplay = row.unit?.description ?? row.unit?.name ?? row.unit ?? '—';
             const methodName = row.method?.name ?? row.method ?? '—';
@@ -467,9 +468,16 @@ export function HtmlDocWithLH({ report }) {
 
               {/* ── LRN — placed BELOW the letterhead, in normal flow,
                      so it never overlaps the KAILTECH logo image ── */}
-              <div style={{ textAlign: 'right', marginBottom: '6px', fontSize: '12px', paddingTop: '35px', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
-                <span style={SS.bold}>LRN: {data.displayLRN}</span>
-                <span className="page-number" style={SS.bold}></span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '6px', fontSize: '12px', paddingTop: data.isNabl ? '0px' : '35px' }}>
+                <div>
+                  {data.isNabl && (
+                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: '110px', height: '110px', objectFit: 'contain' }} />
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <span style={SS.bold}>LRN: {data.displayLRN}</span>
+                  <span className="page-number" style={SS.bold}></span>
+                </div>
               </div>
             </td>
           </tr>

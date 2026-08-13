@@ -146,7 +146,11 @@ function HtmlDocWithoutLH({ report }) {
             <td style={{ border: 'none', padding: 0 }}>
               {/* ── TOP HEADER (Without letter head, only NABL and LRN) ── */}
               <div style={S1.topRow}>
-                <div style={{ width: "190px" }} />
+                <div style={{ width: "190px", textAlign: "left", verticalAlign: "middle" }}>
+                  {data.isNabl && (
+                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: "110px", height: "110px", objectFit: "contain" }} />
+                  )}
+                </div>
                 <div style={S1.tcBlock}>
                   {data.nablStatus === 1 && (
                     <>

@@ -177,11 +177,10 @@ function CustomerSearch({ customers, value, onChange }) {
                   setQuery("");
                   setOpen(false);
                 }}
-                className={`dark:hover:bg-dark-700 cursor-pointer px-3 py-2 text-sm hover:bg-blue-50 ${
-                  String(c.id) === String(value)
+                className={`dark:hover:bg-dark-700 cursor-pointer px-3 py-2 text-sm hover:bg-blue-50 ${String(c.id) === String(value)
                     ? "bg-blue-50 font-semibold text-blue-700"
                     : "dark:text-dark-200 text-gray-700"
-                }`}
+                  }`}
               >
                 {c.name}
               </div>
@@ -462,11 +461,11 @@ export default function EditCalibrationInvoice() {
         setInvoiceNo(inv.invoiceno ?? "");
         setCustomerid(String(inv.customerid ?? cust.id ?? ""));
         setPotype(inv.potype ?? "Normal");
-        
+
         // Trim selected PO to ensure match
         const initialPo = String(d.selected_po ?? inv.ponumber ?? "").trim();
         setSelectedPo(initialPo);
-        
+
         setSelectedInwards(selInw.map(String));
         // invoicedate already in YYYY-MM-DD from this API
         setInvoicedate(
@@ -488,22 +487,21 @@ export default function EditCalibrationInvoice() {
         // ── PO list — po_list is string[] ──
         // Trim to match selectedPo
         let poArray = poList.map(p => String(p).trim());
-        
+
         if (initialPo && !poArray.includes(initialPo)) {
           poArray = [initialPo, ...poArray];
         }
-        
+
         setPonumbers(poArray);
 
         // ── Inward options — convert [{id,inwarddate}] → [{id,display}] ──
         // PHP format: "3585(17/05/2025)"
         const inwardOpts = inwards.map((iw) => ({
           id: iw.id,
-          display: `${String(iw.id).padStart(4, "0")}(${
-            iw.inwarddate
+          display: `${String(iw.id).padStart(4, "0")}(${iw.inwarddate
               ? iw.inwarddate.split("-").reverse().join("/")
               : String(iw.id)
-          })`,
+            })`,
         }));
         setInwardOptions(inwardOpts);
 
@@ -1012,11 +1010,10 @@ export default function EditCalibrationInvoice() {
                 </div>
                 <div className="pt-1">
                   <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                      isSgst
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${isSgst
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                         : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                    }`}
+                      }`}
                   >
                     {isSgst ? "CGST + SGST Applicable" : "IGST Applicable"}
                   </span>
@@ -1078,10 +1075,10 @@ export default function EditCalibrationInvoice() {
                             </div>
                             {(item.accreditation ?? "").toLowerCase() ===
                               "nabl" && (
-                              <span className="mt-0.5 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                With Nabl
-                              </span>
-                            )}
+                                <span className="mt-0.5 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                  With Nabl
+                                </span>
+                              )}
                           </td>
 
                           {/* PHP: rate pre-filled from invoicerate */}

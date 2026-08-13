@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import axios from "utils/axios";
@@ -63,7 +61,7 @@ function Spinner({ text = "Loading..." }) {
 }
 
 // ── PHP sumamount() exact port ────────────────────────────────────────────
-function calcTotals(items, charges, typeofinvoice) {
+function calcTotals(items, charges) {
   const subtotal = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
   const discnumber = parseFloat(charges.discnumber) || 0;
   const disctype = charges.disctype || "%";
@@ -77,16 +75,13 @@ function calcTotals(items, charges, typeofinvoice) {
     samplehandling = 0,
     sampleprep = 0;
 
-  // PHP: Testing type only
-  if (typeofinvoice !== "Calibration") {
-    const witnessnumber = parseFloat(charges.witnessnumber) || 0;
-    const witnesstype = charges.witnesstype || "%";
-    witnesscharges =
-      witnesstype === "%" ? (subtotal / 100) * witnessnumber : witnessnumber;
-    samplehandling = parseFloat(charges.samplehandling) || 0;
-    sampleprep = parseFloat(charges.sampleprep) || 0;
-    subtotal2 += witnesscharges + samplehandling + sampleprep;
-  }
+  const witnessnumber = parseFloat(charges.witnessnumber) || 0;
+  const witnesstype = charges.witnesstype || "%";
+  witnesscharges =
+    witnesstype === "%" ? (subtotal / 100) * witnessnumber : witnessnumber;
+  samplehandling = parseFloat(charges.samplehandling) || 0;
+  sampleprep = parseFloat(charges.sampleprep) || 0;
+  subtotal2 += witnesscharges + samplehandling + sampleprep;
 
   const isSgst =
     String(charges.statecode || "").padStart(2, "0") === COMPANY_STATE_CODE;
@@ -199,8 +194,7 @@ export default function EditProformaInvoice() {
 
   const totals = calcTotals(
     items,
-    { ...charges, statecode: form.statecode },
-    form.typeofinvoice,
+    { ...charges, statecode: form.statecode }
   );
 
   // ── Load customers ────────────────────────────────────────────────────
@@ -285,10 +279,10 @@ export default function EditProformaInvoice() {
         });
         setCharges({
           discnumber: d.discnumber ?? 0,
-          disctype: d.disctype ?? "%",
+          disctype: ["Flat", "Rs"].includes(d.disctype) ? "amount" : (d.disctype ?? "%"),
           freight: d.freight ?? 0,
           mobilisation: d.mobilisation ?? 0,
-          witnesstype: d.witnesstype || "%",
+          witnesstype: ["Flat", "Rs"].includes(d.witnesstype) ? "amount" : (d.witnesstype || "%"),
           witnessnumber: Number(d.witnessnumber) || 0,
           samplehandling: Number(d.samplehandling) || 0,
           sampleprep: d.sampleprep ?? 0,
@@ -558,7 +552,7 @@ export default function EditProformaInvoice() {
         refdate: toPhpDate(form.refdate),
         remark: form.remark,
         typeofinvoice: form.typeofinvoice,
-        
+
         // --- Charges / Subtotals ---
         subtotal: totals.subtotal,
         discnumber: parseFloat(charges.discnumber) || 0,
@@ -1085,7 +1079,7 @@ export default function EditProformaInvoice() {
                       className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
                     >
                       <option value="%">%</option>
-                      <option value="Flat">Flat</option>
+                      <option value="amount">Flat</option>
                     </select>
                     <span className="ml-auto font-mono text-sm">
                       {totals.discount.toFixed(2)}
@@ -1126,69 +1120,66 @@ export default function EditProformaInvoice() {
                     </span>
                   </div>
 
-                  {/* Testing only */}
-                  {!isCalibration && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
-                          Witness Charges
-                        </span>
-                        <input
-                          type="number"
-                          value={charges.witnessnumber}
-                          onChange={(e) =>
-                            setCharge("witnessnumber", e.target.value)
-                          }
-                          className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                        />
-                        <select
-                          value={charges.witnesstype}
-                          onChange={(e) =>
-                            setCharge("witnesstype", e.target.value)
-                          }
-                          className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                        >
-                          <option value="%">%</option>
-                          <option value="Flat">Flat</option>
-                        </select>
-                        <span className="ml-auto font-mono text-sm">
-                          {totals.witnesscharges.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
-                          Sample Handling
-                        </span>
-                        <input
-                          type="number"
-                          value={charges.samplehandling}
-                          onChange={(e) =>
-                            setCharge("samplehandling", e.target.value)
-                          }
-                          className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                        />
-                        <span className="ml-auto font-mono text-sm">
-                          {parseFloat(charges.samplehandling || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
-                          Sample Preparation Charges
-                        </span>
-                        <input
-                          type="number"
-                          value={charges.sampleprep}
-                          onChange={(e) =>
-                            setCharge("sampleprep", e.target.value)
-                          }
-                          className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                        />
-                        <span className="ml-auto font-mono text-sm">
-                          {parseFloat(charges.sampleprep || 0).toFixed(2)}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
+                        Witness Charges
+                      </span>
+                      <input
+                        type="number"
+                        value={charges.witnessnumber}
+                        onChange={(e) =>
+                          setCharge("witnessnumber", e.target.value)
+                        }
+                        className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                      />
+                      <select
+                        value={charges.witnesstype}
+                        onChange={(e) =>
+                          setCharge("witnesstype", e.target.value)
+                        }
+                        className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                      >
+                        <option value="%">%</option>
+                        <option value="amount">Flat</option>
+                      </select>
+                      <span className="ml-auto font-mono text-sm">
+                        {totals.witnesscharges.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
+                        Sample Handling
+                      </span>
+                      <input
+                        type="number"
+                        value={charges.samplehandling}
+                        onChange={(e) =>
+                          setCharge("samplehandling", e.target.value)
+                        }
+                        className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                      />
+                      <span className="ml-auto font-mono text-sm">
+                        {parseFloat(charges.samplehandling || 0).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="dark:text-dark-400 w-44 shrink-0 text-sm text-gray-600">
+                        Sample Preparation Charges
+                      </span>
+                      <input
+                        type="number"
+                        value={charges.sampleprep}
+                        onChange={(e) =>
+                          setCharge("sampleprep", e.target.value)
+                        }
+                        className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+                      />
+                      <span className="ml-auto font-mono text-sm">
+                        {parseFloat(charges.sampleprep || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </>
                 </div>
 
                 {/* Right: totals */}

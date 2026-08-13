@@ -36,17 +36,19 @@ function usePermissions() {
 
 export default function WitnessLockList() {
   const { cardSkin } = useThemeContext();
-  const permissions  = usePermissions();
+  const permissions = usePermissions();
 
   const [products, setProducts] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // GET /approvals/get-witness-lock-list
   // PHP: trfs WHERE witnesslock=1, joined trfProducts + products
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get("/approvals/get-witness-lock-list");
+      const response = await axios.get("/approvals/get-witness-lock-list", {
+        params: { _t: new Date().getTime() }
+      });
       if (Array.isArray(response.data)) {
         setProducts(response.data);
       } else if (Array.isArray(response.data?.data)) {
@@ -66,11 +68,11 @@ export default function WitnessLockList() {
 
   const [tableSettings, setTableSettings] = useState({
     enableFullScreen: false,
-    enableRowDense:   false,
+    enableRowDense: false,
   });
 
   const [globalFilter, setGlobalFilter] = useState("");
-  const [sorting,      setSorting]      = useState([{ id: "id", desc: true }]);
+  const [sorting, setSorting] = useState([{ id: "id", desc: true }]);
 
   const [columnVisibility, setColumnVisibility] = useLocalStorage(
     "column-visibility-approvals-witness-lock-list-1", {}
@@ -106,20 +108,20 @@ export default function WitnessLockList() {
       setTableSettings,
       refreshData: fetchProducts,
     },
-    filterFns:              { fuzzy: fuzzyFilter },
-    enableSorting:          tableSettings.enableSorting,
-    enableColumnFilters:    tableSettings.enableColumnFilters,
-    getCoreRowModel:        getCoreRowModel(),
-    onGlobalFilterChange:   setGlobalFilter,
-    getFilteredRowModel:    getFilteredRowModel(),
+    filterFns: { fuzzy: fuzzyFilter },
+    enableSorting: tableSettings.enableSorting,
+    enableColumnFilters: tableSettings.enableColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
+    getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
-    globalFilterFn:         fuzzyFilter,
-    onSortingChange:        setSorting,
-    getSortedRowModel:      getSortedRowModel(),
-    getPaginationRowModel:  getPaginationRowModel(),
+    globalFilterFn: fuzzyFilter,
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    onColumnPinningChange:    setColumnPinning,
+    onColumnPinningChange: setColumnPinning,
     autoResetPageIndex,
   });
 
@@ -160,7 +162,7 @@ export default function WitnessLockList() {
           className={clsx(
             "flex h-full w-full flex-col",
             tableSettings.enableFullScreen &&
-              "fixed inset-0 z-61 bg-white pt-3 dark:bg-dark-900",
+            "fixed inset-0 z-61 bg-white pt-3 dark:bg-dark-900",
           )}
         >
           <Toolbar table={table} />
@@ -193,7 +195,7 @@ export default function WitnessLockList() {
                             className={clsx(
                               "bg-gray-200 font-semibold uppercase text-gray-800 dark:bg-dark-800 dark:text-dark-100 first:ltr:rounded-tl-lg last:ltr:rounded-tr-lg first:rtl:rounded-tr-lg last:rtl:rounded-tl-lg",
                               header.column.getCanPin() && [
-                                header.column.getIsPinned() === "left"  && "sticky z-2 ltr:left-0 rtl:right-0",
+                                header.column.getIsPinned() === "left" && "sticky z-2 ltr:left-0 rtl:right-0",
                                 header.column.getIsPinned() === "right" && "sticky z-2 ltr:right-0 rtl:left-0",
                               ],
                             )}
@@ -230,7 +232,7 @@ export default function WitnessLockList() {
                           className={clsx(
                             "relative border-y border-transparent border-b-gray-200 dark:border-b-dark-500",
                             row.getIsSelected() && !isSafari &&
-                              "row-selected after:pointer-events-none after:absolute after:inset-0 after:z-2 after:h-full after:w-full after:border-3 after:border-transparent after:bg-primary-500/10 ltr:after:border-l-primary-500 rtl:after:border-r-primary-500",
+                            "row-selected after:pointer-events-none after:absolute after:inset-0 after:z-2 after:h-full after:w-full after:border-3 after:border-transparent after:bg-primary-500/10 ltr:after:border-l-primary-500 rtl:after:border-r-primary-500",
                           )}
                         >
                           {row.getVisibleCells().map((cell) => (
@@ -240,7 +242,7 @@ export default function WitnessLockList() {
                                 "relative bg-white",
                                 cardSkin === "shadow" ? "dark:bg-dark-700" : "dark:bg-dark-900",
                                 cell.column.getCanPin() && [
-                                  cell.column.getIsPinned() === "left"  && "sticky z-2 ltr:left-0 rtl:right-0",
+                                  cell.column.getIsPinned() === "left" && "sticky z-2 ltr:left-0 rtl:right-0",
                                   cell.column.getIsPinned() === "right" && "sticky z-2 ltr:right-0 rtl:left-0",
                                 ],
                               )}

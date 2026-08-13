@@ -123,6 +123,7 @@ function extractDataTwoSign(report) {
   });
 
   const nablLogo = typeof nablObj === "object" ? nablObj?.logo : null;
+  const isNabl = typeof nablObj === "object" ? Boolean(nablObj?.is_nabl) : false;
   const tid = trf_product?.id ?? report?.id ?? null; // For the End of Report check
 
   return {
@@ -132,7 +133,7 @@ function extractDataTwoSign(report) {
     customerName, customerAddress, contactPerson, showContact, customerRef,
     productDesc, productName, grade, batchnoClean,
     hasSpecs, test_results: toArray(test_results), remarkLines, signatories: finalSignatories,
-    nablStatus, nablLogo, isDraft, tid
+    nablStatus, nablLogo, isDraft, tid, isNabl
   };
 }
 
@@ -229,7 +230,11 @@ function HtmlDocWithoutLHTwoSign({ report }) {
             <td style={{ border: 'none', padding: 0 }}>
               {/* ── TOP HEADER (Without letter head, only NABL and LRN) ── */}
               <div style={S1.topRow}>
-                <div style={{ width: "120px" }} />
+                <div style={{ width: "120px", textAlign: "left", verticalAlign: "middle" }}>
+                  {data.isNabl && (
+                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: "110px", height: "110px", objectFit: "contain" }} />
+                  )}
+                </div>
                 <div style={S1.tcBlock}>
                   {data.nablStatus === 1 && (
                     <>

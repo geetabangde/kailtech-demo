@@ -306,7 +306,7 @@ export default function EditTestingInvoice() {
   const [charges, setCharges] = useState({
     subtotal: 0,
     discnumber: 0,
-    disctype: "amount",
+    disctype: "%",
     mobilisation: 0,
     freight: 0,
     witnesstype: "amount",

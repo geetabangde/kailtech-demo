@@ -115,11 +115,11 @@ export default function AddProformaInvoiceItemCalibration() {
         
         setCharges({
           discnumber: d.discnumber ?? 0,
-          disctype: d.disctype ?? "%",
+          disctype: ["Flat", "Rs"].includes(d.disctype) ? "amount" : (d.disctype ?? "%"),
           freight: d.freight ?? 0,
           mobilisation: d.mobilisation ?? 0,
           witnessnumber: d.witnessnumber ?? 0,
-          witnesstype: d.witnesstype ?? "amount",
+          witnesstype: ["Flat", "Rs"].includes(d.witnesstype) ? "amount" : (d.witnesstype ?? "amount"),
           samplehandling: d.samplehandling ?? 0,
           sampleprep: d.sampleprep ?? 0,
           cgstper: d.cgstper || 9,
@@ -419,7 +419,7 @@ export default function AddProformaInvoiceItemCalibration() {
                     className="dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
                   >
                     <option value="%">%</option>
-                    <option value="Flat">Flat</option>
+                    <option value="amount">Flat</option>
                   </select>
                   <span className="ml-auto font-mono text-sm">{totals.discount.toFixed(2)}</span>
                 </div>

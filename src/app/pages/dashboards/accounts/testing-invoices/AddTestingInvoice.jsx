@@ -411,7 +411,7 @@ export default function AddTestingInvoice() {
   const [charges, setCharges] = useState({
     subtotal: 0,
     discnumber: 0,
-    disctype: "amount", // PHP default: ₹
+    disctype: "%", // default changed to %
     mobilisation: 0,
     freight: 0,
     witnesstype: "amount",

@@ -14,6 +14,7 @@ const Table = forwardRef((props, ref) => {
     zebra,
     dense,
     sticky,
+    bordered,
     ...rest
   } = props;
 
@@ -26,6 +27,7 @@ const Table = forwardRef((props, ref) => {
         zebra && "is-zebra",
         dense && "is-dense",
         sticky && "is-sticky",
+        bordered && "is-bordered",
         className,
       )}
       ref={ref}
@@ -46,6 +48,7 @@ Table.propTypes = {
   zebra: PropTypes.bool,
   dense: PropTypes.bool,
   sticky: PropTypes.bool,
+  bordered: PropTypes.bool,
 };
 
 export { Table };

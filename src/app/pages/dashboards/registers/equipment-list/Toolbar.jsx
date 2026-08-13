@@ -3,7 +3,7 @@ import { useState } from "react";
 import Select from "react-select";
 import { toast } from "sonner";
 
-export function Toolbar({ filters, onChange, onSearch, onExport, categories, departments }) {
+export function Toolbar({ filters, onChange, onSearch, onExport, categories, departments, categoriesLoading, departmentsLoading }) {
   const [category, setCategory] = useState(filters.category || "");
   const [selectedDepartments, setSelectedDepartments] = useState(filters.department || []);
 
@@ -65,6 +65,7 @@ export function Toolbar({ filters, onChange, onSearch, onExport, categories, dep
             onChange={(option) => handleInput("category", option ? option.value : "")}
             isClearable
             placeholder="All"
+            isLoading={categoriesLoading}
             classNamePrefix="react-select"
             className="w-full text-sm"
             styles={selectStyles}
@@ -93,6 +94,7 @@ export function Toolbar({ filters, onChange, onSearch, onExport, categories, dep
             isMulti
             isClearable
             placeholder="Select Department"
+            isLoading={departmentsLoading}
             classNamePrefix="react-select"
             className="w-full text-sm"
             styles={selectStyles}

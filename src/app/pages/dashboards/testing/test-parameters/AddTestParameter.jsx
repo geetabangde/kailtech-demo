@@ -275,7 +275,7 @@ export default function AddTestParameter() {
 
   const getResultOptions = () => dropdowns.results.map(item => ({
     value: item.id,
-    label: `${item.name}${item.unit_name ? ` in ${item.unit_name}` : ""}${item.id ? ` (VR${item.id})` : ""}${item.description ? ` (${item.description})` : ""}`
+    label: item.label || item.name || `Result ${item.id}`
   }));
 
   // Get selected values for react-select
