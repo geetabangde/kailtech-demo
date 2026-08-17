@@ -103,25 +103,34 @@ export default function AddHoliday() {
     try {
       const form = new FormData();
       form.append("name", formData.name);
-      form.append("date", formData.date);
 
-      try {
-        // Primary endpoint matching insert_holiday.php in backend
-        await axios.post("/hrm/insert-holiday", form);
-      } catch (err) {
-        // Safe resilient fallback
-        if (err?.response?.status === 404) {
-          await axios.post("/hrm/add-holiday", form);
-        } else {
-          throw err;
+      // Format date from YYYY-MM-DD to DD/MM/YYYY for backend validation
+      let formattedDate = formData.date;
+      if (formattedDate && formattedDate.includes("-")) {
+        const parts = formattedDate.split("-");
+        if (parts.length === 3) {
+          formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
       }
+      form.append("date", formattedDate);
 
-      toast.success("Holiday created successfully ", {
+      // Use the new add-hrm-holidays endpoint
+      const response = await axios.post("/hrm/add-hrm-holidays", form);
+
+      toast.success(response.data?.message || "Holiday created successfully ", {
         duration: 2000,
         icon: "✅",
       });
 
+      // Parse the PHP redirect_url (e.g. yearlyHolidayLists.php?year=2026) to navigate to the correct React route
+      if (response.data?.redirect_url) {
+        const yearMatch = response.data.redirect_url.match(/year=(\d{4})/);
+        if (yearMatch && yearMatch[1]) {
+          navigate(`/dashboards/hrm/holidays/yearly-list/${yearMatch[1]}`);
+          return;
+        }
+      }
+      
       navigate("/dashboards/hrm/holidays");
     } catch (err) {
       console.error("Error creating Holiday:", err);

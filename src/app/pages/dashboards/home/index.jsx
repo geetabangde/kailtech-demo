@@ -1,9 +1,7 @@
 import { Page } from "components/shared/Page";
 import { SplashScreen } from "components/template/SplashScreen";
-import { Statistics } from "./Statistics";
 
-import { TopSellers } from "./TopSellers";
-import { CurrentBalance } from "./CurrentBalance";
+
 import { NotificationTable } from "./NotificationTable";
 import { PendingInstrumentsTable } from "./PendingInstrumentsTable";
 import { BirthdaysWidget } from "./BirthdaysWidget";
@@ -48,21 +46,15 @@ export default function Home() {
     <Page title="Homepage">
       <div className="transition-content mt-5 min-h-screen w-full lg:mt-7 px-4 sm:px-4">
         <MOMTasks data={dashboardData?.mom_tasks} />
-        <Statistics />
         <TaskStatistics data={dashboardData} />
         <BrnStatusPanels />
         <div className="mt-4 grid grid-cols-12 gap-4 sm:mt-5 sm:gap-5 lg:mt-6 lg:gap-6">
           <NotificationTable data={dashboardData?.notifications} />
           <PendingInstrumentsTable data={dashboardData?.pending_instruments} />
-          <div className="col-span-12 flex flex-col gap-4 sm:gap-5 lg:col-span-8 lg:gap-6 xl:col-span-9">
+          <div className="col-span-12 flex flex-col gap-4 sm:gap-5 lg:gap-6">
             <MasterInstrumentsTable />
             <ReportChemistsTable />
             <BirthdaysWidget data={dashboardData?.birthdays} />
-        
-          </div>
-          <div className="col-span-12 space-y-4 sm:col-span-6 sm:space-y-5 lg:col-span-4 lg:space-y-6 xl:col-span-3">
-            <CurrentBalance />
-            <TopSellers />
           </div>
         </div>
       </div>

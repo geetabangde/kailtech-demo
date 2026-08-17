@@ -58,7 +58,6 @@ export default function EditCustomer() {
     const fields = {
       name: "Customer Name",
       customertype: "Customer Type",
-      modeofpayment: "Mode of Payment",
       creditdays: "Credit Days",
       creditamount: "Credit Amount",
       leftamount: "Credit Left",
@@ -329,6 +328,17 @@ export default function EditCustomer() {
       }
     });
 
+    // Email format validation (supports comma-separated multiple emails)
+    if (formData.email && formData.email.trim() !== '') {
+      const emails = formData.email.split(',').map(e => e.trim()).filter(e => e !== '');
+      // Very relaxed validation: must contain at least one '@' symbol
+      const invalidEmails = emails.filter(e => !e.includes('@'));
+      
+      if (invalidEmails.length > 0) {
+        newValidationErrors.email = "Please enter email";
+      }
+    }
+
     // Custom validations (only if fields are filled)
     // Note: We don't validate name/email if unchanged from original
 
@@ -458,7 +468,7 @@ export default function EditCustomer() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              Mode of Payment <span className="text-red-500">*</span>
+              Mode of Payment
             </label>
             <Select
               name="modeofpayment"
@@ -480,6 +490,8 @@ export default function EditCustomer() {
             <Input
               label="Credit Days"
               name="creditdays"
+              type="number"
+              onWheel={(e) => e.target.blur()}
               value={formData.creditdays}
               onChange={handleInputChange}
               className={errors.creditdays ? "border-red-500 bg-red-50" : ""}
@@ -493,6 +505,8 @@ export default function EditCustomer() {
             <Input
               label="Credit Amount"
               name="creditamount"
+              type="number"
+              onWheel={(e) => e.target.blur()}
               value={formData.creditamount}
               onChange={handleInputChange}
               className={errors.creditamount ? "border-red-500 bg-red-50" : ""}
@@ -506,6 +520,8 @@ export default function EditCustomer() {
             <Input
               label="Credit Left"
               name="leftamount"
+              type="number"
+              onWheel={(e) => e.target.blur()}
               value={formData.leftamount}
               onChange={handleInputChange}
               className={errors.leftamount ? "border-red-500 bg-red-50" : ""}
@@ -572,17 +588,15 @@ export default function EditCustomer() {
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
               Country <span className="text-red-500">*</span>
             </label>
-            <Select
+            <ReactSelect
               name="country"
-              value={formData.country}
-              onChange={(e) => handleSelectChange(e, "country")}
-              className={errors.country ? "border-red-500 bg-red-50" : ""}
-            >
-              <option value="">Choose...</option>
-              {countries.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </Select>
+              options={countries}
+              onChange={(selected) => handleSelectChange({ target: { value: selected ? String(selected.value) : "" } }, "country")}
+              value={countries.find(c => String(c.value) === String(formData.country)) || null}
+              placeholder="Choose one..."
+              className={errors.country ? "react-select-error" : ""}
+              isClearable
+            />
             {errors.country && (
               <p className="text-red-600 text-sm mt-1">This field is required</p>
             )}
@@ -590,29 +604,32 @@ export default function EditCustomer() {
 
           {/* State - Dynamic: Dropdown for India, Text input for others */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              State <span className="text-red-500">*</span>
-            </label>
             {isIndianCountry ? (
               <>
-                <Select
+                <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <ReactSelect
                   name="stateid"
-                  value={formData.stateid}
-                  onChange={(e) => handleSelectChange(e, "stateid")}
-                  className={errors.stateid ? "border-red-500 bg-red-50" : ""}
-                >
-                  <option value="">Choose state...</option>
-                  {states.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </Select>
+                  options={states}
+                  onChange={(selected) => handleSelectChange({ target: { value: selected ? String(selected.value) : "" } }, "stateid")}
+                  value={states.find(s => String(s.value) === String(formData.stateid)) || null}
+                  placeholder="Choose state..."
+                  className={errors.stateid ? "react-select-error" : ""}
+                  isClearable
+                />
                 {errors.stateid && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
                 )}
               </>
             ) : (
-              <>
+              <div>
                 <Input
+                  label={
+                    <>
+                      State <span className="text-red-500">*</span>
+                    </>
+                  }
                   name="state"
                   placeholder="Enter state"
                   value={formData.state}
@@ -622,7 +639,7 @@ export default function EditCustomer() {
                 {errors.state && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
                 )}
-              </>
+              </div>
             )}
           </div>
 
@@ -673,6 +690,8 @@ export default function EditCustomer() {
             <Input
               label="Discount %"
               name="discount"
+              type="number"
+              onWheel={(e) => e.target.blur()}
               value={formData.discount}
               onChange={handleInputChange}
               className={errors.discount ? "border-red-500 bg-red-50" : ""}

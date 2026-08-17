@@ -43,7 +43,6 @@ export default function AddCustomer() {
     const fields = {
       name: "Customer Name",
       customertype: "Customer Type",
-      modeofpayment: "Mode of Payment",
       creditdays: "Credit Days",
       creditamount: "Credit Amount",
       mobile: "Mobile",
@@ -407,7 +406,7 @@ export default function AddCustomer() {
           {/* Payment Mode */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              Mode of Payment <span className="text-red-500">*</span>
+              Mode of Payment
             </label>
             <Select
               name="modeofpayment"
@@ -432,6 +431,7 @@ export default function AddCustomer() {
               label="Credit Days"
               name="creditdays"
               type="number"
+              onWheel={(e) => e.target.blur()}
               placeholder="Credit days"
               onChange={handleInputChange}
               value={formData.creditdays}
@@ -447,6 +447,7 @@ export default function AddCustomer() {
               label="Credit Amount"
               name="creditamount"
               type="number"
+              onWheel={(e) => e.target.blur()}
               placeholder="Credit amount"
               onChange={handleInputChange}
               value={formData.creditamount}
@@ -524,19 +525,15 @@ export default function AddCustomer() {
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
               Country <span className="text-red-500">*</span>
             </label>
-            <Select
+            <ReactSelect
               name="country"
-              onChange={(e) => handleSelectChange(e, "country")}
-              value={formData.country}
-              className={errors.country ? "border-red-500 bg-red-50" : ""}
-            >
-              <option value="">Choose one...</option>
-              {countries.map((country) => (
-                <option key={country.value} value={country.value}>
-                  {country.label}
-                </option>
-              ))}
-            </Select>
+              options={countries}
+              onChange={(selected) => handleSelectChange({ target: { value: selected ? String(selected.value) : "" } }, "country")}
+              value={countries.find(c => String(c.value) === String(formData.country)) || null}
+              placeholder="Choose one..."
+              className={errors.country ? "react-select-error" : ""}
+              isClearable
+            />
             {errors.country && (
               <p className="text-red-600 text-sm mt-1">This field is required</p>
             )}
@@ -544,31 +541,32 @@ export default function AddCustomer() {
 
           {/* State - Dynamic: Dropdown for India, Text input for others */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              State <span className="text-red-500">*</span>
-            </label>
             {isIndianCountry ? (
               <>
-                <Select
+                <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <ReactSelect
                   name="stateid"
-                  onChange={(e) => handleSelectChange(e, "stateid")}
-                  value={formData.stateid}
-                  className={errors.stateid ? "border-red-500 bg-red-50" : ""}
-                >
-                  <option value="">Choose state...</option>
-                  {states.map((state) => (
-                    <option key={state.value} value={state.value}>
-                      {state.label}
-                    </option>
-                  ))}
-                </Select>
+                  options={states}
+                  onChange={(selected) => handleSelectChange({ target: { value: selected ? String(selected.value) : "" } }, "stateid")}
+                  value={states.find(s => String(s.value) === String(formData.stateid)) || null}
+                  placeholder="Choose state..."
+                  className={errors.stateid ? "react-select-error" : ""}
+                  isClearable
+                />
                 {errors.stateid && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
                 )}
               </>
             ) : (
-              <>
+              <div>
                 <Input
+                  label={
+                    <>
+                      State <span className="text-red-500">*</span>
+                    </>
+                  }
                   name="state"
                   placeholder="Enter state"
                   onChange={handleInputChange}
@@ -578,7 +576,7 @@ export default function AddCustomer() {
                 {errors.state && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
                 )}
-              </>
+              </div>
             )}
           </div>
 
@@ -648,6 +646,7 @@ export default function AddCustomer() {
               }
               name="discount"
               type="number"
+              onWheel={(e) => e.target.blur()}
               placeholder="Discount percentage"
               onChange={handleInputChange}
               value={formData.discount}

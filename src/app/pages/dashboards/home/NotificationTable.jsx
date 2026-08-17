@@ -70,7 +70,7 @@ export function NotificationTable({ data }) {
               <div key={notification.id || idx} className="p-4 hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex flex-col">
-                    <Link to={mapNotificationUrl(notification.url)} className="text-[13px] font-semibold text-red-600 dark:text-red-400 hover:underline mb-1">
+                    <Link to={mapNotificationUrl(notification.url)} className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 hover:text-red-600 dark:hover:text-red-400 hover:underline mb-1">
                       {notification.task}
                     </Link>
                     <span className="text-xs text-gray-400 dark:text-gray-500">

@@ -108,7 +108,7 @@ export function extractData(report) {
   const productName = product?.name ?? "—";
   const productDesc = product?.description ?? size ?? "—";
   const displayLRN = lrn ?? brn ?? "—";
-  const ktrcRef = meta?.ktrc_ref ?? "KTRC/QF/0708/01";
+  const ktrcRef = meta?.ktrc_ref ?? "";
   const batchnoClean = batchno.replace(/<br\s*\/?>/gi, " ").trim();
   const brandValue = (brand ?? "").replace(/<br\s*\/?>/gi, " ").trim();
   const receiptDate = fmtDate(trf?.date ?? dates?.receipt_date);

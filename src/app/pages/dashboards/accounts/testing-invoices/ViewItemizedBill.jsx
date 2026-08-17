@@ -273,7 +273,7 @@ function ItemizedBillPrintTemplate({
       )}
 
       {/* Title */}
-      <div style={{ textAlign: "center", marginBottom: 8, marginTop: 80 }}>
+      <div style={{ textAlign: "center", marginBottom: 8, marginTop: !withLH ? 34 : 80 }}>
         <div
           style={{
             fontSize: 14,

@@ -235,6 +235,20 @@ export default function EditTestParameter() {
     if (formData.resultype.length === 0) newErrors.resultype = "Result type is required";
     if (!formData.resultunit) newErrors.resultunit = "Result unit is required";
 
+    if (!formData.mindurationdays && formData.mindurationdays !== 0 && formData.mindurationdays !== "0") newErrors.mindurationdays = "Required";
+    if (!formData.mindurationhours && formData.mindurationhours !== 0 && formData.mindurationhours !== "0") newErrors.mindurationhours = "Required";
+    else if (Number(formData.mindurationhours) > 24) newErrors.mindurationhours = "Max 24 hours";
+
+    if (!formData.maxdurationdays && formData.maxdurationdays !== 0 && formData.maxdurationdays !== "0") newErrors.maxdurationdays = "Required";
+    if (!formData.maxdurationhours && formData.maxdurationhours !== 0 && formData.maxdurationhours !== "0") newErrors.maxdurationhours = "Required";
+    else if (Number(formData.maxdurationhours) > 24) newErrors.maxdurationhours = "Max 24 hours";
+
+    if (!formData.reminderdays && formData.reminderdays !== 0 && formData.reminderdays !== "0") newErrors.reminderdays = "Required";
+    if (!formData.reminderhours && formData.reminderhours !== 0 && formData.reminderhours !== "0") newErrors.reminderhours = "Required";
+    else if (Number(formData.reminderhours) > 24) newErrors.reminderhours = "Max 24 hours";
+
+    if (!formData.remark?.trim()) newErrors.remark = "Remark is required";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -267,15 +281,16 @@ export default function EditTestParameter() {
         reminderhours: formData.reminderhours ? Number(formData.reminderhours) : 0,
         department: Number(formData.department),
         nabl: Number(formData.nabl),
-        products: formData.products.join(','),
-        instruments: formData.instruments.join(','),
-        measurements: formData.measurements.join(','),
-        results: formData.results.join(','),
+        products: formData.products,
+        instruments: formData.instruments,
+        measurements: formData.measurements,
+        results: formData.results,
         elements: elements,
         consumables: consumables,
+        formula: formData.formula,
         cycle: formData.cycle ? Number(formData.cycle) : 0,
         visible: Number(formData.visible),
-        resultype: Number(formData.resultype),
+        resultype: formData.resultype,
         resultunit: Number(formData.resultunit),
         decimal: formData.decimal ? Number(formData.decimal) : 0,
         minnabl: formData.minnabl ? Number(formData.minnabl) : 0,
@@ -337,7 +352,7 @@ export default function EditTestParameter() {
 
   const getResultOptions = () => dropdowns.results.map(item => ({
     value: item.id,
-    label: item.label || item.name || `Result ${item.id}`
+    label: item.label || `Result ${item.id} (VR${item.id})`
   }));
 
   // Get selected values for react-select
@@ -397,7 +412,10 @@ export default function EditTestParameter() {
   };
 
   // Get measurement options - with debugging
-  const measurementOptions = getSelectOptions(dropdowns.measurements);
+  const measurementOptions = dropdowns.measurements.map(item => ({
+    value: item.id,
+    label: `${item.name} ${item.description ? `- ${item.description}` : ''} (VC${item.id})`
+  }));
   console.log("Measurement options for dropdown:", measurementOptions);
 
   if (fetchingDropdowns) {
@@ -612,6 +630,7 @@ export default function EditTestParameter() {
                 value={formData.mindurationdays}
                 onChange={handleChange}
               />
+              {errors.mindurationdays && <p className="text-red-500 text-sm mt-1">{errors.mindurationdays}</p>}
             </div>
 
             <div>
@@ -624,6 +643,7 @@ export default function EditTestParameter() {
                 value={formData.mindurationhours}
                 onChange={handleChange}
               />
+              {errors.mindurationhours && <p className="text-red-500 text-sm mt-1">{errors.mindurationhours}</p>}
             </div>
           </div>
 
@@ -638,6 +658,7 @@ export default function EditTestParameter() {
                 value={formData.maxdurationdays}
                 onChange={handleChange}
               />
+              {errors.maxdurationdays && <p className="text-red-500 text-sm mt-1">{errors.maxdurationdays}</p>}
             </div>
 
             <div>
@@ -650,6 +671,7 @@ export default function EditTestParameter() {
                 value={formData.maxdurationhours}
                 onChange={handleChange}
               />
+              {errors.maxdurationhours && <p className="text-red-500 text-sm mt-1">{errors.maxdurationhours}</p>}
             </div>
           </div>
 
@@ -664,6 +686,7 @@ export default function EditTestParameter() {
                 value={formData.reminderdays}
                 onChange={handleChange}
               />
+              {errors.reminderdays && <p className="text-red-500 text-sm mt-1">{errors.reminderdays}</p>}
             </div>
 
             <div>
@@ -676,6 +699,7 @@ export default function EditTestParameter() {
                 value={formData.reminderhours}
                 onChange={handleChange}
               />
+              {errors.reminderhours && <p className="text-red-500 text-sm mt-1">{errors.reminderhours}</p>}
             </div>
           </div>
 
@@ -1089,18 +1113,20 @@ export default function EditTestParameter() {
           {/* Remark */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Remark
+              Remark <span className="text-red-500">*</span>
             </label>
             <textarea
               name="remark"
               value={formData.remark}
               onChange={handleChange}
               rows="4"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 
+              className={`w-full border rounded-lg px-3 py-2 
                        bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                       focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       focus:outline-none focus:ring-2 focus:ring-blue-500
+                       ${errors.remark ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
               placeholder="Enter remarks"
             />
+            {errors.remark && <p className="text-red-500 text-sm mt-1">{errors.remark}</p>}
           </div>
 
           {/* Submit Button */}

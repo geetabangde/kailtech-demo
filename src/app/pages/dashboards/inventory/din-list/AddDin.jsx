@@ -690,14 +690,14 @@ export default function AddDin() {
         custemail: formData.custemail || "",
         custdesignation: formData.custdesignation || "",
 
-        dindate: formData.dindate ? dayjs(formData.dindate).format("DD/MM/YYYY") : "",
+        dindate: formData.dindate ? dayjs(formData.dindate).format("YYYY-MM-DD") : "",
         issuedtoid: formData.issuedtoid || "",
         dispatchthrough: formData.dispatchthrough || "",
         ...(String(formData.dispatchthrough) === "1" && { empname: formData.empname || "" }),
         ...(String(formData.dispatchthrough) === "2" && { consignname: formData.consignname || "-", consignphone: formData.consignphone || "-" }),
         ...(String(formData.dispatchthrough) === "3" && { courrierno: formData.courrierno || "" }),
-        dispatchdate: formData.dispatchdate ? dayjs(formData.dispatchdate).format("DD/MM/YYYY") : "",
-        expectedreturn: formData.expectedreturn ? dayjs(formData.expectedreturn).format("DD/MM/YYYY") : "",
+        dispatchdate: formData.dispatchdate ? dayjs(formData.dispatchdate).format("YYYY-MM-DD") : "",
+        expectedreturn: formData.expectedreturn ? dayjs(formData.expectedreturn).format("YYYY-MM-DD") : "",
         dispatchdetial: formData.dispatchdetial || "",
         dinremark: formData.dinremark || "",
 

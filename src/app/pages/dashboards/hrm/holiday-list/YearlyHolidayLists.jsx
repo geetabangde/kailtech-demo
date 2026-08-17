@@ -38,18 +38,42 @@ export default function YearlyHolidayLists() {
   const fetchYearlyHolidays = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get("/hrm/active-holidays-list");
+      const response = await axios.get(`/hrm/get-hrm-holidays/${year}`);
 
-      if (response.data.status && Array.isArray(response.data.data)) {
-        const allHolidays = response.data.data;
-        // Filter holidays by the selected year
-        const filtered = allHolidays.filter((h) => {
-          if (!h.date) return false;
-          const yearMatch = h.date.match(/^(\d{4})/);
-          return yearMatch ? parseInt(yearMatch[1], 10) === parseInt(year, 10) : false;
-        });
+      const resData = response.data;
+      if (resData && Array.isArray(resData.data)) {
+        const rawData = resData.data;
+        if (rawData.length > 0 && Array.isArray(rawData[0])) {
+           // DataTables format: [[s_no, name, date, action]]
+           const mapped = rawData.map((row) => {
+             let dateStr = row[2];
+             // If date is DD/MM/YYYY, try to convert to YYYY-MM-DD
+             if (typeof dateStr === 'string' && dateStr.includes("/")) {
+                const parts = dateStr.split("/");
+                if (parts.length === 3 && parts[2].length === 4) {
+                   dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
+                }
+             }
 
-        setHolidays(filtered);
+             // Extract ID from the HTML string in row[3] (e.g. <button onclick="del('3',...)">)
+             let rowId = row[0]; // fallback
+             const actionStr = row[3] || "";
+             const idMatch = actionStr.match(/del\('([^']+)'/);
+             if (idMatch && idMatch[1]) {
+                rowId = idMatch[1];
+             }
+
+             return {
+               id: rowId,
+               name: row[1],
+               date: dateStr,
+             };
+           });
+           setHolidays(mapped);
+        } else {
+           // Fallback if backend returns an array of objects
+           setHolidays(rawData);
+        }
       } else {
         console.warn("Unexpected response structure:", response.data);
         setHolidays([]);

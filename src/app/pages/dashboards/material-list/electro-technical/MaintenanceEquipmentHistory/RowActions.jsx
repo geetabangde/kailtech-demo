@@ -352,7 +352,6 @@ export function RowActions({ row, table }) {
     {
       label: "View ReviewForm",
       icon: EyeIcon,
-      permission: 401,
       to: `/dashboards/material-list/${slug}/maintenance-equipment-history/view-review-form?fid=${fid}&cid=${cid}`,
     },
 
@@ -360,7 +359,6 @@ export function RowActions({ row, table }) {
     {
       label: "Change File",
       icon: DocumentIcon,
-      permission: 402,
       onClick: openUploadModal,
     },
 
@@ -368,7 +366,6 @@ export function RowActions({ row, table }) {
     {
       label: "View Certificate",
       icon: DocumentIcon,
-      permission: 403,
       onClick: () => {
         const fileUrl = row.original.file_url;
         if (fileUrl) {
@@ -383,7 +380,7 @@ export function RowActions({ row, table }) {
     {
       label: "Validity Detail",
       icon: ClockIcon,
-      permission: 404,
+      permission: 70,
       to: `/dashboards/material-list/${slug}/maintenance-equipment-history/validity-detail?fid=${fid}&cid=${cid}`,
     },
 
@@ -391,7 +388,7 @@ export function RowActions({ row, table }) {
     {
       label: "Edit Validity",
       icon: PencilIcon,
-      permission: 405,
+      permission: 349,
       to: `/dashboards/material-list/${slug}/maintenance-equipment-history/edit-validity?fid=${fid}&cid=${cid}`,
     },
 
@@ -399,7 +396,7 @@ export function RowActions({ row, table }) {
     {
       label: "Add IMC",
       icon: DocumentPlusIcon,
-      permission: 406,
+      permission: 434,
       to: `/dashboards/material-list/${slug}/maintenance-equipment-history/add-imc?fid=${fid}&cid=${cid}&labId=${labId}`,
     },
 
@@ -407,7 +404,7 @@ export function RowActions({ row, table }) {
     {
       label: "Clone Certificate Details",
       icon: BookOpenIcon,
-      permission: 407,
+      permission: 69,
       to: `/dashboards/material-list/${slug}/maintenance-equipment-history/clone-certificate-details?fid=${fid}&cid=${cid}&labId=${labId}`,
     },
 
@@ -415,7 +412,7 @@ export function RowActions({ row, table }) {
     {
       label: "Delete",
       icon: TrashIcon,
-      permission: 408,
+      permission: 350,
       onClick: openModal,
       isDelete: true,
     },

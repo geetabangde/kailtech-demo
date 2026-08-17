@@ -263,7 +263,7 @@ function InvoicePrintTemplate({
         </div>
       )}
 
-      <div style={{ textAlign: "center", marginBottom: 8, marginTop: 80 }}>
+      <div style={{ textAlign: "center", marginBottom: 8, marginTop: !withLH ? 34 : 80 }}>
         <div
           style={{
             fontSize: 14,
@@ -278,7 +278,7 @@ function InvoicePrintTemplate({
             fontSize: 11,
             fontWeight: "bold",
             textTransform: "uppercase",
-            marginTop: 4,
+            marginTop: 5,
           }}
         >
           For {inv.typeofinvoice || ""} Charges
@@ -302,287 +302,287 @@ function InvoicePrintTemplate({
       {/* Page 1 */}
       <div style={{ minHeight: "270mm", display: "flex", flexDirection: "column", padding: "16px 20px" }}>
         <HeaderSection />
-      <table style={S.table}>
-        <tbody>
-          <tr>
-            <td style={{ ...S.td, width: "64%" }} colSpan={2}>
-              <div style={S.label}>Customer:</div>
-              <strong>{inv.customername}</strong>
-              <br />
-              <div style={{ marginTop: 2 }}>
-                {addr.address ? (
-                  <>
-                    {addr.address}
-                    <br />
-                    {[addr.city, addr.pincode].filter(Boolean).join(", ")}
-                  </>
-                ) : (
-                  inv.address
-                )}
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <span style={S.label}>State name: </span>
-                {stateLabel}&nbsp;&nbsp;
-                <span style={S.label}>State code: </span>
-                {!isNaN(inv.statecode) ? statecode : "NA"}
-              </div>
-              <div>
-                <span style={S.label}>GSTIN/UIN: </span>
-                {inv.gstno}&nbsp;&nbsp;
-                <span style={S.label}>PAN: </span>
-                {inv.pan}
-              </div>
-              {inv.concern_person && (
-                <div style={{ fontSize: 10, color: "#555" }}>
-                  Kind Attn. {inv.concern_person}
+        <table style={S.table}>
+          <tbody>
+            <tr>
+              <td style={{ ...S.td, width: "64%" }} colSpan={2}>
+                <div style={S.label}>Customer:</div>
+                <strong>{inv.customername}</strong>
+                <br />
+                <div style={{ marginTop: 2 }}>
+                  {addr.address ? (
+                    <>
+                      {addr.address}
+                      <br />
+                      {[addr.city, addr.pincode].filter(Boolean).join(", ")}
+                    </>
+                  ) : (
+                    inv.address
+                  )}
                 </div>
-              )}
-            </td>
-            <td
-              style={{
-                ...S.td,
-                width: status === 2 && safeQrUrl ? "20%" : "36%",
-                borderRight: status === 2 && safeQrUrl ? "none" : undefined,
-              }}
-              colSpan={status === 2 && safeQrUrl ? 2 : 3}
-            >
-              <div>
-                <span style={S.label}>Invoice No.: </span>
-                {inv.invoiceno}
-              </div>
-              <div>
-                <span style={S.label}>Date: </span>
-                {fmtDate(inv.approved_on)}
-              </div>
-              <div>
-                <span style={S.label}>P.O. No. / Date: </span>
-                {inv.ponumber}
-              </div>
-            </td>
-            {status === 2 && safeQrUrl && (
-              <td style={{ ...S.td, borderLeft: "none", width: "16%" }}>
-                <div style={{ border: "2px solid #000", overflow: "hidden" }}>
-                  <img src={safeQrUrl} alt="QR" style={{ width: "100%" }} />
+                <div style={{ marginTop: 4 }}>
+                  <span style={S.label}>State name: </span>
+                  {stateLabel}&nbsp;&nbsp;
+                  <span style={S.label}>State code: </span>
+                  {!isNaN(inv.statecode) ? statecode : "NA"}
+                </div>
+                <div>
+                  <span style={S.label}>GSTIN/UIN: </span>
+                  {inv.gstno}&nbsp;&nbsp;
+                  <span style={S.label}>PAN: </span>
+                  {inv.pan}
+                </div>
+                {inv.concern_person && (
+                  <div style={{ fontSize: 10, color: "#555" }}>
+                    Kind Attn. {inv.concern_person}
+                  </div>
+                )}
+              </td>
+              <td
+                style={{
+                  ...S.td,
+                  width: status === 2 && safeQrUrl ? "20%" : "36%",
+                  borderRight: status === 2 && safeQrUrl ? "none" : undefined,
+                }}
+                colSpan={status === 2 && safeQrUrl ? 2 : 3}
+              >
+                <div>
+                  <span style={S.label}>Invoice No.: </span>
+                  {inv.invoiceno}
+                </div>
+                <div>
+                  <span style={S.label}>Date: </span>
+                  {fmtDate(inv.approved_on)}
+                </div>
+                <div>
+                  <span style={S.label}>P.O. No. / Date: </span>
+                  {inv.ponumber}
                 </div>
               </td>
-            )}
-          </tr>
-        </tbody>
-      </table>
+              {status === 2 && safeQrUrl && (
+                <td style={{ ...S.td, borderLeft: "none", width: "16%" }}>
+                  <div style={{ border: "2px solid #000", overflow: "hidden" }}>
+                    <img src={safeQrUrl} alt="QR" style={{ width: "100%" }} />
+                  </div>
+                </td>
+              )}
+            </tr>
+          </tbody>
+        </table>
 
-      <table style={S.table}>
-        <colgroup>
-          <col style={{ width: "5%" }} />
-          <col style={{ width: isNormalPo ? "65%" : "75%" }} />
-          <col style={{ width: "8%" }} />
-          {isNormalPo && (
-            <>
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "12%" }} />
-            </>
-          )}
-        </colgroup>
-        <thead>
-          <tr>
-            <th>S. No.</th>
-            <th>Description</th>
-            <th>{hasMeter ? "Meter's" : "No's"}</th>
+        <table style={S.table}>
+          <colgroup>
+            <col style={{ width: "5%" }} />
+            <col style={{ width: isNormalPo ? "65%" : "75%" }} />
+            <col style={{ width: "8%" }} />
             {isNormalPo && (
               <>
-                <th>Rate</th>
-                <th>Amount</th>
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "12%" }} />
               </>
             )}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, idx) => {
-            const computedQtyForAmount = item.meter_option == 1 ? parseFloat(item.meter || 0) : parseFloat(item.qty || 0);
-            const fallbackAmount = (parseFloat(item.rate || 0) * computedQtyForAmount) || 0;
-            let displayAmount = f2(parseFloat(item.amount) || fallbackAmount);
-            if (!isFoc && isNormalPo) {
-              const itemAmountOld = parseFloat(item.amount) || fallbackAmount;
-              const itemOtherCharge =
-                otherCharges > 0 && totalQty > 0
-                  ? parseFloat(
-                    (
-                      (otherCharges / totalQty) *
-                      parseFloat(item.qty || 0)
-                    ).toFixed(2),
-                  )
-                  : 0;
-              displayAmount = f2(itemAmountOld + itemOtherCharge);
-            }
-            return (
-              <tr key={item.id ?? idx} style={{ backgroundColor: "#fff" }}>
-                <td className="center">{idx + 1}</td>
-                <td dangerouslySetInnerHTML={{ __html: item.description }} />
-                <td className="center">
-                  {item.meter_option == 1 ? item.meter : item.qty}
-                </td>
-                {isNormalPo && (
-                  <>
-                    <td className="center">{item.rate}</td>
-                    <td className="right">{displayAmount}</td>
-                  </>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      <table style={S.table}>
-        <colgroup>
-          <col style={{ width: "60%" }} />
-          <col style={{ width: "25%" }} />
-          <col style={{ width: "15%" }} />
-        </colgroup>
-        <tbody>
-          <tr>
-            <td
-              style={{ verticalAlign: "top" }}
-              colSpan={1}
-              rowSpan={
-                4 +
-                (parseFloat(inv.discnumber) > 0 ? 1 : 0) +
-                (parseFloat(inv.witnesscharges) > 0 ? 1 : 0) +
-                (parseFloat(inv.samplehandling) > 0 ? 1 : 0) +
-                (parseFloat(inv.sampleprep) > 0 ? 1 : 0) +
-                (parseFloat(inv.freight) > 0 ? 1 : 0) +
-                (parseFloat(inv.mobilisation) > 0 ? 1 : 0) +
-                (isSGST ? 2 : 1)
+          </colgroup>
+          <thead>
+            <tr>
+              <th>S. No.</th>
+              <th>Description</th>
+              <th>{hasMeter ? "Meter's" : "No's"}</th>
+              {isNormalPo && (
+                <>
+                  <th>Rate</th>
+                  <th>Amount</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => {
+              const computedQtyForAmount = item.meter_option == 1 ? parseFloat(item.meter || 0) : parseFloat(item.qty || 0);
+              const fallbackAmount = (parseFloat(item.rate || 0) * computedQtyForAmount) || 0;
+              let displayAmount = f2(parseFloat(item.amount) || fallbackAmount);
+              if (!isFoc && isNormalPo) {
+                const itemAmountOld = parseFloat(item.amount) || fallbackAmount;
+                const itemOtherCharge =
+                  otherCharges > 0 && totalQty > 0
+                    ? parseFloat(
+                      (
+                        (otherCharges / totalQty) *
+                        parseFloat(item.qty || 0)
+                      ).toFixed(2),
+                    )
+                    : 0;
+                displayAmount = f2(itemAmountOld + itemOtherCharge);
               }
-            >
-              {status === 2 && (
-                <div style={{ marginBottom: 6, fontSize: 10 }}>
-                  {inv.irn && (
-                    <div>
-                      <strong>Irn No:</strong> {inv.irn}
-                    </div>
+              return (
+                <tr key={item.id ?? idx} style={{ backgroundColor: "#fff" }}>
+                  <td className="center">{idx + 1}</td>
+                  <td dangerouslySetInnerHTML={{ __html: item.description }} />
+                  <td className="center">
+                    {item.meter_option == 1 ? item.meter : item.qty}
+                  </td>
+                  {isNormalPo && (
+                    <>
+                      <td className="center">{item.rate}</td>
+                      <td className="right">{displayAmount}</td>
+                    </>
                   )}
-                  {inv.ack_no && (
-                    <div>
-                      <strong>Acknowledgment No:</strong> {inv.ack_no}
-                    </div>
-                  )}
-                  {inv.ack_dt && (
-                    <div>
-                      <strong>Acknowledgement Date:</strong> {inv.ack_dt}
-                    </div>
-                  )}
-                </div>
-              )}
-              {inv.brnnos?.trim() && (
-                <div style={{ wordBreak: "break-all" }}>
-                  <strong>BRN No :</strong> {inv.brnnos}
-                </div>
-              )}
-              {inv.remark?.trim() && (
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <table style={S.table}>
+          <colgroup>
+            <col style={{ width: "60%" }} />
+            <col style={{ width: "25%" }} />
+            <col style={{ width: "15%" }} />
+          </colgroup>
+          <tbody>
+            <tr>
+              <td
+                style={{ verticalAlign: "top" }}
+                colSpan={1}
+                rowSpan={
+                  4 +
+                  (parseFloat(inv.discnumber) > 0 ? 1 : 0) +
+                  (parseFloat(inv.witnesscharges) > 0 ? 1 : 0) +
+                  (parseFloat(inv.samplehandling) > 0 ? 1 : 0) +
+                  (parseFloat(inv.sampleprep) > 0 ? 1 : 0) +
+                  (parseFloat(inv.freight) > 0 ? 1 : 0) +
+                  (parseFloat(inv.mobilisation) > 0 ? 1 : 0) +
+                  (isSGST ? 2 : 1)
+                }
+              >
+                {status === 2 && (
+                  <div style={{ marginBottom: 6, fontSize: 10 }}>
+                    {inv.irn && (
+                      <div>
+                        <strong>Irn No:</strong> {inv.irn}
+                      </div>
+                    )}
+                    {inv.ack_no && (
+                      <div>
+                        <strong>Acknowledgment No:</strong> {inv.ack_no}
+                      </div>
+                    )}
+                    {inv.ack_dt && (
+                      <div>
+                        <strong>Acknowledgement Date:</strong> {inv.ack_dt}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {inv.brnnos?.trim() && (
+                  <div style={{ wordBreak: "break-all" }}>
+                    <strong>BRN No :</strong> {inv.brnnos}
+                  </div>
+                )}
+                {inv.remark?.trim() && (
+                  <div>
+                    <strong>Remark :</strong> {inv.remark}
+                  </div>
+                )}
+                <div>PAN : {companyInfo?.company?.pan_no || "AADCK0799A"}</div>
                 <div>
-                  <strong>Remark :</strong> {inv.remark}
+                  GSTIN : {companyInfo?.company?.gst_no || "23AADCK0799A1ZV"}
                 </div>
-              )}
-              <div>PAN : {companyInfo?.company?.pan_no || "AADCK0799A"}</div>
-              <div>
-                GSTIN : {companyInfo?.company?.gst_no || "23AADCK0799A1ZV"}
-              </div>
-              <div>
-                SAC Code : {companyInfo?.company?.sac_code || "998393"} Category
-                : Scientific and Technical Consultancy Services
-              </div>
-              <div>Udhyam Registeration No. Type of MSME : 230262102537</div>
-              <div>
-                CIN NO.{" "}
-                {companyInfo?.company?.cin_no || "U73100MP2006PTC019006"}
-              </div>
-            </td>
-            <td>Subtotal</td>
-            <td className="right">{f2(inv.subtotal)}</td>
-          </tr>
-          {parseFloat(inv.discnumber) > 0 && (
-            <tr>
-              <td>
-                Discount ({inv.discnumber}
-                {inv.disctype === "%" ? "%" : ""})
+                <div>
+                  SAC Code : {companyInfo?.company?.sac_code || "998393"} Category
+                  : Scientific and Technical Consultancy Services
+                </div>
+                <div>Udhyam Registeration No. Type of MSME : 230262102537</div>
+                <div>
+                  CIN NO.{" "}
+                  {companyInfo?.company?.cin_no || "U73100MP2006PTC019006"}
+                </div>
               </td>
-              <td className="right">{f2(inv.discount)}</td>
+              <td>Subtotal</td>
+              <td className="right">{f2(inv.subtotal)}</td>
             </tr>
-          )}
-          {parseFloat(inv.witnesscharges) > 0 && (
+            {parseFloat(inv.discnumber) > 0 && (
+              <tr>
+                <td>
+                  Discount ({inv.discnumber}
+                  {inv.disctype === "%" ? "%" : ""})
+                </td>
+                <td className="right">{f2(inv.discount)}</td>
+              </tr>
+            )}
+            {parseFloat(inv.witnesscharges) > 0 && (
+              <tr>
+                <td>
+                  Witness Charges ({inv.witnessnumber}
+                  {inv.witnesstype === "%" ? "%" : ""})
+                </td>
+                <td className="right">{f2(inv.witnesscharges)}</td>
+              </tr>
+            )}
+            {parseFloat(inv.samplehandling) > 0 && (
+              <tr>
+                <td>Sample Handling</td>
+                <td className="right">{f2(inv.samplehandling)}</td>
+              </tr>
+            )}
+            {parseFloat(inv.sampleprep) > 0 && (
+              <tr>
+                <td>Sample Preparation Charges</td>
+                <td className="right">{f2(inv.sampleprep)}</td>
+              </tr>
+            )}
+            {parseFloat(inv.freight) > 0 && (
+              <tr>
+                <td>Freight Charges</td>
+                <td className="right">{f2(inv.freight)}</td>
+              </tr>
+            )}
+            {parseFloat(inv.mobilisation) > 0 && (
+              <tr>
+                <td>Mobilization and Demobilization Charges</td>
+                <td className="right">{f2(inv.mobilisation)}</td>
+              </tr>
+            )}
             <tr>
-              <td>
-                Witness Charges ({inv.witnessnumber}
-                {inv.witnesstype === "%" ? "%" : ""})
+              <td>Total</td>
+              <td className="right">{f2(inv.subtotal2)}</td>
+            </tr>
+            {isSGST ? (
+              <>
+                <tr>
+                  <td>CGST {inv.cgstper}%</td>
+                  <td className="right">{f2(inv.cgstamount)}</td>
+                </tr>
+                <tr>
+                  <td>SGST {inv.sgstper}%</td>
+                  <td className="right">{f2(inv.sgstamount)}</td>
+                </tr>
+              </>
+            ) : (
+              <tr>
+                <td>IGST {inv.igstper}%</td>
+                <td className="right">{f2(inv.igstamount)}</td>
+              </tr>
+            )}
+            <tr>
+              <td>Total Charges With tax</td>
+              <td className="right">{f2(inv.total)}</td>
+            </tr>
+            <tr>
+              <td>Round off</td>
+              <td className="right">{f2(inv.roundoff)}</td>
+            </tr>
+            <tr>
+              <td colSpan={2} style={{ borderRight: "none" }}>
+                <strong>(IN WORDS):</strong> Rs.{" "}
+                {numberToWords(Math.round(finalTotal))} Only
               </td>
-              <td className="right">{f2(inv.witnesscharges)}</td>
+              <td style={{ fontWeight: "bold" }} className="right">
+                {f2(Math.round(finalTotal))}
+              </td>
             </tr>
-          )}
-          {parseFloat(inv.samplehandling) > 0 && (
-            <tr>
-              <td>Sample Handling</td>
-              <td className="right">{f2(inv.samplehandling)}</td>
-            </tr>
-          )}
-          {parseFloat(inv.sampleprep) > 0 && (
-            <tr>
-              <td>Sample Preparation Charges</td>
-              <td className="right">{f2(inv.sampleprep)}</td>
-            </tr>
-          )}
-          {parseFloat(inv.freight) > 0 && (
-            <tr>
-              <td>Freight Charges</td>
-              <td className="right">{f2(inv.freight)}</td>
-            </tr>
-          )}
-          {parseFloat(inv.mobilisation) > 0 && (
-            <tr>
-              <td>Mobilization and Demobilization Charges</td>
-              <td className="right">{f2(inv.mobilisation)}</td>
-            </tr>
-          )}
-          <tr>
-            <td>Total</td>
-            <td className="right">{f2(inv.subtotal2)}</td>
-          </tr>
-          {isSGST ? (
-            <>
-              <tr>
-                <td>CGST {inv.cgstper}%</td>
-                <td className="right">{f2(inv.cgstamount)}</td>
-              </tr>
-              <tr>
-                <td>SGST {inv.sgstper}%</td>
-                <td className="right">{f2(inv.sgstamount)}</td>
-              </tr>
-            </>
-          ) : (
-            <tr>
-              <td>IGST {inv.igstper}%</td>
-              <td className="right">{f2(inv.igstamount)}</td>
-            </tr>
-          )}
-          <tr>
-            <td>Total Charges With tax</td>
-            <td className="right">{f2(inv.total)}</td>
-          </tr>
-          <tr>
-            <td>Round off</td>
-            <td className="right">{f2(inv.roundoff)}</td>
-          </tr>
-          <tr>
-            <td colSpan={2} style={{ borderRight: "none" }}>
-              <strong>(IN WORDS):</strong> Rs.{" "}
-              {numberToWords(Math.round(finalTotal))} Only
-            </td>
-            <td style={{ fontWeight: "bold" }} className="right">
-              {f2(Math.round(finalTotal))}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      
+          </tbody>
+        </table>
+
         {/* Page 1 Footer */}
         <div style={{ textAlign: "center", fontSize: 11, paddingTop: 8, borderTop: "1px solid #000", marginTop: "auto" }}>
           <div style={{ fontWeight: "bold" }}>
@@ -1072,7 +1072,7 @@ export default function ViewCalibrationInvoice() {
             console.error("Unsupported taxType:", parsedData.TxpType);
             toast.error("Unsupported taxType: " + parsedData.TxpType);
             setBusy(false);
-            return; 
+            return;
           }
         } else {
           // Fallback if parsedData is not available
@@ -1155,17 +1155,17 @@ export default function ViewCalibrationInvoice() {
         },
         ItemList: items.map((item, index) => {
           let itemDiscount = 0, itemAssAmt = 0, itemCgst = 0, itemSgst = 0, itemIgst = 0, gstRate = 0, itemTotVal = 0, itemAmount = 0;
-          
+
           if (!isFoc) {
             const qty = parseFloat(item.qty) || 0;
             const computedQtyForAmount = item.meter_option == 1 ? parseFloat(item.meter || 0) : qty;
             const fallbackAmount = (parseFloat(item.rate || 0) * computedQtyForAmount) || 0;
             const itemAmountOld = parseFloat(item.amount) || fallbackAmount;
             const itemOtherCharge = otherCharges > 0 && totalQuantity > 0
-                ? parseFloat(((otherCharges / totalQuantity) * qty).toFixed(2))
-                : 0;
+              ? parseFloat(((otherCharges / totalQuantity) * qty).toFixed(2))
+              : 0;
             itemAmount = itemAmountOld + itemOtherCharge;
-            
+
             if (amountNew > 0) {
               if (invoice.disctype === "amount") {
                 itemDiscount = parseFloat(((itemAmount / amountNew) * (parseFloat(invoice.discnumber) || 0)).toFixed(2));
@@ -1174,7 +1174,7 @@ export default function ViewCalibrationInvoice() {
               }
             }
             itemAssAmt = itemAmount - itemDiscount;
-            
+
             if (isSgst) {
               itemCgst = parseFloat((itemAssAmt * ((parseFloat(invoice.cgstper) || 0) / 100)).toFixed(2));
               itemSgst = parseFloat((itemAssAmt * ((parseFloat(invoice.sgstper) || 0) / 100)).toFixed(2));
@@ -1247,12 +1247,12 @@ export default function ViewCalibrationInvoice() {
         setBusy(false);
         return;
       }
-      
+
       try {
         // Call the new API to fetch actual GST details
         const response = await axios.post("/einvoice/validate-gst", { gstin: gstin });
         const parsedData = response.data?.data;
-        
+
         if (parsedData && Number(parsedData.AddrPncd) === pincode) {
           // Validation passed - Pass parsedData to einvoice so it matches PHP exactly
           await einvoice(parsedData);

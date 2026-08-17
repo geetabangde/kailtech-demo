@@ -36,23 +36,44 @@ export default function HolidayListIndex() {
   const fetchHolidayYears = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get("/hrm/active-holidays-list");
+      const response = await axios.get("/hrm/hrm-holidays-list");
 
-      if (response.data.status && Array.isArray(response.data.data)) {
-        const allHolidays = response.data.data;
-        // Group and extract unique years from dates
-        const uniqueYears = Array.from(
-          new Set(
-            allHolidays
-              .map((h) => {
-                if (!h.date) return null;
-                // Parse date string (YYYY-MM-DD) safely
-                const yearMatch = h.date.match(/^(\d{4})/);
-                return yearMatch ? parseInt(yearMatch[1], 10) : null;
-              })
-              .filter(Boolean),
-          ),
-        ).sort((a, b) => b - a); // Descending order of years
+      const resData = response.data;
+      if (resData && Array.isArray(resData.data)) {
+        const rawData = resData.data;
+        let uniqueYears = [];
+
+        if (rawData.length > 0) {
+          if (Array.isArray(rawData[0])) {
+            // DataTables format: [[1, 2022, "..."]]
+            uniqueYears = Array.from(
+              new Set(
+                rawData.map((row) => parseInt(row[1], 10)).filter(Boolean)
+              )
+            ).sort((a, b) => b - a);
+          } else if (rawData[0].y !== undefined || rawData[0].year !== undefined) {
+            // Object format
+            uniqueYears = Array.from(
+              new Set(
+                rawData.map((h) => parseInt(h.y || h.year, 10)).filter(Boolean)
+              )
+            ).sort((a, b) => b - a);
+          } else {
+            // Fallback: Group and extract unique years from dates
+            uniqueYears = Array.from(
+              new Set(
+                rawData
+                  .map((h) => {
+                    if (!h.date) return null;
+                    // Parse date string (YYYY-MM-DD) safely
+                    const yearMatch = h.date.match(/^(\d{4})/);
+                    return yearMatch ? parseInt(yearMatch[1], 10) : null;
+                  })
+                  .filter(Boolean),
+              ),
+            ).sort((a, b) => b - a); // Descending order of years
+          }
+        }
 
         const formatted = uniqueYears.map((year, index) => ({
           id: index + 1,

@@ -41,16 +41,7 @@ export function RowActions({ row, table }) {
 
     try {
       // API call to delete holiday
-      try {
-        await axios.delete(`/hrm/delete-holiday/${id}`);
-      } catch (err) {
-        // Safe fallback in case endpoint name differs
-        if (err?.response?.status === 404) {
-          await axios.delete(`/hrm/delete-branch/${id}`);
-        } else {
-          throw err;
-        }
-      }
+      await axios.delete(`/hrm/hrm-holidays/${id}`);
 
       table.options.meta?.deleteRow(row); // remove row from UI
       setDeleteSuccess(true);
