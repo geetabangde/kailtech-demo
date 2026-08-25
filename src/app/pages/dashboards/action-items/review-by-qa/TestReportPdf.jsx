@@ -95,10 +95,12 @@ function extractData(report) {
 
   const hasSpecs = Number(trf_product?.specification_flag) === 2 ? false : (Number(trf_product?.specification_flag) === 1 || Number(trf_product?.specification) === 1 || test_results.some((r) => r.specification && r.specification !== "-" && r.specification !== "—"));
 
-  const nablLogo = nablObj?.logo || (
-    nablStatus === 1 ? "/images/nabl2348.png" :
-      nablStatus === 3 ? "/images/qai.jpeg" : null
-  );
+  let nablLogo = null;
+  if (nablObj?.is_nabl || nablStatus === 1) {
+    nablLogo = nablObj?.logo || "/images/nabl2348.png";
+  } else if (nablObj?.is_qai || nablStatus === 3) {
+    nablLogo = "/images/qai.jpeg";
+  }
 
   const customerName = customer?.name ?? "—";
   const customerAddress = customer?.address ?? "";

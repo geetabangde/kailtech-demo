@@ -279,6 +279,7 @@ export default function TestInput() {
 
   // ── Derived values ────────────────────────────────────────────────────────
   const evt = testData?.test_event ?? {};
+  const prow = testData?.parameter ?? {};
   const status = Number(evt.status ?? 0);
 
   // Debug: Log status to console
@@ -287,8 +288,8 @@ export default function TestInput() {
   const trfproduct = evt.trfproduct ?? ""; // PHP: $trfproduct → back button
   const has_documents = Boolean(testData?.has_documents ?? false);
   const lrn = testData?.lrn ?? "";
-  const prow = testData?.parameter ?? {}; // PHP: $prow
-  const cycle = Number(testData?.cycle ?? prow.cycle ?? 1);
+  const rawCycle = Number(testData?.cycle ?? prow.cycle ?? 1);
+  const cycle = isNaN(rawCycle) || rawCycle < 1 ? 1 : rawCycle;
 
   // parameter_elements[].measurement_id = PHP $pid = $frow['element']
   const paramElements = Array.isArray(testData?.parameter_elements)
@@ -557,14 +558,14 @@ export default function TestInput() {
           {/* ── Grade / Size ─────────────────────────────────────────────── */}
           {/* PHP: grades.name + sizes.name                                  */}
           {/* API: grade_name = "E 250 BR", size_name = "Thickness..."       */}
-          {(testData.grade_name || testData.size_name) && (
+          {(testData?.grade_name || testData?.size_name) && (
             <div className="mb-6 grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/40">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">
                   Grade
                 </p>
                 <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
-                  {testData.grade_name ?? "—"}
+                  {testData?.grade_name ?? "—"}
                 </p>
               </div>
               <div>
@@ -572,7 +573,7 @@ export default function TestInput() {
                   Size
                 </p>
                 <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
-                  {testData.size_name ?? "—"}
+                  {testData?.size_name ?? "—"}
                 </p>
               </div>
             </div>
@@ -739,13 +740,14 @@ export default function TestInput() {
                         {paramElements.map((el) => {
                           const pid = el.measurement_id; // PHP: $pid = $frow['element']
                           const unit = el.unit ?? "";
+                          const placeholder = unit && unit !== "-" ? `enter value in ${unit}` : "enter value";
                           return (
                             <td key={pid} className="border-r border-gray-300 px-2 py-1 last:border-r-0 dark:border-gray-700">
                               {status === 0 ? (
                                 // PHP: <input name="$pid[]" placeholder="enter value in $unit" />
                                 <input
                                   type="text"
-                                  placeholder={`value in ${unit}`}
+                                  placeholder={placeholder}
                                   value={measurements[i]?.[pid] ?? ""}
                                   onChange={(e) =>
                                     handleMeasurement(i, pid, e.target.value)

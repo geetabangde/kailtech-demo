@@ -5,7 +5,7 @@ import { Button, Card, Table, TBody, Tr, Td } from "components/ui";
 import axios from "utils/axios";
 import { toast } from "sonner";
 import Select from "react-select";
-import CreatableSelect from "react-select/creatable";
+
 import { DatePicker } from "components/shared/form/Datepicker";
 import dayjs from "dayjs";
 import { TextEditor } from "components/shared/form/TextEditor";
@@ -191,34 +191,7 @@ export default function AddTestingQuotation() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAddressChange = (selectedOption) => {
-    if (selectedOption) {
-      if (selectedOption.__isNew__) {
-        setFormData((prev) => ({
-          ...prev,
-          customeraddress: selectedOption.label,
-          caddress: "", // New custom address
-        }));
-      } else {
-        const addrData = selectedOption.original;
-        setFormData((prev) => ({
-          ...prev,
-          customeraddress: selectedOption.label,
-          caddress: addrData.id === "main" ? "" : addrData.id,
-          contactpersonname: addrData.contact_person || prev.contactpersonname,
-          concernpersonemail: addrData.email || prev.concernpersonemail,
-          concernpersonmobile: addrData.mobile || prev.concernpersonmobile,
-          cperson: addrData.contact_person_id || prev.cperson,
-        }));
-      }
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        customeraddress: "",
-        caddress: "",
-      }));
-    }
-  };
+
 
   const handleSelectChange = (name, selectedOption) => {
     const val = selectedOption ? selectedOption.value : "";
@@ -294,7 +267,7 @@ export default function AddTestingQuotation() {
       const res = await axios.post("/sales/add-testing-quotation", payload);
       if (res.data.status === "true" || res.data.status === true) {
         toast.success(res.data.message || "Quotation created successfully");
-        navigate(`/dashboards/sales/testing-quotations/add-items/${res.data.quotation_id}`);
+        navigate(`/dashboards/sales/testing-quotations/items/${res.data.quotation_id}`);
       } else {
         toast.error(res.data.message || "Failed to create quotation");
       }
@@ -381,7 +354,7 @@ export default function AddTestingQuotation() {
               </div>
 
               {/* Conditional Customer Details */}
-              {(isNewCustomer || formData.customer) && (
+              {isNewCustomer && (
                 <>
                   <div className="form-group md:col-span-2">
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -400,29 +373,14 @@ export default function AddTestingQuotation() {
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">
                       Customer Address
                     </label>
-                    {isNewCustomer ? (
-                      <input
-                        name="customeraddress"
-                        value={formData.customeraddress}
-                        onChange={handleChange}
-                        className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                        placeholder="Enter address"
-                      />
-                    ) : (
-                      <CreatableSelect
-                        options={customerAddresses.map((addr) => ({
-                          value: addr.id,
-                          label: `${addr.address || ""} ${addr.city || ""} ${addr.pincode || ""}`.trim(),
-                          original: addr
-                        }))}
-                        value={formData.customeraddress ? { label: formData.customeraddress, value: formData.caddress || "main" } : null}
-                        onChange={handleAddressChange}
-                        placeholder="Select or enter address..."
-                        className="react-select-container"
-                        isClearable
-                      />
-                    )}
+                    <input
+                      name="customeraddress"
+                      value={formData.customeraddress}
+                      onChange={handleChange}
+                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                      required
+                      placeholder="Enter address"
+                    />
                   </div>
                   <div className="form-group">
                     <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -525,6 +483,69 @@ export default function AddTestingQuotation() {
                         placeholder="Enter state"
                       />
                     )}
+                  </div>
+                </>
+              )}
+
+              {!isNewCustomer && formData.customer && formData.customer !== "new" && (
+                <>
+                  <div className="form-group md:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      Customer Address
+                    </label>
+                    <Select
+                      options={customerAddresses.map((addr) => ({
+                        value: addr.id,
+                        label: `${addr.address || ""} ${addr.city || ""} ${addr.pincode || ""}`.trim(),
+                        original: addr
+                      }))}
+                      value={formData.caddress
+                        ? { label: formData.customeraddress, value: formData.caddress }
+                        : (formData.customeraddress ? { label: formData.customeraddress, value: "main" } : null)}
+                      onChange={(opt) => {
+                        if (opt) {
+                          const addrData = opt.original;
+                          setFormData((prev) => ({
+                            ...prev,
+                            customeraddress: opt.label,
+                            caddress: addrData.id === "main" ? "" : addrData.id,
+                            contactpersonname: addrData.contact_person || prev.contactpersonname,
+                            concernpersonemail: addrData.email || prev.concernpersonemail,
+                            concernpersonmobile: addrData.mobile || prev.concernpersonmobile,
+                            cperson: addrData.contact_person_id || prev.cperson,
+                          }));
+                        } else {
+                          setFormData((prev) => ({
+                            ...prev,
+                            customeraddress: "",
+                            caddress: "",
+                          }));
+                        }
+                      }}
+                      placeholder="Select address..."
+                    />
+                  </div>
+                  <div className="form-group md:col-span-2">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      Contact Person Name
+                    </label>
+                    <Select
+                      options={Array.from(new Map(customerAddresses.filter(a => a.contact_person).map(a => [a.contact_person_id, { id: a.contact_person_id, name: a.contact_person }])).values()).map(c => ({
+                        value: c.id,
+                        label: c.name
+                      }))}
+                      value={formData.cperson
+                        ? { label: formData.contactpersonname, value: formData.cperson }
+                        : (formData.contactpersonname ? { label: formData.contactpersonname, value: "" } : null)}
+                      onChange={(opt) => {
+                        if(opt) {
+                          setFormData(prev => ({ ...prev, cperson: opt.value, contactpersonname: opt.label }));
+                        } else {
+                          setFormData(prev => ({ ...prev, cperson: "", contactpersonname: "" }));
+                        }
+                      }}
+                      placeholder="Select Contact Person..."
+                    />
                   </div>
                 </>
               )}

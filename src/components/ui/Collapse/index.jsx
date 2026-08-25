@@ -19,7 +19,7 @@ const Collapse = forwardRef((props, ref) => {
     onTransitionEnd,
     ...rest
   } = props;
-  
+
   const getCollapseProps = useCollapse({
     opened,
     transitionDuration,

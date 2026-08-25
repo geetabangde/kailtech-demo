@@ -67,7 +67,7 @@ export function ReturnCell({ row }) {
       );
     }
 
-    if (lowerStatus.includes("fill checklist to return") || lowerStatus === "not returned") {
+    if (lowerStatus.includes("fill checklist to return")) {
       return (
         <div className="flex flex-col gap-1 items-start">
           <Link to={`/dashboards/profile/my-issue-item-list/fill-return-checklist?hakuna=${record.id || record.gatpassnumber || record.gatepass_no || ""}`}>
@@ -75,8 +75,13 @@ export function ReturnCell({ row }) {
               Fill Checklist To Return
             </Button>
           </Link>
+          <span className="text-gray-500 font-medium text-xs">Not Returned</span>
         </div>
       );
+    }
+
+    if (lowerStatus === "not returned") {
+      return <span className={`${colorClass} font-medium`}>Not Returned</span>;
     }
 
     if (lowerStatus.includes("returned by")) {
@@ -139,16 +144,11 @@ export function ReturnCell({ row }) {
       }
     }
 
-    // Render the return checklist button here as a default fallback
+    // Default fallback if we don't have checklist info: just display "Not Returned"
+    // Without strict checklist presence info, it's safer not to show the button 
+    // because clicking it for items without a checklist results in "No Records Found"
     return (
-      <div className="flex flex-col gap-1 items-start">
-        <Link to={`/dashboards/profile/my-issue-item-list/fill-return-checklist?hakuna=${record.id}`}>
-          <Button color="info" className="mt-1 h-6 px-2 text-[10px] whitespace-nowrap">
-            Fill Checklist To Return
-          </Button>
-        </Link>
-        <span className="text-gray-500 font-medium text-xs">Not Returned</span>
-      </div>
+      <span className="text-gray-500 font-medium">Not Returned</span>
     );
   } else if (status === 1) {
     const returnDate = record.returnon && record.returnon !== "0000-00-00 00:00:00"

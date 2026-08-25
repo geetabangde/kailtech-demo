@@ -145,24 +145,35 @@ function HtmlDocWithoutLH({ report }) {
           <tr>
             <td style={{ border: 'none', padding: 0 }}>
               {/* ── TOP HEADER (Without letter head, only NABL and LRN) ── */}
-              <div style={S1.topRow}>
-                <div style={{ width: "190px", textAlign: "left", verticalAlign: "middle" }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', marginBottom: '10px' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ width: '33%', textAlign: 'left', verticalAlign: 'top', border: 'none', padding: 0 }}>
+                      <div style={{ width: '220px', height: '110px' }} />
+                    </td>
+                    <td style={{ width: '33%', textAlign: 'center', verticalAlign: 'top', border: 'none', padding: 0 }}>
+                      {data.nablStatus === 1 && (
+                        <>
+                          {data.nablLogo ? <img src={getPdfImageUrl(data.nablLogo)} alt="" style={{ width: '135px', height: '115px', objectFit: 'contain' }} /> : <div style={{ width: '135px', height: '115px' }} />}
+                        </>
+                      )}
+                    </td>
+                    <td style={{ width: '33%', textAlign: 'right', verticalAlign: 'top', border: 'none', padding: 0 }}>
+                      <div style={{ width: '210px', height: '110px' }} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '6px', fontSize: '9.5px', paddingTop: data.isNabl ? '0px' : '25px' }}>
+                <div style={{ paddingBottom: '4px' }}>
                   {data.isNabl && (
-                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: "110px", height: "110px", objectFit: "contain" }} />
+                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: "60px", height: "60px", objectFit: "contain" }} />
                   )}
                 </div>
-                <div style={S1.tcBlock}>
-                  {data.nablStatus === 1 && (
-                    <>
-                      {data.nablLogo ? <img src={getPdfImageUrl(data.nablLogo)} alt="" style={S1.tcStamp} /> : <div style={S1.tcStamp} />}
-                    </>
-                  )}
-                </div>
-                <div style={{ width: "190px", textAlign: "right", paddingTop: "85px" }}>
-                  <div style={{ fontSize: '9.5px', fontWeight: "bold", display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
-                    <span>LRN: {data.displayLRN}</span>
-                    <span className="page-number"></span>
-                  </div>
+                <div style={{ display: 'flex', gap: '15px', fontWeight: 'bold' }}>
+                  <span>LRN: {data.displayLRN}</span>
+                  <span className="page-number"></span>
                 </div>
               </div>
             </td>

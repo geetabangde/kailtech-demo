@@ -5,13 +5,14 @@ import { useNavigate } from "react-router";
 import Select from "react-select";
 import { DatePicker } from "components/shared/form/Datepicker";
 
-export function Toolbar({ filters, onChange, onSearch, onExport, customers = [], bdList = [] }) {
+export function Toolbar({ filters, onChange, onSearch, onExport, customers = [], bdList = [], customerTypes = [] }) {
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState(filters.startdate || "");
   const [endDate, setEndDate] = useState(filters.enddate || "");
   const [customer, setCustomer] = useState(filters.customerid || "");
   const [bd, setBd] = useState(filters.bd || "");
   const [typeOfInvoice, setTypeOfInvoice] = useState(filters.typeofinvoice || "");
+  const [customerType, setCustomerType] = useState(filters.customertype || "");
 
   const handleInput = (name, value) => {
     if (name === "startdate") setStartDate(value);
@@ -19,6 +20,7 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
     if (name === "customerid") setCustomer(value);
     if (name === "bd") setBd(value);
     if (name === "typeofinvoice") setTypeOfInvoice(value);
+    if (name === "customertype") setCustomerType(value);
     onChange(name, value);
   };
 
@@ -94,10 +96,16 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
 
         {/* Customer — using react-select to match AddCreditNote.jsx */}
         <Select
-          options={customers.map((c) => ({
-            value: String(c.id || c.customerid || c.customer_id),
-            label: c.name || c.customername || c.customer_name || String(c.id || c.customerid || c.customer_id),
-          }))}
+          options={customers
+            .filter((c) => {
+              if (!customerType) return true;
+              const types = c.customertype ? String(c.customertype).split(",") : [];
+              return types.includes(String(customerType));
+            })
+            .map((c) => ({
+              value: String(c.id || c.customerid || c.customer_id),
+              label: c.name || c.customername || c.customer_name || String(c.id || c.customerid || c.customer_id),
+            }))}
           value={
             customer
               ? {
@@ -119,6 +127,44 @@ export function Toolbar({ filters, onChange, onSearch, onExport, customers = [],
           isClearable
           isSearchable
           placeholder="Customer"
+          classNamePrefix="react-select"
+          className="w-full text-sm"
+          styles={{
+            control: (base, state) => ({
+              ...base,
+              minHeight: "40px",
+              borderColor: state.isFocused ? "#3b82f6" : "#d1d5db",
+              boxShadow: state.isFocused ? "0 0 0 2px rgba(59, 130, 246, 0.3)" : "none",
+              "&:hover": {
+                borderColor: state.isFocused ? "#3b82f6" : "#9ca3af",
+              },
+            }),
+          }}
+        />
+
+        {/* Customer Type */}
+        <Select
+          options={customerTypes.map((t) => ({
+            value: String(t.id),
+            label: t.name,
+          }))}
+          value={
+            customerType
+              ? {
+                value: String(customerType),
+                label: (() => {
+                  const found = customerTypes.find((t) => String(t.id) === String(customerType));
+                  return found ? found.name : String(customerType);
+                })(),
+              }
+              : null
+          }
+          onChange={(option) => {
+            handleInput("customertype", option ? option.value : "");
+          }}
+          isClearable
+          isSearchable
+          placeholder="Customer Type"
           classNamePrefix="react-select"
           className="w-full text-sm"
           styles={{

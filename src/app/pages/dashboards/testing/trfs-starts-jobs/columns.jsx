@@ -7,28 +7,37 @@ import axios from "utils/axios";
 
 function ProductNamesCell({ value }) {
   const [names, setNames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!value) {
-      setLoading(false);
+    if (!value || value === "-") {
+      setNames([]);
       return;
     }
 
-    const ids = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
-    if (ids.length === 0) {
-      setLoading(false);
+    const items = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
+    if (items.length === 0) {
+      setNames([]);
       return;
     }
 
-    const uniqueIds = [...new Set(ids)];
+    // If already names (non-numeric), display immediately without API calls
+    const isAllNames = items.every(item => isNaN(Number(item)));
+    if (isAllNames) {
+      setNames(items);
+      return;
+    }
+
+    const uniqueIds = [...new Set(items)];
+    setLoading(true);
 
     Promise.all(
-      uniqueIds.map(id =>
-        axios.get(`/testing/get-products-byid/${id}`)
-          .then(res => ({ id, name: res.data?.data?.name || id }))
-          .catch(() => ({ id, name: id }))
-      )
+      uniqueIds.map(id => {
+        if (isNaN(Number(id))) return Promise.resolve({ id, name: id });
+        return axios.get(`/testing/get-products-byid/${id}`)
+          .then(res => ({ id, name: res.data?.data?.name || res.data?.name || id }))
+          .catch(() => ({ id, name: id }));
+      })
     ).then(results => {
       const nameMap = {};
       results.forEach(r => { nameMap[r.id] = r.name; });
@@ -37,40 +46,48 @@ function ProductNamesCell({ value }) {
     });
   }, [value]);
 
-  if (!value) return <span>—</span>;
+  if (!value || value === "-") return <span>—</span>;
   if (loading) return <span className="animate-pulse text-gray-400">Loading...</span>;
 
   return (
     <div className="block max-w-[250px] whitespace-normal text-sm text-gray-700 dark:text-dark-200">
-      {names.join(", ")}
+      {names.length > 0 ? names.join(", ") : value}
     </div>
   );
 }
 
 function GradeNamesCell({ value }) {
   const [names, setNames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!value) {
-      setLoading(false);
+    if (!value || value === "-" || String(value).trim() === "") {
+      setNames([]);
       return;
     }
 
-    const ids = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
-    if (ids.length === 0) {
-      setLoading(false);
+    const items = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
+    if (items.length === 0) {
+      setNames([]);
       return;
     }
 
-    const uniqueIds = [...new Set(ids)];
+    const isAllNames = items.every(item => isNaN(Number(item)));
+    if (isAllNames) {
+      setNames(items);
+      return;
+    }
+
+    const uniqueIds = [...new Set(items)];
+    setLoading(true);
 
     Promise.all(
-      uniqueIds.map(id =>
-        axios.get(`/testing/get-grade-byid/${id}`)
-          .then(res => ({ id, name: res.data?.data?.name || id }))
-          .catch(() => ({ id, name: id }))
-      )
+      uniqueIds.map(id => {
+        if (isNaN(Number(id))) return Promise.resolve({ id, name: id });
+        return axios.get(`/testing/get-grade-byid/${id}`)
+          .then(res => ({ id, name: res.data?.data?.name || res.data?.name || id }))
+          .catch(() => ({ id, name: id }));
+      })
     ).then(results => {
       const nameMap = {};
       results.forEach(r => { nameMap[r.id] = r.name; });
@@ -79,40 +96,48 @@ function GradeNamesCell({ value }) {
     });
   }, [value]);
 
-  if (!value || String(value).trim() === "") return <span>—</span>;
+  if (!value || String(value).trim() === "" || value === "-") return <span>—</span>;
   if (loading) return <span className="animate-pulse text-gray-400">Loading...</span>;
 
   return (
     <div className="block max-w-[250px] whitespace-normal text-sm text-gray-700 dark:text-dark-200">
-      {names.join(", ")}
+      {names.length > 0 ? names.join(", ") : value}
     </div>
   );
 }
 
 function SizeNamesCell({ value }) {
   const [names, setNames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!value) {
-      setLoading(false);
+    if (!value || value === "-" || String(value).trim() === "") {
+      setNames([]);
       return;
     }
 
-    const ids = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
-    if (ids.length === 0) {
-      setLoading(false);
+    const items = String(value).split(",").map(id => id.trim()).filter(id => id && id !== "-");
+    if (items.length === 0) {
+      setNames([]);
       return;
     }
 
-    const uniqueIds = [...new Set(ids)];
+    const isAllNames = items.every(item => isNaN(Number(item)));
+    if (isAllNames) {
+      setNames(items);
+      return;
+    }
+
+    const uniqueIds = [...new Set(items)];
+    setLoading(true);
 
     Promise.all(
-      uniqueIds.map(id =>
-        axios.get(`/testing/get-size-byid/${id}`)
-          .then(res => ({ id, name: res.data?.data?.name || id }))
-          .catch(() => ({ id, name: id }))
-      )
+      uniqueIds.map(id => {
+        if (isNaN(Number(id))) return Promise.resolve({ id, name: id });
+        return axios.get(`/testing/get-size-byid/${id}`)
+          .then(res => ({ id, name: res.data?.data?.name || res.data?.name || id }))
+          .catch(() => ({ id, name: id }));
+      })
     ).then(results => {
       const nameMap = {};
       results.forEach(r => { nameMap[r.id] = r.name; });
@@ -121,12 +146,12 @@ function SizeNamesCell({ value }) {
     });
   }, [value]);
 
-  if (!value || String(value).trim() === "") return <span>—</span>;
+  if (!value || String(value).trim() === "" || value === "-") return <span>—</span>;
   if (loading) return <span className="animate-pulse text-gray-400">Loading...</span>;
 
   return (
     <div className="block max-w-[250px] whitespace-normal text-sm text-gray-700 dark:text-dark-200">
-      {names.join(", ")}
+      {names.length > 0 ? names.join(", ") : value}
     </div>
   );
 }
@@ -208,7 +233,7 @@ export const columns = [
       const date = info.getValue();
       return (
         <span className="text-sm text-gray-700 dark:text-dark-200">
-          {date ? new Date(date).toLocaleDateString() : "—"}
+          {date ? new Date(date).toLocaleDateString("en-GB") : "—"}
         </span>
       );
     },

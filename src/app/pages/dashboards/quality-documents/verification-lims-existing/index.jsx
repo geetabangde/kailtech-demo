@@ -1,13 +1,17 @@
 // Import Dependencies
 import { useState, useMemo, useEffect } from "react";
 import {
+  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Table, Card, Spinner, Button } from "components/ui";
+import clsx from "clsx";
+import { Table, Card, Spinner, Button, THead, TBody, Th, Tr, Td } from "components/ui";
+import { TableSortIcon } from "components/shared/table/TableSortIcon";
+import { PaginationSection } from "components/shared/table/PaginationSection";
 import { Page } from "components/shared/Page";
 import axios from "utils/axios";
 import { toast } from "sonner";
@@ -25,7 +29,7 @@ export default function VerificationLimsPage() {
     const raw = localStorage.getItem("userPermissions") || "[]";
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(Number) : [];
+      return Array.isArray(parsed) ? parsed.map(Number) : (typeof parsed === "string" ? parsed.split(",").map(Number).filter(n => !isNaN(n)) : []);
     } catch {
       return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
     }
@@ -91,7 +95,7 @@ export default function VerificationLimsPage() {
     setModalLoading(true);
     try {
       const endpoint = type === "approve" ? "/quality-documents/lims-existing-approve" : "/quality-documents/lims-existing-reject";
-      await axios.post(endpoint, { id: selectedRow.id });
+      await axios.post(endpoint, { requestid: selectedRow.id });
       toast.success(`Request ${type}d successfully ✅`);
       setModalOpen(false);
       fetchData();
@@ -127,12 +131,44 @@ export default function VerificationLimsPage() {
                 <Spinner size="lg" />
               </div>
             ) : (
-              <Table table={table} />
+              <Table hoverable className="w-full text-left rtl:text-right">
+                <THead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <Tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <Th key={header.id} className="bg-gray-100 font-semibold uppercase text-gray-800 dark:bg-dark-800 dark:text-dark-100 first:ltr:rounded-tl-lg last:ltr:rounded-tr-lg">
+                          {header.column.getCanSort() ? (
+                            <div className="flex cursor-pointer select-none items-center space-x-3" onClick={header.column.getToggleSortingHandler()}>
+                              <span className="flex-1">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                              <TableSortIcon sorted={header.column.getIsSorted()} />
+                            </div>
+                          ) : flexRender(header.column.columnDef.header, header.getContext())}
+                        </Th>
+                      ))}
+                    </Tr>
+                  ))}
+                </THead>
+                <TBody>
+                  {data.length === 0 ? (
+                    <Tr><Td colSpan={99} className="py-20 text-center text-gray-400 font-medium">No records found.</Td></Tr>
+                  ) : (
+                    table.getRowModel().rows.map((row) => (
+                      <Tr key={row.id} className="border-b border-gray-100 dark:border-b-dark-500 last:border-0 hover:bg-gray-50/50 dark:hover:bg-dark-600/50">
+                        {row.getVisibleCells().map((cell) => (
+                          <Td key={cell.id} className={clsx("bg-white py-3", cardSkin === "shadow" ? "dark:bg-dark-700" : "dark:bg-dark-900")}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </Td>
+                        ))}
+                      </Tr>
+                    ))
+                  )}
+                </TBody>
+              </Table>
             )}
           </div>
 
           <div className="px-[var(--margin-x)] py-4">
-            <Table.Pagination table={table} />
+            <PaginationSection table={table} />
           </div>
         </Card>
       </div>
@@ -175,7 +211,7 @@ export default function VerificationLimsPage() {
                 Cancel
               </Button>
               <Button
-                color="danger"
+                color="error"
                 onClick={() => handleAction("reject")}
                 disabled={modalLoading}
               >

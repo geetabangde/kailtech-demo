@@ -63,6 +63,46 @@ function SuccessModal({ isOpen, onClose, message }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Payment Approval Modal Component
+// ─────────────────────────────────────────────────────────────────────────────
+function PaymentApprovalModal({ isOpen, onClose, onSubmit, tid, customername, submitting }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4">
+      <div className="relative w-full max-w-lg rounded-lg bg-white shadow-xl dark:bg-dark-800">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Notify Bd For Payment Approval of {tid}
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        
+        <div className="px-6 py-6">
+           <legend className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+             {customername ? `${customername} (${tid})` : `TRF ${tid}`}
+           </legend>
+           <p className="text-sm text-gray-600 dark:text-gray-400">
+             Submit the request To notify Bd Regarding Sample Hold
+           </p>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+          <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition">
+            Close
+          </button>
+          <button onClick={onSubmit} disabled={submitting} className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition">
+            {submitting ? "Submitting..." : "Submit"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // react-select custom styles — matches app theme
 // ─────────────────────────────────────────────────────────────────────────────
 const selectStyles = {
@@ -129,6 +169,8 @@ export default function GenerateUlr() {
   const [selected, setSelected] = useState([]);
   const [reportDate, setReportDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [requestingPayment, setRequestingPayment] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -203,6 +245,22 @@ export default function GenerateUlr() {
     navigate("/dashboards/action-items/generate-ulr");
   };
 
+  // ── Submit Payment Request ──────────────────────────────────────────────────
+  const handleNotifyBD = async () => {
+    setRequestingPayment(true);
+    try {
+      // Calls the equivalent of insertPaymentRequest.php
+      await axios.post("/actionitem/request-payment-approval", { trf: tid });
+      toast.success("Request Submitted");
+      setShowPaymentModal(false);
+      fetchData(); // Refresh data to show "Pending" message
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Failed to submit request.");
+    } finally {
+      setRequestingPayment(false);
+    }
+  };
+
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
     <Page title="Generate ULR">
@@ -253,6 +311,16 @@ export default function GenerateUlr() {
   return (
     <Page title={button_label}>
       <div className="transition-content px-[var(--margin-x)] pb-8">
+
+        {/* Payment Approval Modal */}
+        <PaymentApprovalModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSubmit={handleNotifyBD}
+          tid={tid}
+          customername={pageData?.customername}
+          submitting={requestingPayment}
+        />
 
         {/* Success Modal */}
         <SuccessModal
@@ -374,8 +442,8 @@ export default function GenerateUlr() {
                   <div className="flex items-center gap-4">
                     <p className="text-sm text-amber-700">Payment approval required before generating ULR.</p>
                     <button
-                      onClick={() => toast.info("Request payment approval from Accounts/BD team.")}
-                      className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+                      onClick={() => setShowPaymentModal(true)}
+                      className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition"
                     >
                       Notify BD for Payment Approval
                     </button>

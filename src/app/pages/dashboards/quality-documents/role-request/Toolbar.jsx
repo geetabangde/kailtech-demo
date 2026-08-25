@@ -9,13 +9,15 @@ import { useMemo } from "react";
 
 export function Toolbar({ table }) {
   const permissions = useMemo(() => {
-    const raw = localStorage.getItem("userPermissions") || "[]";
+    let raw = localStorage.getItem("userPermissions") || "[]";
+    if (raw.startsWith('"') && raw.endsWith('"')) raw = raw.slice(1, -1);
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(Number) : [];
+      if (Array.isArray(parsed)) return parsed.map(Number);
     } catch {
-      return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
+      // ignore parse error, fallback below
     }
+    return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
   }, []);
 
   const canAdd = permissions.includes(470);

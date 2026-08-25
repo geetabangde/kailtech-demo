@@ -112,10 +112,11 @@ export default function EditTQuotationItem() {
         }
     }, []);
 
-    const addProductsToQuotation = async () => {
+    const addProductsToQuotation = async (isSilent = false) => {
+        const silent = isSilent === true;
         if (newItems.length === 0) {
-            toast.error("Please add at least one product");
-            return;
+            if (!silent) toast.error("Please add at least one product");
+            return false;
         }
 
         try {
@@ -146,16 +147,37 @@ export default function EditTQuotationItem() {
             const response = await axios.post("/sales/add-testing-quotation-item", payload);
 
             if (response.data?.status) {
-                toast.success(response.data.message || "Products added successfully");
+                // After adding products, also save the charges so they aren't lost
+                const chargePayload = {
+                    subtotal: totals.subtotal,
+                    discnumber: Number(taxData.discnumber),
+                    disctype: Number(taxData.disctype),
+                    discount: totals.discount,
+                    mobilisation: Number(taxData.mobilisation),
+                    witness: Number(taxData.witness),
+                    sampleprep: Number(taxData.sampleprep),
+                    gstnumber: Number(taxData.gstnumber),
+                    gsttype: Number(taxData.gsttype),
+                    gst: totals.gstAmount,
+                    freight: Number(taxData.freight),
+                    total: totals.total,
+                    id: String(id)
+                };
+                await axios.post("/sales/update-testing-quotation-item", chargePayload);
+
+                if (!silent) toast.success(response.data.message || "Products and charges added successfully");
                 setNewItems([]); // Clear the new items after successful addition
                 // Refresh the quotation data to show the new items
-                fetchData();
+                if (!silent) fetchData();
+                return true;
             } else {
-                toast.error(response.data.message || "Failed to add products");
+                if (!silent) toast.error(response.data.message || "Failed to add products");
+                return false;
             }
         } catch (err) {
             console.error("Error adding products:", err);
-            toast.error("Error adding products");
+            if (!silent) toast.error("Error adding products");
+            return false;
         }
     };
 
@@ -353,6 +375,15 @@ export default function EditTQuotationItem() {
     const handleUpdateQuotation = async () => {
         setSubmitting(true);
         try {
+            // If there are unsaved new items, save them first!
+            if (newItems.length > 0) {
+                const added = await addProductsToQuotation(true);
+                if (!added) {
+                    setSubmitting(false);
+                    return; // Stop if adding items failed
+                }
+            }
+
             const payload = {
                 subtotal: totals.subtotal,
                 discnumber: Number(taxData.discnumber),
@@ -847,15 +878,15 @@ export default function EditTQuotationItem() {
                         <div className="mt-8">
                             <Button
                                 onClick={handleUpdateQuotation}
-                                disabled={submitting || existingItems.length === 0}
+                                disabled={submitting || (existingItems.length === 0 && newItems.length === 0)}
                                 className="w-full h-11 text-base font-semibold shadow-sm"
                                 color="primary"
                             >
-                                {submitting ? "Updating..." : "Update Quotation Items"}
+                                {submitting ? "Updating..." : "Save & Update Quotation"}
                             </Button>
-                            {existingItems.length === 0 && (
+                            {(existingItems.length === 0 && newItems.length === 0) && (
                                 <p className="text-center text-xs text-red-400 mt-3 font-medium">
-                                    * Please save at least one product before updating quotation totals
+                                    * Please add at least one product before updating quotation totals
                                 </p>
                             )}
                         </div>

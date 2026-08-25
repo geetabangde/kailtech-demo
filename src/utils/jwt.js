@@ -17,7 +17,7 @@ const isTokenValid = (authToken) => {
     const decoded = jwtDecode(authToken);
     const currentTime = Date.now() / 1000; // Current time in seconds since epoch
 
-    return decoded.exp > currentTime;
+    return !decoded.exp || decoded.exp > currentTime;
   } catch (err) {
     console.error("Failed to decode token:", err);
     return false;

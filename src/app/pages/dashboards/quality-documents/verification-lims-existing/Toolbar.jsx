@@ -11,7 +11,7 @@ export function Toolbar({ table }) {
     const raw = localStorage.getItem("userPermissions") || "[]";
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(Number) : [];
+      return Array.isArray(parsed) ? parsed.map(Number) : (typeof parsed === "string" ? parsed.split(",").map(Number).filter(n => !isNaN(n)) : []);
     } catch {
       return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
     }
@@ -37,7 +37,7 @@ export function Toolbar({ table }) {
               as={Link}
               to="reject-list"
               variant="flat"
-              color="danger"
+              color="error"
               className="h-9 px-4 gap-2"
             >
               <XCircleIcon className="size-4" />

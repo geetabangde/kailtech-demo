@@ -119,12 +119,12 @@ export const columns = [
         const row = info.row.original;
         const name = row.customername || row.customer || "—";
         return (
-          <div>
+          <div className="whitespace-normal break-words max-w-xs xl:max-w-md">
             <p className="dark:text-dark-100 text-sm font-medium text-gray-800">
               {name}
             </p>
             {row.address && (
-              <p className="dark:text-dark-400 mt-0.5 max-w-xs text-xs text-gray-500">
+              <p className="dark:text-dark-400 mt-0.5 text-xs text-gray-500">
                 {row.address}
               </p>
             )}

@@ -13,8 +13,7 @@ import { toast } from "sonner";
 import { Page } from "components/shared/Page";
 import { parseUserPermissions } from "utils/permissions";
 import logo from "assets/krtc.jpg";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const fmt = (v) => parseFloat(v || 0).toFixed(2);
 
@@ -56,80 +55,88 @@ async function toBase64(url) {
   }
 }
 
-async function capturePdf(printRef, filename) {
-  try {
-    const el = printRef.current;
-    if (!el) return;
+// 🖨️ Open invoice in a print window so user saves as PDF 🖨️
+function printInvoice(templateProps, withLH, pageTitle) {
+  const bodyHtml = renderToStaticMarkup(
+    <InvoicePrintTemplate {...templateProps} withLH={withLH} />
+  );
 
-    el.style.display = "block";
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      onclone: (clonedDoc) => {
-        clonedDoc
-          .querySelectorAll('style, link[rel="stylesheet"]')
-          .forEach((node) => node.remove());
-        clonedDoc.documentElement.removeAttribute("style");
-      },
-    });
-    el.style.display = "none";
+  const safeTitle = (pageTitle || templateProps.inv?.invoiceno || "Invoice")
+    .replace(/[/\\:*?"<>|]/g, "_");
 
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 8;
-    const contentW = pageW - margin * 2;
-    const contentH = (canvas.height * contentW) / canvas.width;
-    const pageContentH = pageH - margin * 2;
-
-    let srcY = 0;
-    let remaining = contentH;
-    let firstPage = true;
-
-    while (remaining > 0) {
-      if (!firstPage) pdf.addPage();
-      firstPage = false;
-
-      const sliceH = Math.min(remaining, pageContentH);
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = Math.round((sliceH / contentH) * canvas.height);
-      sliceCanvas.getContext("2d").drawImage(
-        canvas,
-        0,
-        srcY,
-        canvas.width,
-        sliceCanvas.height,
-        0,
-        0,
-        canvas.width,
-        sliceCanvas.height,
-      );
-
-      pdf.addImage(
-        sliceCanvas.toDataURL("image/png"),
-        "PNG",
-        margin,
-        margin,
-        contentW,
-        sliceH,
-      );
-      srcY += sliceCanvas.height;
-      remaining -= sliceH;
+  const full = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${safeTitle}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    @page { size: A4; margin: 0; }
+    @page :first { margin-top: 0; }
+    body  { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111; background: #f5f5f5; }
+    @media print { 
+      #toolbar { display: none !important; }
+      body { background: #fff; }
+      .invoice-wrap { box-shadow: none; margin: 0; padding: 10mm; padding-bottom: 5mm; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; break-inside: avoid; page-break-after: auto; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
+    /* Toolbar */
+    #toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: #1e3a5f; color: #fff;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    #toolbar span { font-size: 15px; font-weight: bold; flex: 1; }
+    #toolbar button {
+      background: #2563eb; color: #fff; border: none;
+      padding: 8px 20px; border-radius: 6px; font-size: 14px;
+      font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    #toolbar button:hover { background: #1d4ed8; }
+    /* Invoice wrapper */
+    .invoice-wrap {
+      background: #fff;
+      max-width: 900px;
+      margin: 70px auto 30px auto;
+      padding: 10mm;
+      padding-bottom: 5mm;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    }
+    table  { border-collapse: collapse; width: 100%; margin-bottom: 8px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 7px; font-size: 11px; vertical-align: middle; word-break: break-word; overflow: hidden; }
+    th     { background: #f3f4f6; text-align: center; font-weight: bold; }
+    td.right  { text-align: right; }
+    td.center { text-align: center; }
+    td.nob    { border: none; }
+  </style>
+</head>
+<body>
+  <!-- Download Toolbar -->
+  <div id="toolbar">
+    <span>📄 ${safeTitle}</span>
+    <button onclick="window.print()">
+      📥 Download PDF
+    </button>
+  </div>
+  <!-- Invoice Content -->
+  <div class="invoice-wrap">
+    ${bodyHtml}
+  </div>
+</body>
+</html>`;
 
-    pdf.save(filename);
-    toast.success("PDF downloaded");
-  } catch (error) {
-    console.error("PDF error", error);
-    toast.error("Failed to generate PDF");
+  const win = window.open("", "_blank");
+  if (!win) {
+    toast.error("Pop-up blocked - please allow pop-ups and try again.");
+    return;
   }
+  win.document.open();
+  win.document.write(full);
+  win.document.close();
+  win.focus();
 }
 
 const S = {
@@ -337,14 +344,14 @@ function InvoicePrintTemplate({
           {items.map((item, index) => (
             <tr key={item.id ?? index}>
               <td style={S.tdC}>{index + 1}</td>
-              <td style={S.td}>{item.description}</td>
+              <td style={S.td} dangerouslySetInnerHTML={{ __html: item.description }}></td>
               <td style={S.tdC}>
                 {item.meter_option == 1 ? item.meter : item.qty}
               </td>
               {inv.potype === "Normal" && (
                 <>
                   <td style={S.tdC}>{item.rate}</td>
-                  <td style={S.tdR}>{fmt(item.amount)}</td>
+                  <td style={S.tdR}>{fmt(item.amount ?? item.base_amount)}</td>
                 </>
               )}
             </tr>
@@ -355,7 +362,7 @@ function InvoicePrintTemplate({
       <table style={S.table}>
         <tbody>
           <tr>
-            <td style={{ ...S.td, width: "60%" }} colSpan={3} rowSpan={12}>
+            <td style={{ ...S.td, width: "60%", wordBreak: "break-all" }} colSpan={3} rowSpan={12}>
               {status === 2 && inv.irn && (
                 <div style={{ marginBottom: 6, fontSize: 10 }}>
                   <div>
@@ -642,16 +649,13 @@ export default function ViewInvoiceCalibration() {
 
   const handlePdfWithLH = async () => {
     setPdfBusy(true);
-    await capturePdf(printWithLH, `${data?.invoiceno ?? "invoice"}.pdf`);
+    printInvoice(templateProps, true, `${data?.invoiceno ?? "invoice"} with Letterhead`);
     setPdfBusy(false);
   };
 
   const handlePdfWithoutLH = async () => {
     setPdfBusy(true);
-    await capturePdf(
-      printWithoutLH,
-      `${data?.invoiceno ?? "invoice"}withoutletterhead.pdf`,
-    );
+    printInvoice(templateProps, false, `${data?.invoiceno ?? "invoice"} without Letterhead`);
     setPdfBusy(false);
   };
 
@@ -969,9 +973,7 @@ export default function ViewInvoiceCalibration() {
                     className={i % 2 === 1 ? "bg-gray-50" : "bg-white"}
                   >
                     <td className="border border-gray-400 px-2 py-1 text-center">{i + 1}</td>
-                    <td className="border border-gray-400 px-2 py-1">
-                      {item.description}
-                    </td>
+                    <td className="border border-gray-400 px-2 py-1" dangerouslySetInnerHTML={{ __html: item.description }}></td>
                     <td className="border border-gray-400 px-2 py-1 text-center">
                       {item.meter_option == 1 ? item.meter : item.qty}
                     </td>
@@ -981,7 +983,7 @@ export default function ViewInvoiceCalibration() {
                           {item.rate}
                         </td>
                         <td className="border border-gray-400 px-2 py-1 pr-2 text-right tabular-nums">
-                          {fmt(item.amount)}
+                          {fmt(item.amount ?? item.base_amount)}
                         </td>
                       </>
                     )}
@@ -995,7 +997,7 @@ export default function ViewInvoiceCalibration() {
             <tbody>
               <tr>
                 <td
-                  className="border border-gray-400 p-3 align-bottom"
+                  className="border border-gray-400 p-3 align-bottom break-all"
                   style={{ width: "60%" }}
                   colSpan={3}
                   rowSpan={

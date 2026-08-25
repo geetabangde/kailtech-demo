@@ -93,10 +93,10 @@ export default function ReturnInsta({ issueItems, register }) {
                                             <option value="">choose one..</option>
                                             {item.return_locations && item.return_locations.length > 0 ? (
                                                 item.return_locations.map(loc => (
-                                                    <option key={loc.id} value={loc.name}>{loc.name}</option>
+                                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
                                                 ))
                                             ) : (
-                                                <option value="Store">Store</option>
+                                                <option value="24">Store</option>
                                             )}
                                         </select>
                                     </td>
@@ -114,10 +114,10 @@ export default function ReturnInsta({ issueItems, register }) {
                                                         <input
                                                             type="number"
                                                             className="w-1/2 rounded border border-gray-300 dark:border-dark-500 bg-white dark:bg-dark-700 p-2 text-sm"
-                                                            {...register(`items.${index}.qty`, { 
-                                                                required: true, 
-                                                                min: 1, 
-                                                                max: Number(currentQty || 0) 
+                                                            {...register(`items.${index}.qty`, {
+                                                                required: true,
+                                                                min: 1,
+                                                                max: Number(currentQty || 0)
                                                             })}
                                                             placeholder="Qty"
                                                         />

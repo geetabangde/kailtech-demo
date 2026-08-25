@@ -1,5 +1,5 @@
 // Import Dependencies
-import { CheckIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { CheckIcon, EyeIcon, PaperClipIcon } from "@heroicons/react/24/outline";
 import { Button } from "components/ui";
 import PropTypes from "prop-types";
 import { useMemo } from "react";
@@ -13,7 +13,7 @@ export function RowActions({ row }) {
     const raw = localStorage.getItem("userPermissions") || "[]";
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(Number) : [];
+      return Array.isArray(parsed) ? parsed.map(Number) : (typeof parsed === "string" ? parsed.split(",").map(Number).filter(n => !isNaN(n)) : []);
     } catch {
       return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
     }
@@ -43,6 +43,20 @@ export function RowActions({ row }) {
           onClick={() => navigate(`/dashboards/quality-documents/verification-lims-existing/view/${row.original.id}`)}
         >
           <EyeIcon className="size-4.5" />
+        </Button>
+      )}
+
+      {/* View Attachment Button */}
+      {canView && row.original.document != 0 && (row.original.document_path || row.original.file_path) && (
+        <Button
+          as="a"
+          href={row.original.document_path || row.original.file_path}
+          target="_blank"
+          variant="flat"
+          className="size-8 p-0 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+          title="View Attachment"
+        >
+          <PaperClipIcon className="size-4.5" />
         </Button>
       )}
 

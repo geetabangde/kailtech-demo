@@ -219,15 +219,19 @@ function ReportDocWoLH({ data }) {
       <Page size="A4" style={S.page}>
 
         {/* ── NABL logo top-right (PHP: nabltest.png if nabl==1) ── */}
-        {nabl === true && (
+        {(nabl == 1 || nabl === "1" || nabl === true || (typeof nabl === "object" && nabl)) && (
           <View style={S.topRow}>
-            {nabl_logo_url ? (
-              <Image src={nabl_logo_url} style={S.nablLogo} />
+            {nabl_logo_url || (typeof nabl === "object" && nabl?.logo) ? (
+              <Image src={nabl_logo_url || nabl?.logo} style={S.nablLogo} />
             ) : (
-              // Fallback text badge when image URL not provided
-              <View style={{ borderWidth: 1, borderColor: "#003366", padding: 3, borderRadius: 3 }}>
-                <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#003366" }}>NABL</Text>
-              </View>
+              <Image
+                src={
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}${Number(nabl) === 3 ? "/images/qai.jpeg" : "/images/nabltest.png"}`
+                    : (Number(nabl) === 3 ? "/images/qai.jpeg" : "/images/nabltest.png")
+                }
+                style={S.nablLogo}
+              />
             )}
           </View>
         )}

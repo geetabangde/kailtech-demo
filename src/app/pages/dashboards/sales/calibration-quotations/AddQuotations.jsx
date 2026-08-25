@@ -56,6 +56,8 @@ export default function AddQuotations() {
   const [statutoryDetails, setStatutoryDetails] = useState([]);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [isIndianCountry, setIsIndianCountry] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [contacts, setContacts] = useState([]);
 
   const MODE_OPTIONS = [
     { value: "0", label: "Telephone" },
@@ -100,12 +102,18 @@ export default function AddQuotations() {
 
   const handleCustomerChange = async (selectedOption) => {
     const val = selectedOption ? selectedOption.value : "";
-    setFormData((prev) => ({ ...prev, customer: val }));
+    
+    if (!selectedOption) {
+      setIsNewCustomer(false);
+      setFormData(prev => ({ ...prev, customer: "", customername: "" }));
+      return;
+    }
 
     if (val === "new") {
       setIsNewCustomer(true);
       setFormData((prev) => ({
         ...prev,
+        customer: "new",
         customername: "",
         customeraddress: "",
         contactpersonname: "",
@@ -116,40 +124,53 @@ export default function AddQuotations() {
         country: "",
         state: "",
         stateid: "",
+        caddress: "",
+        cperson: "",
       }));
       setIsIndianCountry(false);
-    } else if (val) {
+      setAddresses([]);
+      setContacts([]);
+    } else {
       setIsNewCustomer(false);
+      setFormData(prev => ({
+        ...prev,
+        customer: val,
+        customername: selectedOption.label
+      }));
+
       try {
-        const [addrRes, custRes] = await Promise.all([
+        const [addrRes, custRes, contactRes] = await Promise.all([
           axios.get(`/people/get-customers-address/${val}`).catch(() => null),
           axios.get(`/people/get-single-customer/${val}`).catch(() => null),
+          axios.get(`/get-concern-person/${val}`).catch(() => null),
         ]);
 
-        const addrData = addrRes?.data?.data?.[0] || {};
+        const addrList = addrRes?.data?.data || [];
         const custData = custRes?.data?.data || {};
+        const contactList = contactRes?.data?.data || [];
+
+        setAddresses(addrList);
+        setContacts(contactList);
 
         setFormData((prev) => ({
           ...prev,
-          customername: custData.name || prev.customername,
-          customeraddress: addrData.address
-            ? `${addrData.address || ""} ${addrData.city || ""} ${addrData.pincode || ""}`.trim()
-            : (custData.address || ""),
-          contactpersonname: addrData.contact_person || custData.pname || "",
-          concernpersonemail: addrData.email || custData.email || "",
-          concernpersonmobile: addrData.mobile || custData.mobile || custData.pnumber || "",
+          customeraddress: custData.address || (addrList[0]?.address || ""),
           gstno: custData.gstno || "",
           country: custData.country || "",
-          state: custData.state || "",
+          state: custData.stateid || custData.state || "",
           stateid: custData.stateid || "",
-          caddress: addrData.id || "",
-          cperson: addrData.contact_person_id || custData.contact_person_id || "",
+          caddress: addrList[0]?.id || "",
+          cperson: contactList[0]?.id || "",
         }));
+
+        if (String(custData.country) === "1") {
+          setIsIndianCountry(true);
+        } else {
+          setIsIndianCountry(false);
+        }
       } catch (err) {
         console.error("Error fetching customer details:", err);
       }
-    } else {
-      setIsNewCustomer(false);
     }
   };
 
@@ -320,136 +341,170 @@ export default function AddQuotations() {
               </div>
 
               {/* Conditional Customer Details */}
-              {(isNewCustomer || formData.customer) && (
+              {(isNewCustomer || (formData.customer && formData.customer !== "new")) && (
                 <>
-                  <div className="form-group md:col-span-2">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Customer Name
-                    </label>
-                    <input
-                      name="customername"
-                      value={formData.customername}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      required
-                      placeholder="Enter customer name"
-                    />
-                  </div>
-                  <div className="form-group md:col-span-2">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Customer Address
-                    </label>
-                    <input
-                      name="customeraddress"
-                      value={formData.customeraddress}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      required
-                      placeholder="Enter address"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Contact Person Name
-                    </label>
-                    <input
-                      name="contactpersonname"
-                      value={formData.contactpersonname}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      required
-                      placeholder="Enter contact person"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Contact Person Designation
-                    </label>
-                    <input
-                      name="concernpersondesignation"
-                      value={formData.concernpersondesignation}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Enter designation"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Contact Person Email
-                    </label>
-                    <input
-                      type="text"
-                      name="concernpersonemail"
-                      value={formData.concernpersonemail}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Enter email address"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Contact Person Mobile
-                    </label>
-                    <input
-                      type="tel"
-                      name="concernpersonmobile"
-                      value={formData.concernpersonmobile}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Enter mobile number"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      GST NO
-                    </label>
-                    <input
-                      name="gstno"
-                      value={formData.gstno}
-                      onChange={handleChange}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Enter GST"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      Country
-                    </label>
-                    <Select
-                      options={countries.map((c) => ({
-                        value: c.id,
-                        label: c.country_name,
-                      }))}
-                      value={countries
-                        .map((c) => ({ value: c.id, label: c.country_name }))
-                        .find((opt) => opt.value === formData.country)}
-                      onChange={(opt) => handleSelectChange("country", opt)}
-                      placeholder="Select Country..."
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      State / Province
-                    </label>
-                    {isIndianCountry ? (
-                      <Select
-                        options={states.map((s) => ({ value: s.id, label: s.state }))}
-                        value={states
-                          .map((s) => ({ value: s.id, label: s.state }))
-                          .find((opt) => String(opt.value) === String(formData.stateid))}
-                        onChange={(opt) => handleSelectChange("stateid", opt)}
-                        placeholder="Select State..."
-                      />
-                    ) : (
-                      <input
-                        name="state"
-                        value={formData.state}
-                        onChange={handleChange}
-                        className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Enter state"
-                      />
-                    )}
-                  </div>
+                  {isNewCustomer ? (
+                    <>
+                      <div className="form-group md:col-span-2">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Customer Name
+                        </label>
+                        <input
+                          name="customername"
+                          value={formData.customername}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          required
+                          placeholder="Enter customer name"
+                        />
+                      </div>
+                      <div className="form-group md:col-span-2">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Customer Address
+                        </label>
+                        <input
+                          name="customeraddress"
+                          value={formData.customeraddress}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          required
+                          placeholder="Enter address"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Contact Person Name
+                        </label>
+                        <input
+                          name="contactpersonname"
+                          value={formData.contactpersonname}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          required
+                          placeholder="Enter contact person"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Contact Person Designation
+                        </label>
+                        <input
+                          name="concernpersondesignation"
+                          value={formData.concernpersondesignation}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter designation"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Contact Person Email
+                        </label>
+                        <input
+                          type="text"
+                          name="concernpersonemail"
+                          value={formData.concernpersonemail}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter email address"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Contact Person Mobile
+                        </label>
+                        <input
+                          type="tel"
+                          name="concernpersonmobile"
+                          value={formData.concernpersonmobile}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter mobile number"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          GST NO
+                        </label>
+                        <input
+                          name="gstno"
+                          value={formData.gstno}
+                          onChange={handleChange}
+                          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter GST"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Country
+                        </label>
+                        <Select
+                          options={countries.map((c) => ({
+                            value: c.id,
+                            label: c.country_name,
+                          }))}
+                          value={countries
+                            .map((c) => ({ value: c.id, label: c.country_name }))
+                            .find((opt) => String(opt.value) === String(formData.country))}
+                          onChange={(opt) => handleSelectChange("country", opt)}
+                          placeholder="Select Country..."
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          State / Province
+                        </label>
+                        {isIndianCountry ? (
+                          <Select
+                            options={states.map((s) => ({ value: s.id, label: s.state }))}
+                            value={states
+                              .map((s) => ({ value: s.id, label: s.state }))
+                              .find((opt) => String(opt.value) === String(formData.stateid))}
+                            onChange={(opt) => handleSelectChange("stateid", opt)}
+                            placeholder="Select State..."
+                          />
+                        ) : (
+                          <input
+                            name="state"
+                            value={formData.state}
+                            onChange={handleChange}
+                            className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Enter state"
+                          />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="form-group md:col-span-2">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Customer Address
+                        </label>
+                        <Select
+                          options={addresses.map((a) => ({ value: a.id, label: `${a.name} (${a.address})` }))}
+                          value={addresses
+                            .map((a) => ({ value: a.id, label: `${a.name} (${a.address})` }))
+                            .find((opt) => String(opt.value) === String(formData.caddress))}
+                          onChange={(opt) => handleSelectChange("caddress", opt)}
+                          placeholder="Select Address"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                          Contact Person Name
+                        </label>
+                        <Select
+                          options={contacts.map((c) => ({ value: c.id, label: c.name }))}
+                          value={contacts
+                            .map((c) => ({ value: c.id, label: c.name }))
+                            .find((opt) => String(opt.value) === String(formData.cperson))}
+                          onChange={(opt) => handleSelectChange("cperson", opt)}
+                          placeholder="Select Contact"
+                        />
+                      </div>
+
+                    </>
+                  )}
                 </>
               )}
 

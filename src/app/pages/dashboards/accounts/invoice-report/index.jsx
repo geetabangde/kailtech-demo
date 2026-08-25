@@ -88,6 +88,7 @@ export default function InvoiceReport() {
 
   const [customers, setCustomers] = useState([]);
   const [bdList, setBdList] = useState([]);
+  const [customerTypes, setCustomerTypes] = useState([]);
 
   const [filters, setFilters] = useState({
     startdate: "",
@@ -96,6 +97,7 @@ export default function InvoiceReport() {
     customerid: "",
     bd: "",
     typeofinvoice: "",
+    customertype: "",
   });
 
   // Fetch dropdown data on mount
@@ -115,6 +117,14 @@ export default function InvoiceReport() {
         setBdList(data);
       })
       .catch((err) => console.error("Failed to load BD list:", err));
+
+    axios
+      .get("/people/get-customer-type-list")
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data?.Data || res.data?.data || [];
+        setCustomerTypes(data);
+      })
+      .catch((err) => console.error("Failed to load customer types:", err));
   }, []);
 
   // PHP logic: only fetch if at least one filter is provided
@@ -123,7 +133,8 @@ export default function InvoiceReport() {
     (f.startdate && f.startdate !== "" && f.enddate && f.enddate !== "") ||
     (f.month && f.month !== "") ||
     (f.bd && f.bd !== "") ||
-    (f.typeofinvoice && f.typeofinvoice !== "");
+    (f.typeofinvoice && f.typeofinvoice !== "") ||
+    (f.customertype && f.customertype !== "");
 
   const fetchInvoices = async (currentFilters) => {
     const f = currentFilters ?? filters;
@@ -147,6 +158,7 @@ export default function InvoiceReport() {
           customerid: f.customerid || undefined,
           bd: f.bd || undefined,
           typeofinvoice: f.typeofinvoice || undefined,
+          customertype: f.customertype || undefined,
         },
       });
       // API returns { status, count, data: [...], totals: {...} }
@@ -350,6 +362,7 @@ export default function InvoiceReport() {
             onExport={exportToExcel}
             customers={customers}
             bdList={bdList}
+            customerTypes={customerTypes}
           />
 
           <div

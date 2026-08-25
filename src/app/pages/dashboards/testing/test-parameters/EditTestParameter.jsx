@@ -22,10 +22,10 @@ export default function EditTestParameter() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    mintemp: "27.5",
-    maxtemp: "27.5",
-    minhumidity: "50",
-    maxhumidity: "50",
+    mintemp: "",
+    maxtemp: "",
+    minhumidity: "",
+    maxhumidity: "",
     time: "",
     mindurationdays: "",
     mindurationhours: "",
@@ -80,17 +80,17 @@ export default function EditTestParameter() {
           setFormData({
             name: data.name || "",
             description: data.description || "",
-            mintemp: data.mintemp || "",
-            maxtemp: data.maxtemp || "",
-            minhumidity: data.minhumidity || "",
-            maxhumidity: data.maxhumidity || "",
-            time: data.time || "",
-            mindurationdays: data.mindurationdays || "",
-            mindurationhours: data.mindurationhours || "",
-            maxdurationdays: data.maxdurationdays || "",
-            maxdurationhours: data.maxdurationhours || "",
-            reminderdays: data.reminderdays || "",
-            reminderhours: data.reminderhours || "",
+            mintemp: data.mintemp ?? "",
+            maxtemp: data.maxtemp ?? "",
+            minhumidity: data.minhumidity ?? "",
+            maxhumidity: data.maxhumidity ?? "",
+            time: data.time ?? "",
+            mindurationdays: data.mindurationdays ?? "",
+            mindurationhours: data.mindurationhours ?? "",
+            maxdurationdays: data.maxdurationdays ?? "",
+            maxdurationhours: data.maxdurationhours ?? "",
+            reminderdays: data.reminderdays ?? "",
+            reminderhours: data.reminderhours ?? "",
             department: data.department ? data.department.toString() : "",
             nabl: data.nabl ? data.nabl.toString() : "",
             products: data.products ? data.products.split(',').map(Number) : [],
@@ -98,15 +98,15 @@ export default function EditTestParameter() {
             measurements: data.measurements ? data.measurements.split(',').map(Number) : [],
             results: data.results ? data.results.split(',').map(Number) : [],
             formula: data.formula || "",
-            cycle: data.cycle || "",
+            cycle: data.cycle ?? "",
             visible: data.visible ? data.visible.toString() : "",
             resultype: data.resultype ? data.resultype.split(',').map(Number) : [],
             resultunit: data.resultunit ? data.resultunit.toString() : "",
-            decimal: data.decimal || "",
-            minnabl: data.minnabl || "",
-            maxnabl: data.maxnabl || "",
-            minqai: data.minqai || "",
-            maxqai: data.maxqai || "",
+            decimal: data.decimal ?? "",
+            minnabl: data.minnabl ?? "",
+            maxnabl: data.maxnabl ?? "",
+            minqai: data.minqai ?? "",
+            maxqai: data.maxqai ?? "",
             remark: data.remark || "",
           });
           if (data.elements) setElements(data.elements);
@@ -147,27 +147,18 @@ export default function EditTestParameter() {
           axios.get("/testing/get-counsumable-category"),
         ]);
 
-        console.log("Products API response:", productsRes.data);
-        console.log("Instruments API response:", instrumentsRes.data);
-        console.log("Measurements API response:", measurementsRes.data);
-        console.log("Results API response:", resultsRes.data);
-
-        // Extract data properly - based on your API response
         const productsData = productsRes.data?.data || [];
         const instrumentsData = instrumentsRes.data?.data || [];
-        const measurementsData = measurementsRes.data?.data || []; // This is already an array
+        const measurementsData = measurementsRes.data?.data || [];
         const resultsData = resultsRes.data?.data || [];
         const resultTypesData = resultTypesRes.data?.data || [];
         const labsData = labsRes.data?.data || [];
         const unitsData = unitsRes.data?.data || [];
 
-        console.log("Measurements data:", measurementsData);
-        console.log("Measurements count:", measurementsData?.length || 0);
-
         setDropdowns({
           products: productsData,
           instruments: instrumentsData,
-          measurements: measurementsData, // Direct array
+          measurements: measurementsData,
           results: resultsData,
           resultTypes: resultTypesData,
           labs: labsData,
@@ -300,8 +291,6 @@ export default function EditTestParameter() {
         remark: formData.remark,
       };
 
-      console.log("Payload:", payload);
-
       const res = await axios.post("/testing/update-perameter", payload);
 
       if (res.data?.status === true || res.data?.status === "true") {
@@ -328,7 +317,6 @@ export default function EditTestParameter() {
   // Convert dropdown data to react-select format
   const getSelectOptions = (items, type = "") => {
     if (!items || !Array.isArray(items)) {
-      console.log("getSelectOptions received non-array items:", items);
       return [];
     }
 
@@ -411,17 +399,16 @@ export default function EditTestParameter() {
     }),
   };
 
-  // Get measurement options - with debugging
+  // Get measurement options
   const measurementOptions = dropdowns.measurements.map(item => ({
     value: item.id,
     label: `${item.name} ${item.description ? `- ${item.description}` : ''} (VC${item.id})`
   }));
-  console.log("Measurement options for dropdown:", measurementOptions);
 
   if (fetchingDropdowns) {
     return (
       <Page title="Edit Test Parameter">
-        <div className="p-6 flex items-center justify-center">
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -430,83 +417,6 @@ export default function EditTestParameter() {
             <p className="text-gray-600 dark:text-gray-300">Loading form data...</p>
           </div>
         </div>
-
-        {/* Element Modal */}
-        {isElementModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Add New Element</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">Measurement Element</label>
-                  <Select
-                    options={measurementOptions}
-                    onChange={(selected) => setElementFormData({ ...elementFormData, element: selected?.value, elementName: selected?.label })}
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Priority"
-                    type="number"
-                    value={elementFormData.priority}
-                    onChange={(e) => setElementFormData({ ...elementFormData, priority: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsElementModalOpen(false)}>Cancel</Button>
-                <Button type="button" onClick={() => {
-                  setElements([...elements, elementFormData]);
-                  setElementFormData({ element: "", priority: "" });
-                  setIsElementModalOpen(false);
-                }}>Add</Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Consumable Modal */}
-        {isConsumableModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Add Consumable</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">Consumable</label>
-                  <Select
-                    options={getSelectOptions(dropdowns.consumables, 'consumable')}
-                    onChange={(selected) => setConsumableFormData({ ...consumableFormData, consumable: selected?.value, consumableName: selected?.label })}
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Quantity"
-                    type="number"
-                    value={consumableFormData.quantity}
-                    onChange={(e) => setConsumableFormData({ ...consumableFormData, quantity: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Priority"
-                    type="number"
-                    value={consumableFormData.priority}
-                    onChange={(e) => setConsumableFormData({ ...consumableFormData, priority: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsConsumableModalOpen(false)}>Cancel</Button>
-                <Button type="button" onClick={() => {
-                  setConsumables([...consumables, consumableFormData]);
-                  setConsumableFormData({ consumable: "", quantity: "", priority: "" });
-                  setIsConsumableModalOpen(false);
-                }}>Add</Button>
-              </div>
-            </div>
-          </div>
-        )}
-
       </Page>
     );
   }
@@ -818,18 +728,44 @@ export default function EditTestParameter() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                   {elements.length > 0 ? (
-                    elements.map((el, i) => (
-                      <tr key={i}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{el.elementName || el.element}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{el.priority}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">VC{el.element}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button type="button" className="text-red-600 hover:text-red-900" onClick={() => {
-                            setElements(elements.filter((_, idx) => idx !== i));
-                          }}>Remove</button>
-                        </td>
-                      </tr>
-                    ))
+                    elements.map((el, i) => {
+                      const measurementItem = dropdowns.measurements.find(
+                        (m) => String(m.id) === String(el.element)
+                      );
+                      const elementName =
+                        el.elementName ||
+                        (measurementItem
+                          ? `${measurementItem.name}${measurementItem.description
+                            ? ` - ${measurementItem.description}`
+                            : ""
+                          }`
+                          : `Element ${el.element}`);
+
+                      return (
+                        <tr key={i}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {elementName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {el.priority}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            VC{el.element}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              type="button"
+                              className="text-red-600 hover:text-red-900"
+                              onClick={() => {
+                                setElements(elements.filter((_, idx) => idx !== i));
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No elements added</td>
@@ -862,18 +798,40 @@ export default function EditTestParameter() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                   {consumables.length > 0 ? (
-                    consumables.map((con, i) => (
-                      <tr key={i}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{con.consumableName || con.consumable}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{con.quantity}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{con.priority}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button type="button" className="text-red-600 hover:text-red-900" onClick={() => {
-                            setConsumables(consumables.filter((_, idx) => idx !== i));
-                          }}>Remove</button>
-                        </td>
-                      </tr>
-                    ))
+                    consumables.map((con, i) => {
+                      const consumableItem = dropdowns.consumables.find(
+                        (c) => String(c.id) === String(con.consumable)
+                      );
+                      const consumableName =
+                        con.consumableName ||
+                        consumableItem?.name ||
+                        `Consumable ${con.consumable}`;
+
+                      return (
+                        <tr key={i}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                            {consumableName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {con.quantity}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {con.priority}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              type="button"
+                              className="text-red-600 hover:text-red-900"
+                              onClick={() => {
+                                setConsumables(consumables.filter((_, idx) => idx !== i));
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No consumables added</td>
@@ -1155,6 +1113,155 @@ export default function EditTestParameter() {
             )}
           </Button>
         </form>
+
+        {/* Element Modal */}
+        {isElementModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-xl border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Add New Element</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Measurement Element
+                  </label>
+                  <Select
+                    options={measurementOptions}
+                    styles={customSelectStyles}
+                    onChange={(selected) =>
+                      setElementFormData({
+                        ...elementFormData,
+                        element: selected?.value,
+                        elementName: selected?.label,
+                      })
+                    }
+                    placeholder="Select measurement..."
+                    isSearchable
+                    isClearable
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                </div>
+                <div>
+                  <Input
+                    label="Priority"
+                    type="number"
+                    placeholder="Priority"
+                    value={elementFormData.priority}
+                    onChange={(e) =>
+                      setElementFormData({ ...elementFormData, priority: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsElementModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!elementFormData.element) {
+                      toast.error("Please select a measurement element");
+                      return;
+                    }
+                    setElements([...elements, elementFormData]);
+                    setElementFormData({ element: "", priority: "" });
+                    setIsElementModalOpen(false);
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Consumable Modal */}
+        {isConsumableModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md shadow-xl border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Add Consumable</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Consumable
+                  </label>
+                  <Select
+                    options={getSelectOptions(dropdowns.consumables, "consumable")}
+                    styles={customSelectStyles}
+                    onChange={(selected) =>
+                      setConsumableFormData({
+                        ...consumableFormData,
+                        consumable: selected?.value,
+                        consumableName: selected?.label,
+                      })
+                    }
+                    placeholder="Select consumable..."
+                    isSearchable
+                    isClearable
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                </div>
+                <div>
+                  <Input
+                    label="Quantity"
+                    type="number"
+                    placeholder="Quantity"
+                    value={consumableFormData.quantity}
+                    onChange={(e) =>
+                      setConsumableFormData({
+                        ...consumableFormData,
+                        quantity: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Input
+                    label="Priority"
+                    type="number"
+                    placeholder="Priority"
+                    value={consumableFormData.priority}
+                    onChange={(e) =>
+                      setConsumableFormData({
+                        ...consumableFormData,
+                        priority: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsConsumableModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!consumableFormData.consumable) {
+                      toast.error("Please select a consumable");
+                      return;
+                    }
+                    setConsumables([...consumables, consumableFormData]);
+                    setConsumableFormData({ consumable: "", quantity: "", priority: "" });
+                    setIsConsumableModalOpen(false);
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Page>
   );

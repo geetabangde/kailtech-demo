@@ -33,46 +33,133 @@ function formatDate(dateStr) {
   }
 }
 
-function resultColorClass(result, specification, rmin, rmax, rmininclude, rmaxinclude) {
-  if (!result) return "";
-  const val = parseFloat(result);
+function resultColorClass(rowOrResult, specification, rmin, rmax, rmininclude, rmaxinclude) {
+  const row =
+    typeof rowOrResult === "object" && rowOrResult !== null
+      ? rowOrResult
+      : {
+          result: rowOrResult,
+          specification,
+          rmin,
+          rmax,
+          rmininclude,
+          rmaxinclude,
+        };
+
+  if (!row) return "";
+
+  // 1. Direct Backend Compliance Style if provided (PHP: $sflag)
+  const sflag = row.compliance_style || row.sflag;
+  if (typeof sflag === "string" && sflag.trim()) {
+    if (sflag.includes("#008d4c") || sflag.includes("green")) {
+      return "bg-[#008d4c] text-white text-center";
+    }
+    if (sflag.includes("#ff0000") || sflag.includes("red")) {
+      return "bg-[#ff0000] text-white text-center";
+    }
+  }
+
+  // 2. Formula string check (PHP: if (!($isstr === 0)))
+  const formula = String(row.formula || row.formu || "").trim().toUpperCase();
+  if (formula.startsWith("STR")) {
+    return "";
+  }
+
+  // 3. Non-numeric results shouldn't be evaluated against min/max
+  const resultRaw =
+    row.result !== undefined && row.result !== null ? String(row.result).trim() : "";
+  if (!resultRaw) return "";
+  const val = parseFloat(resultRaw);
   if (isNaN(val)) return "";
 
-  // 1. Priority: Numeric Comparison (if API provides rmin/rmax)
-  if (rmin !== undefined && rmax !== undefined) {
-    const min = parseFloat(rmin);
-    const max = parseFloat(rmax);
-    const incMin = parseInt(rmininclude) === 1;
-    const incMax = parseInt(rmaxinclude) === 1;
+  // 4. Permissible numeric bounds (PHP: pvaluemin / pvaluemax)
+  const rminRaw = row.rmin ?? row.pvaluemin ?? row.pvalue_min;
+  const rmaxRaw = row.rmax ?? row.pvaluemax ?? row.pvalue_max;
+  const rminIncRaw = row.rmininclude ?? row.pvaluemininclude ?? row.pvalue_min_include;
+  const rmaxIncRaw = row.rmaxinclude ?? row.pvaluemaxinclude ?? row.pvalue_max_include;
 
-    const passMin = incMin ? val >= min : val > min;
-    const passMax = incMax ? val <= max : val < max;
+  const hasExplicitMin =
+    rminRaw !== undefined &&
+    rminRaw !== null &&
+    String(rminRaw).trim() !== "" &&
+    !isNaN(parseFloat(rminRaw));
+  const hasExplicitMax =
+    rmaxRaw !== undefined &&
+    rmaxRaw !== null &&
+    String(rmaxRaw).trim() !== "" &&
+    !isNaN(parseFloat(rmaxRaw));
 
-    if (passMin && passMax) return "bg-green-600 text-white text-center";
-    return "bg-red-600 text-white text-center";
+  if (hasExplicitMin || hasExplicitMax) {
+    const min = hasExplicitMin ? parseFloat(rminRaw) : -1000;
+    const max = hasExplicitMax ? parseFloat(rmaxRaw) : 1000;
+    const incMin = parseInt(rminIncRaw) === 1;
+    const incMax = parseInt(rmaxIncRaw) === 1;
+
+    let isPass = false;
+    if (incMin && incMax) {
+      isPass = (val === min || val > min) && (val === max || val < max);
+    } else if (incMin && !incMax) {
+      isPass = (val === min || val > min) && val < max;
+    } else if (!incMin && incMax) {
+      isPass = val > min && (val === max || val < max);
+    } else {
+      isPass = val > min && val < max;
+    }
+
+    return isPass
+      ? "bg-[#008d4c] text-white text-center"
+      : "bg-[#ff0000] text-white text-center";
   }
 
-  // 2. Fallback: String Parsing (existing logic)
-  if (!specification) return "";
-  const specStr = String(specification).trim();
-  const maxMatch = specStr.match(/^max\.?\s*([\d.]+)/i);
-  if (maxMatch)
-    return val <= parseFloat(maxMatch[1])
-      ? "bg-green-600 text-white text-center"
-      : "bg-red-600 text-white text-center";
-  const minMatch = specStr.match(/^min\.?\s*([\d.]+)/i);
-  if (minMatch)
-    return val >= parseFloat(minMatch[1])
-      ? "bg-green-600 text-white text-center"
-      : "bg-red-600 text-white text-center";
-  const rangeMatch = specStr.match(/([\d.]+)\s*(?:to|-)\s*([\d.]+)/i);
-  if (rangeMatch) {
-    const lo = parseFloat(rangeMatch[1]),
-      hi = parseFloat(rangeMatch[2]);
-    return val >= lo && val <= hi
-      ? "bg-green-600 text-white text-center"
-      : "bg-red-600 text-white text-center";
+  // 5. Fallback: Parse specification string (e.g. "Max.0 30", "Min.51.0", "10 to 20")
+  if (row.specification) {
+    const specStr = String(row.specification).trim();
+
+    // Check for degrees and minutes format (e.g., "Max.0 30" or "Max. 0 30" -> max 30)
+    const degMinMatch = specStr.match(/^max\.?\s*(\d+)\s+(\d+)/i);
+    if (degMinMatch) {
+      const deg = parseFloat(degMinMatch[1]);
+      const minAngle = parseFloat(degMinMatch[2]);
+      const maxLimit = deg === 0 ? minAngle : deg * 60 + minAngle;
+      return val <= maxLimit
+        ? "bg-[#008d4c] text-white text-center"
+        : "bg-[#ff0000] text-white text-center";
+    }
+
+    // Check for combined "Min X Max Y" format
+    const minMaxMatch = specStr.match(/min\.?\s*([\d.]+).*?max\.?\s*([\d.]+)/i);
+    if (minMaxMatch) {
+      const minVal = parseFloat(minMaxMatch[1]);
+      const maxVal = parseFloat(minMaxMatch[2]);
+      return val >= minVal && val <= maxVal
+        ? "bg-[#008d4c] text-white text-center"
+        : "bg-[#ff0000] text-white text-center";
+    }
+
+    const maxMatch = specStr.match(/^max\.?\s*([\d.]+)/i);
+    if (maxMatch) {
+      return val <= parseFloat(maxMatch[1])
+        ? "bg-[#008d4c] text-white text-center"
+        : "bg-[#ff0000] text-white text-center";
+    }
+
+    const minMatch = specStr.match(/^min\.?\s*([\d.]+)/i);
+    if (minMatch) {
+      return val >= parseFloat(minMatch[1])
+        ? "bg-[#008d4c] text-white text-center"
+        : "bg-[#ff0000] text-white text-center";
+    }
+
+    const rangeMatch = specStr.match(/([\d.]+)\s*(?:to|-)\s*([\d.]+)/i);
+    if (rangeMatch) {
+      const lo = parseFloat(rangeMatch[1]);
+      const hi = parseFloat(rangeMatch[2]);
+      return val >= lo && val <= hi
+        ? "bg-[#008d4c] text-white text-center"
+        : "bg-[#ff0000] text-white text-center";
+    }
   }
+
   return "";
 }
 
@@ -97,46 +184,46 @@ function ReTestButton({ testEventId, onSuccess }) {
     <button
       onClick={handleRequest}
       disabled={loading}
-      className={clsx(
-        "rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700",
-        loading && "cursor-not-allowed opacity-60",
-      )}
-    >
-      {loading ? "..." : "Request Re-test"}
-    </button>
-  );
-}
-ReTestButton.propTypes = {
-  testEventId: PropTypes.any,
-  onSuccess: PropTypes.func,
-};
+        className={clsx(
+          "rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700",
+          loading && "cursor-not-allowed opacity-60",
+        )}
+      >
+        {loading ? "..." : "Request Re-test"}
+      </button>
+    );
+  }
+  ReTestButton.propTypes = {
+    testEventId: PropTypes.any,
+    onSuccess: PropTypes.func,
+  };
 
-// ── Submit HOD Button ──────────────────────────────────────────────────────
-function SubmitHodButton({ tid, partial, onSuccess }) {
-  const [loading, setLoading] = useState(false);
-  const handleSubmit = useCallback(async () => {
-    setLoading(true);
-    try {
-      await axios.post(`/actionitem/submit-hod-request?aid=${tid}`);
-      toast.success(`Submitted for ${partial ? "Partial " : ""}HOD Review ✅`);
-      onSuccess?.();
-    } catch (err) {
-      toast.error(err?.response?.data?.message ?? "Submission failed ❌");
-    } finally {
-      setLoading(false);
-    }
-  }, [tid, partial, onSuccess]);
-  return (
-    <button
-      onClick={handleSubmit}
-      disabled={loading}
-      className={clsx(
-        "rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-green-700",
-        loading && "cursor-not-allowed opacity-60",
-      )}
-    >
-      {loading
-        ? "Submitting..."
+  // ── Submit HOD Button ──────────────────────────────────────────────────────
+  function SubmitHodButton({ tid, partial, onSuccess }) {
+    const [loading, setLoading] = useState(false);
+    const handleSubmit = useCallback(async () => {
+      setLoading(true);
+      try {
+        await axios.post(`/actionitem/submit-hod-request?aid=${tid}`);
+        toast.success(`Submitted for ${partial ? "Partial " : ""}HOD Review ✅`);
+        onSuccess?.();
+      } catch (err) {
+        toast.error(err?.response?.data?.message ?? "Submission failed ❌");
+      } finally {
+        setLoading(false);
+      }
+    }, [tid, partial, onSuccess]);
+    return (
+      <button
+        onClick={handleSubmit}
+        disabled={loading}
+        className={clsx(
+          "rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-green-700",
+          loading && "cursor-not-allowed opacity-60",
+        )}
+      >
+        {loading
+          ? "Submitting..."
         : `Submit For ${partial ? "Partial " : ""}HOD Review`}
     </button>
   );
@@ -314,7 +401,12 @@ export default function DraftReportView() {
 
   const quantitiesStr = received_items.length
     ? received_items
-      .map((q) => `${q.received} ${q.unit ?? ""}`.trim())
+      .map((q) => {
+        if (!q.unit) return String(q.received ?? "");
+        if (q.unit === "NA") return "NA";
+        if (String(q.unit).startsWith(String(q.received))) return q.unit;
+        return `${q.received} ${q.unit}`.trim();
+      })
       .join(", ")
     : null;
 
@@ -340,22 +432,14 @@ export default function DraftReportView() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
+              className="flex items-center justify-center rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-dark-400 dark:hover:text-gray-200"
+              title="Go Back"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="h-4 w-4"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
-                  clipRule="evenodd"
-                />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              Back
             </button>
             <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">
               Final Report
@@ -381,9 +465,12 @@ export default function DraftReportView() {
               {/* NABL / QAI Logo */}
               {(nabl && nabl !== "0" && nabl !== 0) && (
                 <img
-                  src={typeof nabl === "object" ? nabl?.logo : "/images/nabl2348.png"}
+                  src={
+                    (typeof nabl === "object" ? nabl?.logo : null) ||
+                    (Number(nabl) === 3 ? "/images/qai.jpeg" : "/images/nabltest.png")
+                  }
                   alt="Accreditation Logo"
-                  className="h-16 w-auto"
+                  className="h-16 w-auto object-contain"
                 />
               )}
               <h1 className="text-xl font-bold tracking-wide text-gray-900 underline dark:text-gray-100">
@@ -472,7 +559,14 @@ export default function DraftReportView() {
                         className="p-2 text-gray-700 dark:text-gray-300"
                       >
                         Sample Particulars: &nbsp; Grade: {grade} &nbsp;{" "}
-                        {batchNo}
+                        {typeof batchNo === "string" && batchNo.includes("<br/>")
+                          ? batchNo.split("<br/>").map((part, i) => (
+                              <span key={i}>
+                                {i > 0 && <br />}
+                                {part}
+                              </span>
+                            ))
+                          : batchNo}
                       </td>
                     </tr>
                   </tbody>
@@ -527,14 +621,7 @@ export default function DraftReportView() {
                       </tr>
                     ) : (
                       results.map((row, idx) => {
-                        const resCls = resultColorClass(
-                          row.result,
-                          row.specification,
-                          row.rmin,
-                          row.rmax,
-                          row.rmininclude,
-                          row.rmaxinclude
-                        );
+                        const resCls = resultColorClass(row);
 
                         // Result text with NABL prefix
                         let displayResult = row.result ?? "—";
@@ -620,24 +707,31 @@ export default function DraftReportView() {
             {/* ── Signatories ─────────────────────────────────────── */}
             {signatories.length > 0 && (
               <div className="mb-6 flex flex-wrap gap-6">
-                {signatories.map((signer, i) => (
-                  <div key={i} className="min-w-[180px]">
-                    {signer.signed ? (
-                      <img
-                        src={signer.signature_image}
-                        alt={`Signed by ${signer.name}`}
-                        className="h-16 object-contain"
-                      />
-                    ) : (
-                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                        <p>{signer.name}</p>
-                        <p className="font-normal text-gray-500">
-                          {signer.authorize_for}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {signatories.map((signer, i) => {
+                  const signerName =
+                    signer.name ||
+                    `${signer.firstname ?? ""} ${signer.lastname ?? ""}`.trim();
+                  const signerRole =
+                    signer.authorize_for || signer.authorizefor || "";
+                  return (
+                    <div key={i} className="min-w-[180px]">
+                      {signer.signed && signer.signature_image ? (
+                        <img
+                          src={signer.signature_image}
+                          alt={`Signed by ${signerName}`}
+                          className="h-16 object-contain"
+                        />
+                      ) : (
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          <p>{signerName}</p>
+                          <p className="font-normal text-gray-500">
+                            {signerRole}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 

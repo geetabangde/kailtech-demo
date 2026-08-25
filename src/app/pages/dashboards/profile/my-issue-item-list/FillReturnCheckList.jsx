@@ -34,11 +34,20 @@ export default function FillReturnCheckList() {
             // NOTE: Replace these API URLs with the actual ones on your backend.
             const [resChecklist, resInstruments] = await Promise.all([
                 axios.get(`/profile/get-return-checklist/${id}`),
+                axios.get("/testing/get-prodcut-list").catch(() => null) // Added a dummy catch to prevent Promise.all from failing if not needed
             ]);
 
+            console.log("=== RETURN CHECKLIST API RESPONSE ===", resChecklist.data);
+
             if (resChecklist.data?.success || resChecklist.data?.status) {
-                setMatrixList(resChecklist.data.data?.checklist_records || resChecklist.data.matrix || []);
-                setGeneralList(resChecklist.data.data?.general_checklist_records || resChecklist.data.general || []);
+                const matrixData = resChecklist.data.data?.checklist_records || resChecklist.data.matrix || [];
+                const generalData = resChecklist.data.data?.general_checklist_records || resChecklist.data.general || [];
+                
+                console.log("Parsed Matrix List:", matrixData);
+                console.log("Parsed General List:", generalData);
+
+                setMatrixList(matrixData);
+                setGeneralList(generalData);
             } else {
                 toast.error(resChecklist.data?.message || "Failed to load checklists");
             }
@@ -113,19 +122,19 @@ export default function FillReturnCheckList() {
             const payload = {
                 // Checklist Record (Matrix)
                 checklistrecordid: matrixList.map((row) => row.checklistrecordid || row.id || ""),
-                equipformverif: matrixList.map((row) => row.equipformverif || ""),
-                generalcheck: matrixList.map((row) => row.generalcheck || ""),
-                checkpoint: matrixList.map((row) => row.checkpoint || ""),
-                checkpointbeforemoving: matrixList.map((row) => row.checkpointbeforemoving || ""),
-                checkpointaftermoving: matrixList.map((row) => row.checkpointaftermoving || ""),
-                error: matrixList.map((row) => row.error || ""),
-                acceptancelimit: matrixList.map((row) => row.acceptancelimit || ""),
+                equipformverif: matrixList.map((row) => row.selected_equipment || row.equipformverif || ""),
+                generalcheck: matrixList.map((row) => row.general_check || row.generalcheck || ""),
+                checkpoint: matrixList.map((row) => row.check_point || row.checkpoint || ""),
+                checkpointbeforemoving: matrixList.map((row) => row.check_point_before_moving || row.checkpointbeforemoving || ""),
+                checkpointaftermoving: matrixList.map((row) => row.check_point_after_moving || row.checkpointaftermoving || ""),
+                error: matrixList.map((row) => row.deviation || row.error || ""),
+                acceptancelimit: matrixList.map((row) => row.acceptance_limit || row.acceptancelimit || ""),
                 result: matrixList.map((row) => row.result || ""),
-                remark: matrixList.map((row) => row.remark || ""),
-                rremark: matrixList.map((row) => row.rremark || ""),
-                dicipline: matrixList.map((row) => row.dicipline || row.discipline || ""),
-                issueid: matrixList.map((row) => row.issueid || ""),
-                masterid: matrixList.map((row) => row.masterid || ""),
+                remark: matrixList.map((row) => row.remarks || row.remark || ""),
+                rremark: matrixList.map((row) => row.return_remarks || row.rremark || ""),
+                dicipline: matrixList.map((row) => row.discipline_id || row.dicipline || row.discipline || ""),
+                issueid: matrixList.map((row) => row.issue_id || row.issueid || ""),
+                masterid: matrixList.map((row) => row.master_equipment_id || row.masterid || ""),
 
                 // General Checklist Record
                 checklistgeneralrecordid: generalList.map((row) => row.checklistgeneralrecordid || row.id || ""),
@@ -134,9 +143,9 @@ export default function FillReturnCheckList() {
                 remark1: generalList.map((row) => row.remark1 || row.remark || ""),
                 rcondition: generalList.map((row) => row.return_condition || row.rcondition || ""),
                 rremark1: generalList.map((row) => row.return_remarks || row.rremark1 || ""),
-                accessoriesname: generalList.map((row) => row.accessoriesname || ""),
-                issueid1: generalList.map((row) => row.issueid || row.issueid1 || ""),
-                masterid1: generalList.map((row) => row.masterid || row.masterid1 || "")
+                accessoriesname: generalList.map((row) => row.accessoriesname || row.accessories_name || ""),
+                issueid1: generalList.map((row) => row.issue_id || row.issueid || row.issueid1 || ""),
+                masterid1: generalList.map((row) => row.master_equipment_id || row.masterid || row.masterid1 || "")
             };
 
             console.log("Submitting Return Checklist Payload:", payload);
@@ -220,8 +229,8 @@ export default function FillReturnCheckList() {
                                                     <Select
                                                         className="text-xs min-w-[140px]"
                                                         classNamePrefix="react-select"
-                                                        options={instrumentOptions}
-                                                        value={instrumentOptions.find((opt) => opt.value == row.equipformverif) || null}
+                                                        options={row.equipment_options || instrumentOptions}
+                                                        value={(row.equipment_options || instrumentOptions).find((opt) => String(opt.value) === String(row.selected_equipment || row.equipformverif)) || null}
                                                         isDisabled
                                                         menuPortalTarget={document.body}
                                                         styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
@@ -230,24 +239,16 @@ export default function FillReturnCheckList() {
                                                 <Td>
                                                     <input
                                                         type="text"
-                                                        value={row.generalcheck || ""}
+                                                        value={row.general_check || row.generalcheck || ""}
                                                         className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
                                                         readOnly
                                                     />
                                                 </Td>
-                                                <Td>{row.unit_description}</Td>
+                                                <Td>{row.unit || row.unit_description || ""}</Td>
                                                 <Td>
                                                     <input
                                                         type="text"
-                                                        value={row.checkpoint || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.checkpointbeforemoving || ""}
+                                                        value={row.check_point || row.checkpoint || ""}
                                                         className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
                                                         readOnly
                                                     />
@@ -255,17 +256,25 @@ export default function FillReturnCheckList() {
                                                 <Td>
                                                     <input
                                                         type="text"
-                                                        value={row.checkpointaftermoving || ""}
-                                                        onChange={(e) => handleMatrixChange(idx, "checkpointaftermoving", e.target.value)}
+                                                        value={row.check_point_before_moving || row.checkpointbeforemoving || ""}
+                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                        readOnly
+                                                    />
+                                                </Td>
+                                                <Td>
+                                                    <input
+                                                        type="text"
+                                                        value={row.check_point_after_moving || row.checkpointaftermoving || ""}
+                                                        onChange={(e) => handleMatrixChange(idx, "check_point_after_moving", e.target.value)}
                                                         className="form-input text-xs px-2 py-1.5 w-16 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-900"
-                                                        readOnly={row.checkpoint === "NA"}
-                                                        required={row.checkpoint !== "NA"}
+                                                        readOnly={(row.check_point || row.checkpoint) === "NA"}
+                                                        required={(row.check_point || row.checkpoint) !== "NA"}
                                                     />
                                                 </Td>
                                                 <Td>
                                                     <input
                                                         type="text"
-                                                        value={row.error || ""}
+                                                        value={row.deviation || row.error || ""}
                                                         className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
                                                         readOnly
                                                     />
@@ -273,7 +282,7 @@ export default function FillReturnCheckList() {
                                                 <Td>
                                                     <input
                                                         type="text"
-                                                        value={row.acceptancelimit || ""}
+                                                        value={row.acceptance_limit || row.acceptancelimit || ""}
                                                         className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
                                                         readOnly
                                                     />

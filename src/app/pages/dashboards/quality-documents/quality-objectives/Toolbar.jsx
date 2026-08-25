@@ -1,17 +1,18 @@
 // Import Dependencies
 import { PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Input } from "components/ui";
 import { useMemo } from "react";
 
 // ----------------------------------------------------------------------
 
 export function Toolbar({ table }) {
+  const navigate = useNavigate();
   const permissions = useMemo(() => {
     const raw = localStorage.getItem("userPermissions") || "[]";
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(Number) : [];
+      return Array.isArray(parsed) ? parsed.map(Number) : (typeof parsed === "string" ? parsed.split(",").map(Number).filter(n => !isNaN(n)) : []);
     } catch {
       return raw.trim().replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number).filter((n) => !isNaN(n));
     }
@@ -36,8 +37,7 @@ export function Toolbar({ table }) {
         <div className="flex items-center space-x-3">
           {canAdd && (
             <Button
-              as={Link}
-              to="add"
+              onClick={() => navigate("add")}
               variant="flat"
               color="primary"
               className="h-9 px-4 gap-2 shadow-sm"

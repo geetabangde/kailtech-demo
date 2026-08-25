@@ -5201,33 +5201,144 @@ const protectedRoutes = {
               ],
             },
             {
-              path: "hrm",
+              path: "training",
               children: [
                 {
-                  path: "manage-leave-rules",
+                  path: "employees-in-induction",
                   children: [
                     {
                       path: "",
                       lazy: async () => ({
                         Component: (
                           await import(
-                            "app/pages/dashboards/hrm/manage-leave-rules"
+                            "app/pages/dashboards/training/employees-in-induction"
                           )
                         ).default,
                       }),
                     },
                     {
-                      path: "add",
+                      path: "view-joining-form/:id",
                       lazy: async () => ({
                         Component: (
                           await import(
-                            "app/pages/dashboards/hrm/manage-leave-rules/AddLeaveRule"
+                            "app/pages/dashboards/training/employees-in-induction/ViewJoiningForm"
                           )
                         ).default,
                       }),
                     },
                   ],
                 },
+                {
+                  path: "employee-pending-for-training",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/employee-pending-for-training"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "employee-in-training",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/employee-in-training"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "employees-in-training",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/employees-in-training"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "clear-training-status-new",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/clear-training-status-new"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "training-schedule",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/training-schedule"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "retraining-old-employee",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/retraining-old-employee"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "training-results",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/training/training-results"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              path: "hrm",
+              children: [
+
                 {
                   path: "manage-branch",
                   children: [
@@ -5402,41 +5513,6 @@ const protectedRoutes = {
                   ],
                 },
                 {
-                  path: "professional-tax",
-                  children: [
-                    {
-                      path: "",
-                      lazy: async () => ({
-                        Component: (
-                          await import(
-                            "app/pages/dashboards/hrm/professional-tax"
-                          )
-                        ).default,
-                      }),
-                    },
-                    {
-                      path: "add",
-                      lazy: async () => ({
-                        Component: (
-                          await import(
-                            "app/pages/dashboards/hrm/professional-tax/AddProfessionalTax"
-                          )
-                        ).default,
-                      }),
-                    },
-                    {
-                      path: "edit/:id",
-                      lazy: async () => ({
-                        Component: (
-                          await import(
-                            "app/pages/dashboards/hrm/professional-tax/EditProfessionalTax"
-                          )
-                        ).default,
-                      }),
-                    },
-                  ],
-                },
-                {
                   path: "view-all-attendance",
                   lazy: async () => ({
                     Component: (
@@ -5500,41 +5576,6 @@ const protectedRoutes = {
                       }),
                     },
                   ],
-                },
-                {
-                  path: "view-attendance-policies",
-                  children: [
-                    {
-                      path: "",
-                      lazy: async () => ({
-                        Component: (
-                          await import(
-                            "app/pages/dashboards/hrm/view-attendance-policy"
-                          )
-                        ).default,
-                      }),
-                    },
-                    {
-                      path: "add",
-                      lazy: async () => ({
-                        Component: (
-                          await import(
-                            "app/pages/dashboards/hrm/view-attendance-policy/AddAttendancePolicy"
-                          )
-                        ).default,
-                      }),
-                    },
-                  ],
-                },
-                {
-                  path: "add-attendance-policy",
-                  lazy: async () => ({
-                    Component: (
-                      await import(
-                        "app/pages/dashboards/hrm/add-attendance-policy"
-                      )
-                    ).default,
-                  }),
                 },
                 {
                   path: "pending-appraisal-list",
@@ -5605,14 +5646,14 @@ const protectedRoutes = {
                   }),
                 },
                 {
-                  path: "view-offer-letters-list",
+                  path: "joining-letter",
                   children: [
                     {
                       path: "",
                       lazy: async () => ({
                         Component: (
                           await import(
-                            "app/pages/dashboards/hrm/view-offer-letters-list"
+                            "app/pages/dashboards/hrm/joining-letter"
                           )
                         ).default,
                       }),
@@ -5622,7 +5663,7 @@ const protectedRoutes = {
                       lazy: async () => ({
                         Component: (
                           await import(
-                            "app/pages/dashboards/hrm/view-offer-letters-list/AddOfferLetter"
+                            "app/pages/dashboards/hrm/joining-letter/AddJoiningLetter"
                           )
                         ).default,
                       }),
@@ -5632,7 +5673,52 @@ const protectedRoutes = {
                       lazy: async () => ({
                         Component: (
                           await import(
-                            "app/pages/dashboards/hrm/view-offer-letters-list/ViewOfferLetter"
+                            "app/pages/dashboards/hrm/joining-letter/ViewJoiningLetter"
+                          )
+                        ).default,
+                      }),
+                    },
+                  ],
+                },
+                {
+                  path: "view-offer-letter",
+                  children: [
+                    {
+                      path: "",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/hrm/view-offer-letter"
+                          )
+                        ).default,
+                      }),
+                    },
+                    {
+                      path: "add",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/hrm/view-offer-letter/AddOfferLetter"
+                          )
+                        ).default,
+                      }),
+                    },
+                    {
+                      path: "view/:id",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/hrm/view-offer-letter/ViewOfferLetter"
+                          )
+                        ).default,
+                      }),
+                    },
+                    {
+                      path: "view-internship/:id",
+                      lazy: async () => ({
+                        Component: (
+                          await import(
+                            "app/pages/dashboards/hrm/view-offer-letter/ViewIntershipLetter"
                           )
                         ).default,
                       }),

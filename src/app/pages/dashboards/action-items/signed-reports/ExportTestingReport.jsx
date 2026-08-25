@@ -151,8 +151,15 @@ export function extractData(report) {
     return { ...s, displayTitle: title };
   });
 
-  const nablLogo = typeof nablObj === "object" ? nablObj?.logo : null;
-  const isNabl = typeof nablObj === "object" ? Boolean(nablObj?.is_nabl) : false;
+  let nablLogo = null;
+  let isNabl = false;
+  if (typeof nablObj === "object" && nablObj?.is_nabl) {
+    nablLogo = nablObj?.logo || "/images/nabl2348.png";
+    isNabl = true;
+  } else if (typeof nablObj === "object" && nablObj?.is_qai) {
+    nablLogo = "/images/qai.jpeg";
+    isNabl = false;
+  }
 
   return {
     ulr, ktrcRef, displayLRN, receiptDate,
@@ -402,11 +409,11 @@ const S1 = {
     paddingBottom: '8px',
     marginBottom: '2px',
   },
-  logoLeft: { width: '190px', height: '85px', objectFit: 'contain' },
-  logoCenter: { width: '115px', height: '100px', objectFit: 'contain' },
-  logoRight: { width: '230px', height: '120px', objectFit: 'contain' },
+  logoLeft: { width: '180px', height: '70px', objectFit: 'contain' },
+  logoCenter: { width: '115px', height: '90px', objectFit: 'contain' },
+  logoRight: { width: '220px', height: '110px', objectFit: 'contain' },
   // NEW: dedicated LRN row, sits in normal document flow right below the
-  // letterhead logos so it can never overlap the KAILTECH logo image.
+  // letterhead logos so it never overlaps the KAILTECH logo image.
   lrnRow: {
     display: 'flex',
     justifyContent: 'flex-end',
@@ -450,28 +457,28 @@ export function HtmlDocWithLH({ report }) {
           <tr>
             <td style={{ border: 'none', padding: 0 }}>
               {/* ── LETTER HEAD ────────────────────────────────── */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', paddingBottom: '8px', marginBottom: '2px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none', marginBottom: '10px' }}>
                 <tbody>
                   <tr>
-                    <td style={{ width: '33%', textAlign: 'left', verticalAlign: 'middle', border: 'none', padding: 0 }}>
+                    <td style={{ width: '33%', textAlign: 'left', verticalAlign: 'top', border: 'none', padding: 0 }}>
                       <img src={`${window.location.origin}/images/krtc.jpg`} alt="" style={S1.logoLeft} />
                     </td>
-                    <td style={{ width: '33%', textAlign: 'center', verticalAlign: 'middle', border: 'none', padding: 0 }}>
+                    <td style={{ width: '33%', textAlign: 'center', verticalAlign: 'top', border: 'none', padding: 0 }}>
                       {data.nablLogo ? <img src={getPdfImageUrl(data.nablLogo)} alt="" style={S1.logoCenter} /> : <div style={S1.logoCenter} />}
                     </td>
-                    <td style={{ width: '33%', textAlign: 'right', verticalAlign: 'middle', border: 'none', padding: 0 }}>
+                    <td style={{ width: '33%', textAlign: 'right', verticalAlign: 'top', border: 'none', padding: 0 }}>
                       <img src={`${window.location.origin}/images/logo.png`} alt="" style={S1.logoRight} />
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              {/* ── LRN — placed BELOW the letterhead, in normal flow,
-                     so it never overlaps the KAILTECH logo image ── */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '6px', fontSize: '12px', paddingTop: data.isNabl ? '0px' : '35px' }}>
-                <div>
+              {/* ── LRN & QR — placed BELOW the letterhead, in normal flow,
+                     so it never overlaps the KAILTECH or KRTC logo image ── */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '6px', fontSize: '12px', paddingTop: data.isNabl ? '0px' : '25px' }}>
+                <div style={{ paddingBottom: '4px' }}>
                   {data.isNabl && (
-                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: '110px', height: '110px', objectFit: 'contain' }} />
+                    <img src={`${window.location.origin}/images/nabl_qr.png`} alt="NABL QR" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '15px' }}>

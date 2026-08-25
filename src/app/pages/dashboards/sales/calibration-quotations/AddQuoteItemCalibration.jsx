@@ -19,13 +19,26 @@ const COMPANY_STATE_CODE = "23";
 function calcTotals(items, charges, isSgst) {
   const subtotal = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
   const discnumber = parseFloat(charges.discnumber) || 0;
-  const disctype = charges.disctype || "%";
+  const disctype = charges.disctype || "2";
   const discount =
-    disctype === "%" ? (subtotal / 100) * discnumber : discnumber;
-  const freight = parseFloat(charges.freight) || 0;
-  const mobilisation = parseFloat(charges.mobilisation) || 0;
+    disctype === "2" ? (subtotal / 100) * discnumber : discnumber;
+  const freightnumber = parseFloat(charges.freight) || 0;
+  const freighttype = charges.freighttype || "%";
+  const freight = freighttype === "%" ? (subtotal / 100) * freightnumber : freightnumber;
 
-  const subtotal2 = subtotal - discount + freight + mobilisation;
+  const mobilisationnumber = parseFloat(charges.mobilisation) || 0;
+  const mobilisationtype = charges.mobilisationtype || "%";
+  const mobilisation = mobilisationtype === "%" ? (subtotal / 100) * mobilisationnumber : mobilisationnumber;
+
+  const witnessnumber = parseFloat(charges.witness) || 0;
+  const witnesstype = charges.witnesstype || "%";
+  const witness = witnesstype === "%" ? (subtotal / 100) * witnessnumber : witnessnumber;
+
+  const sampleprepnumber = parseFloat(charges.sampleprep) || 0;
+  const samplepreptype = charges.samplepreptype || "%";
+  const sampleprep = samplepreptype === "%" ? (subtotal / 100) * sampleprepnumber : sampleprepnumber;
+
+  const subtotal2 = subtotal - discount + freight + mobilisation + witness + sampleprep;
 
   const cgstper = parseFloat(charges.cgstper) || 0;
   const sgstper = parseFloat(charges.sgstper) || 0;
@@ -47,6 +60,10 @@ function calcTotals(items, charges, isSgst) {
   return {
     subtotal: parseFloat(subtotal.toFixed(2)),
     discount: parseFloat(discount.toFixed(2)),
+    freightamount: parseFloat(freight.toFixed(2)),
+    mobilisationamount: parseFloat(mobilisation.toFixed(2)),
+    witnessamount: parseFloat(witness.toFixed(2)),
+    sampleprepamount: parseFloat(sampleprep.toFixed(2)),
     subtotal2: parseFloat(subtotal2.toFixed(2)),
     cgstamount,
     sgstamount,
@@ -79,9 +96,15 @@ export default function AddQuoteItemCalibration() {
   const [items, setItems] = useState([]);
   const [charges, setCharges] = useState({
     discnumber: 0,
-    disctype: "%",
+    disctype: "2",
     freight: 0,
+    freighttype: "%",
     mobilisation: 0,
+    mobilisationtype: "%",
+    witness: 0,
+    witnesstype: "%",
+    sampleprep: 0,
+    samplepreptype: "%",
     cgstper: 9,
     sgstper: 9,
     igstper: 18,
@@ -134,6 +157,23 @@ export default function AddQuoteItemCalibration() {
             location: item.location || "Lab",
           }))
         );
+
+        // Populate existing charges if they exist in the DB
+        setCharges({
+          discnumber: parseFloat(q.discnumber) || 0,
+          disctype: String(q.disctype || "2"),
+          freight: parseFloat(q.freightnumber || q.freight) || 0,
+          freighttype: q.freighttype || (parseFloat(q.freight) > 0 ? "amount" : "%"),
+          mobilisation: parseFloat(q.mobilisationnumber || q.mobilisation) || 0,
+          mobilisationtype: q.mobilisationtype || (parseFloat(q.mobilisation) > 0 ? "amount" : "%"),
+          witness: parseFloat(q.witnessnumber || q.witness) || 0,
+          witnesstype: q.witnesstype || (parseFloat(q.witness) > 0 ? "amount" : "%"),
+          sampleprep: parseFloat(q.sampleprepnumber || q.sampleprep) || 0,
+          samplepreptype: q.samplepreptype || (parseFloat(q.sampleprep) > 0 ? "amount" : "%"),
+          cgstper: parseFloat(q.cgstper) || 9,
+          sgstper: parseFloat(q.sgstper) || 9,
+          igstper: parseFloat(q.igstper) || 18,
+        });
       }
 
       setInstruments(instRes.data.data || instRes.data || []);
@@ -180,7 +220,7 @@ export default function AddQuoteItemCalibration() {
         location: row.location || instLocation,
       }));
 
-      setItems((prev) => [...prev, ...newItems]);
+      setItems((prev) => [...newItems, ...prev]);
       setSelectedInst("");
     } catch (err) {
       console.error(err);
@@ -219,11 +259,26 @@ export default function AddQuoteItemCalibration() {
         quoteid: Number(id),
         subtotal: totals.subtotal,
         discnumber: parseFloat(charges.discnumber) || 0,
-        disctype: charges.disctype,
+        disctype: Number(charges.disctype),
         discount: totals.discount,
         subtotal2: totals.subtotal2,
-        freight: parseFloat(charges.freight) || 0,
-        mobilisation: parseFloat(charges.mobilisation) || 0,
+
+        freightnumber: parseFloat(charges.freight) || 0,
+        freighttype: charges.freighttype,
+        freight: totals.freightamount,
+
+        mobilisationnumber: parseFloat(charges.mobilisation) || 0,
+        mobilisationtype: charges.mobilisationtype,
+        mobilisation: totals.mobilisationamount,
+
+        witnessnumber: parseFloat(charges.witness) || 0,
+        witnesstype: charges.witnesstype,
+        witness: totals.witnessamount,
+
+        sampleprepnumber: parseFloat(charges.sampleprep) || 0,
+        samplepreptype: charges.samplepreptype,
+        sampleprep: totals.sampleprepamount,
+
         cgstper: isSgst ? parseFloat(charges.cgstper) || 0 : 0,
         cgstamount: totals.cgstamount,
         sgstper: isSgst ? parseFloat(charges.sgstper) || 0 : 0,
@@ -457,29 +512,89 @@ export default function AddQuoteItemCalibration() {
                       onChange={(e) => setCharges(p => ({ ...p, disctype: e.target.value }))}
                       className={`${inputCls} w-24`}
                     >
-                      <option value="%">%</option>
-                      <option value="amount">Amt</option>
+                      <option value="2">%</option>
+                      <option value="1">₹</option>
                     </select>
                   </div>
                 </div>
                 <div>
                   <label className={labelCls}>Mobilisation Charges</label>
-                  <input
-                    type="number"
-                    value={charges.mobilisation}
-                    onChange={(e) => setCharges(p => ({ ...p, mobilisation: e.target.value }))}
-                    className={inputCls}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={charges.mobilisation}
+                      onChange={(e) => setCharges(p => ({ ...p, mobilisation: e.target.value }))}
+                      className={inputCls}
+                    />
+                    <select
+                      value={charges.mobilisationtype}
+                      onChange={(e) => setCharges(p => ({ ...p, mobilisationtype: e.target.value }))}
+                      className={`${inputCls} w-24`}
+                    >
+                      <option value="%">%</option>
+                      <option value="amount">₹</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Freight Charges</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={charges.freight}
+                      onChange={(e) => setCharges(p => ({ ...p, freight: e.target.value }))}
+                      className={inputCls}
+                    />
+                    <select
+                      value={charges.freighttype}
+                      onChange={(e) => setCharges(p => ({ ...p, freighttype: e.target.value }))}
+                      className={`${inputCls} w-24`}
+                    >
+                      <option value="%">%</option>
+                      <option value="amount">₹</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Witness Charges</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={charges.witness}
+                      onChange={(e) => setCharges(p => ({ ...p, witness: e.target.value }))}
+                      className={inputCls}
+                    />
+                    <select
+                      value={charges.witnesstype}
+                      onChange={(e) => setCharges(p => ({ ...p, witnesstype: e.target.value }))}
+                      className={`${inputCls} w-24`}
+                    >
+                      <option value="%">%</option>
+                      <option value="amount">₹</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Freight Charges</label>
-                <input
-                  type="number"
-                  value={charges.freight}
-                  onChange={(e) => setCharges(p => ({ ...p, freight: e.target.value }))}
-                  className={inputCls}
-                />
+                <label className={labelCls}>Sample Preparation Charges</label>
+                <div className="flex gap-2 w-1/2 pr-2">
+                  <input
+                    type="number"
+                    value={charges.sampleprep}
+                    onChange={(e) => setCharges(p => ({ ...p, sampleprep: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <select
+                    value={charges.samplepreptype}
+                    onChange={(e) => setCharges(p => ({ ...p, samplepreptype: e.target.value }))}
+                    className={`${inputCls} w-24`}
+                  >
+                    <option value="%">%</option>
+                    <option value="amount">₹</option>
+                  </select>
+                </div>
               </div>
 
               <div className="pt-4 border-t dark:border-dark-600">
@@ -535,11 +650,19 @@ export default function AddQuoteItemCalibration() {
               </div>
               <div className="flex justify-between text-gray-600 dark:text-dark-300">
                 <span>Mobilisation & Demobilisation</span>
-                <span className="font-medium">₹ {Number(charges.mobilisation || 0).toLocaleString()}</span>
+                <span className="font-medium">₹ {totals.mobilisationamount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-gray-600 dark:text-dark-300">
                 <span>Freight Charges</span>
-                <span className="font-medium">₹ {Number(charges.freight || 0).toLocaleString()}</span>
+                <span className="font-medium">₹ {totals.freightamount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-gray-600 dark:text-dark-300">
+                <span>Witness Charges</span>
+                <span className="font-medium">₹ {totals.witnessamount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-gray-600 dark:text-dark-300">
+                <span>Sample Preparation Charges</span>
+                <span className="font-medium">₹ {totals.sampleprepamount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between border-t border-gray-200 dark:border-dark-600 pt-2 font-semibold text-gray-800 dark:text-dark-100">
                 <span>Total</span>

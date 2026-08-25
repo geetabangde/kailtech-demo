@@ -71,6 +71,8 @@ export const columns = [
             {isInternal ? (
               <Link
                 to={targetLink}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-red-500 hover:text-red-700 text-sm mt-1"
               >
                 {issueDetails.code}

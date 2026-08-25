@@ -26,6 +26,7 @@ import { columns } from "./columns.jsx";
 import { PaginationSection } from "components/shared/table/PaginationSection";
 import { SelectedRowsActions } from "./SelectedRowsActions";
 import { useThemeContext } from "app/contexts/theme/context";
+import { useAuthContext } from "app/contexts/auth/context";
 import { getUserAgentBrowser } from "utils/dom/getUserAgentBrowser";
 
 // ----------------------------------------------------------------------
@@ -133,6 +134,8 @@ export default function AcceptSample() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const { finfromdate, fintodate } = useAuthContext();
+
   // ── Fetch table data ──────────────────────────────────────────────────────
   const fetchProducts = useCallback(async () => {
     try {
@@ -141,6 +144,9 @@ export default function AcceptSample() {
       if (ctype) params.append("ctype", ctype);
       if (specificpurpose) params.append("specificpurpose", specificpurpose);
       if (department) params.append("department", department);
+
+      if (finfromdate) params.append("startdate", `${finfromdate} 00:00:00`);
+      if (fintodate) params.append("enddate", `${fintodate} 23:59:59`);
 
       const response = await axios.get(
         `/actionitem/get-accept-sample?${params.toString()}`
@@ -159,7 +165,7 @@ export default function AcceptSample() {
     } finally {
       setLoading(false);
     }
-  }, [ctype, specificpurpose, department]);
+  }, [ctype, specificpurpose, department, finfromdate, fintodate]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 

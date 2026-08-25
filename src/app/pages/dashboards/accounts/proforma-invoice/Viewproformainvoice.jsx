@@ -378,13 +378,6 @@ function InvoicePrintContent({
                   </tr>
                 </thead>
                 <tbody>
-                  {/* PHP: Note row */}
-                  <tr>
-                    <td colSpan={5} style={{ border, padding: cellPad, fontSize: 12 }}>
-                      <b>Note:</b> This is a proforma invoice and is not valid for GST
-                      related matters.
-                    </td>
-                  </tr>
                   {items.map((item, i) => (
                     <tr key={i}>
                       <td style={{ border, padding: cellPad, textAlign: "center" }}>
@@ -420,6 +413,13 @@ function InvoicePrintContent({
               {/* ── PHP: Footer table — company info left, totals right ── */}
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
+                  {/* PHP: Note row */}
+                  <tr>
+                    <td colSpan={2} style={{ border, padding: cellPad, fontSize: 12 }}>
+                      <b>Note:</b> This is a proforma invoice and is not valid for GST
+                      related matters.
+                    </td>
+                  </tr>
                   <tr>
                     {/* Company info — PHP: col-xs-2 side */}
                     <td

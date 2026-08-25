@@ -288,18 +288,36 @@ export default function ViewQuotation() {
                 </tr>
                 {parseFloat(amounts.discount || 0) > 0 && (
                   <tr style={{ fontSize: 12 }}>
-                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Discount</td>
+                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>
+                      Discount {amounts.discnumber ? `(${amounts.discnumber}${amounts.disctype === '%' || amounts.disctype == '2' || amounts.disctype === 2 ? '%' : ' ₹'})` : ''}
+                    </td>
                     <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.discount).toLocaleString()}</td>
                   </tr>
                 )}
-                <tr style={{ fontSize: 12 }}>
-                  <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Mobilization & Demobilization Charges</td>
-                  <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.mobilisation || 0).toLocaleString()}</td>
-                </tr>
-                <tr style={{ fontSize: 12 }}>
-                  <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Freight Charges</td>
-                  <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.freight || 0).toLocaleString()}</td>
-                </tr>
+                {parseFloat(amounts.mobilisation || 0) > 0 && (
+                  <tr style={{ fontSize: 12 }}>
+                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Mobilization & Demobilization Charges</td>
+                    <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.mobilisation).toLocaleString()}</td>
+                  </tr>
+                )}
+                {parseFloat(amounts.freight || 0) > 0 && (
+                  <tr style={{ fontSize: 12 }}>
+                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Freight Charges</td>
+                    <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.freight).toLocaleString()}</td>
+                  </tr>
+                )}
+                {parseFloat(amounts.witness || 0) > 0 && (
+                  <tr style={{ fontSize: 12 }}>
+                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Witness Charges</td>
+                    <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.witness).toLocaleString()}</td>
+                  </tr>
+                )}
+                {parseFloat(amounts.sampleprep || 0) > 0 && (
+                  <tr style={{ fontSize: 12 }}>
+                    <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Sample Preparation Charges</td>
+                    <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.sampleprep).toLocaleString()}</td>
+                  </tr>
+                )}
                 <tr style={{ fontSize: 12, background: "#fdfdfd" }}>
                   <td colSpan={7} style={{ borderRight: border, borderBottom: border, padding: cellPad, textAlign: "right", fontWeight: "bold" }}>Subtotal 2</td>
                   <td style={{ borderBottom: border, padding: cellPad, textAlign: "right" }}>{parseFloat(amounts.subtotal2 || 0).toLocaleString()}</td>
