@@ -19,18 +19,20 @@ export default function ExportEquimentRegister() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const category = urlParams.get('category') || "";
-    
+
     let department = urlParams.getAll('department[]');
     if (department.length === 0) {
       const depString = urlParams.get('department');
       if (depString) {
-          department = depString.split(',');
+        department = depString.split(',');
       } else {
-          department = urlParams.getAll('department');
+        department = urlParams.getAll('department');
       }
     }
-    
-    const newFilters = { category, department };
+
+    const ids = urlParams.get('ids') || "";
+
+    const newFilters = { category, department, ids };
     setFilters(newFilters);
     fetchData(newFilters);
   }, []);
@@ -49,13 +51,19 @@ export default function ExportEquimentRegister() {
           params.append('department[]', dept);
         });
       }
-      
+
       const res = await axios.get("/register/equipment-list-register", { params });
 
       if (res.data?.data) {
         let rows = res.data.data;
+
+        if (filterParams.ids) {
+          const idList = filterParams.ids.split(',');
+          rows = rows.filter(row => idList.includes(String(row.equipment_id)));
+        }
+
         const processedData = rows.map((row, index) => ({
-          sno: row.sr_no || index + 1,
+          sno: index + 1,
           name: row.equipment_name || "",
           equipment_id: row.equipment_id || "",
           make: row.make || "",
@@ -69,7 +77,7 @@ export default function ExportEquimentRegister() {
           calibration_due_date: row.calibration_due_date || "",
           calibrated_by: row.calibrated_by || "",
         }));
-        
+
         setData(processedData);
       } else {
         setData([]);
@@ -85,8 +93,8 @@ export default function ExportEquimentRegister() {
   const formatDateStr = (dateString) => {
     if (!dateString || dateString.includes("0000-00") || dateString.includes("1970")) return "";
     const parts = dateString.split('-');
-    if(parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    if (parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return dateString;
   };
@@ -98,7 +106,7 @@ export default function ExportEquimentRegister() {
       logoEl.src = logoImg;
       await new Promise((resolve) => {
         logoEl.onload = resolve;
-        logoEl.onerror = resolve; 
+        logoEl.onerror = resolve;
       });
       const doc = new jsPDF({
         orientation: "landscape",
@@ -141,69 +149,16 @@ export default function ExportEquimentRegister() {
         row.calibrated_by
       ]);
 
-      // Add header using AutoTable to maintain layout and borders
-      autoTable(doc, {
-        theme: 'plain',
-        startY: 10,
-        margin: { left: 10, right: 10 },
-        styles: { 
-            fontSize: 10, 
-            textColor: 0, 
-            lineColor: [0, 0, 0], 
-            lineWidth: 0.2, 
-            valign: 'middle' 
-        },
-        columnStyles: {
-            0: { cellWidth: 60, halign: 'center' },
-            1: { halign: 'center', fontSize: 12, fontStyle: 'bold' },
-            2: { cellWidth: 35, halign: 'left', fontStyle: 'bold' },
-            3: { cellWidth: 40, halign: 'left' }
-        },
-        didDrawCell: function (data) {
-           if (data.section === 'body' && data.column.index === 0 && data.row.index === 0) {
-              const cellWidth = data.cell.width;
-              const imgWidth = 40; // 40mm
-              if (logoEl.width > 0) {
-                 const imgHeight = (logoEl.height * imgWidth) / logoEl.width;
-                 const xPos = data.cell.x + (cellWidth - imgWidth) / 2;
-                 const yPos = data.cell.y + 2; 
-                 doc.addImage(logoEl, 'JPEG', xPos, yPos, imgWidth, imgHeight);
-              }
-           }
-        },
-        body: [
-            [
-                { content: companyName, rowSpan: 6, styles: { fontStyle: 'bold', halign: 'center', valign: 'bottom' } }, 
-                { content: "Equipment list", rowSpan: 6 },
-                { content: "QF. No. " },
-                { content: qfNo }
-            ],
-            [ { content: "Issue No. " }, { content: "01" } ],
-            [ { content: "Issue Date " }, { content: "01/06/2019" } ],
-            [ { content: "Revision No. " }, { content: "01" } ],
-            [ { content: "Revision Date" }, { content: "20/08/2021" } ],
-            [ { content: "Page" }, { content: "" } ] 
-        ],
-      });
-
-      // Updated On row
       const today = new Date();
       const updatedOn = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-      
-      let finalY = doc.lastAutoTable.finalY + 5;
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Updated On:- ${updatedOn}`, doc.internal.pageSize.width - 15, finalY, { align: "right" });
-
-      finalY += 3;
 
       // Add Equipment Table
       autoTable(doc, {
         head: [tableHeaders],
         body: tableData,
-        startY: finalY,
+        startY: 61,
         theme: 'grid',
-        margin: { left: 10, right: 10, bottom: 40 }, // leave space for footer
+        margin: { top: 61, left: 10, right: 10, bottom: 35 },
         styles: {
           fontSize: 8,
           textColor: 0,
@@ -231,34 +186,93 @@ export default function ExportEquimentRegister() {
           11: { cellWidth: 22, halign: 'center' }, // Due Date
           12: { cellWidth: 'auto' }, // Calibrated by
         },
-        didDrawPage: function () {
-           const footerY = doc.internal.pageSize.height - 30;
-           doc.setFontSize(9);
-           doc.setFont("helvetica", "normal");
-           
-           const x1 = 15;
-           const x2 = doc.internal.pageSize.width / 2;
-           const x3 = doc.internal.pageSize.width - 40;
-
-           doc.text("Prepared by", x1, footerY);
-           doc.text("Sr. Engineer", x1, footerY + 5);
-           doc.text("Name:", x1, footerY + 10);
-           doc.text("Sign:", x1, footerY + 15);
-
-           doc.text("Reviewed by", x2, footerY, { align: 'center' });
-           doc.text("DTM", x2, footerY + 5, { align: 'center' });
-           doc.text("Name:", x2 - 10, footerY + 10, { align: 'left' });
-           doc.text("Sign:", x2 - 10, footerY + 15, { align: 'left' });
-
-           doc.text("Approved by", x3, footerY);
-           doc.text("TM", x3, footerY + 5);
-           doc.text("Name:", x3, footerY + 10);
-           doc.text("Sign:", x3, footerY + 15);
-        }
       });
 
+      const totalPages = doc.internal.getNumberOfPages();
+
+      // Render Header and Footer on every page
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+
+        // Header Table
+        autoTable(doc, {
+          theme: 'plain',
+          startY: 10,
+          margin: { left: 10, right: 10 },
+          styles: {
+            fontSize: 9,
+            textColor: 0,
+            lineColor: [0, 0, 0],
+            lineWidth: 0.2,
+            valign: 'middle',
+            cellPadding: 1.5,
+          },
+          columnStyles: {
+            0: { cellWidth: 60, halign: 'center' },
+            1: { halign: 'center', fontSize: 11, fontStyle: 'bold' },
+            2: { cellWidth: 35, halign: 'left', fontStyle: 'bold' },
+            3: { cellWidth: 40, halign: 'left' }
+          },
+          didDrawCell: function (cellData) {
+            if (cellData.section === 'body' && cellData.column.index === 0 && cellData.row.index === 0) {
+              const cellWidth = cellData.cell.width;
+              const imgWidth = 40; // 40mm
+              if (logoEl.width > 0) {
+                const imgHeight = (logoEl.height * imgWidth) / logoEl.width;
+                const xPos = cellData.cell.x + (cellWidth - imgWidth) / 2;
+                const yPos = cellData.cell.y + 2;
+                doc.addImage(logoEl, 'JPEG', xPos, yPos, imgWidth, imgHeight);
+              }
+            }
+          },
+          body: [
+            [
+              { content: companyName, rowSpan: 6, styles: { fontStyle: 'bold', halign: 'center', valign: 'bottom' } },
+              { content: "Equipment list", rowSpan: 6 },
+              { content: "QF. No. " },
+              { content: qfNo }
+            ],
+            [{ content: "Issue No. " }, { content: "01" }],
+            [{ content: "Issue Date " }, { content: "01/06/2019" }],
+            [{ content: "Revision No. " }, { content: "01" }],
+            [{ content: "Revision Date" }, { content: "20/08/2021" }],
+            [{ content: "Page" }, { content: `${i} of ${totalPages}` }]
+          ],
+        });
+
+        // Updated On line between header and table
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Updated On:- ${updatedOn}`, doc.internal.pageSize.width - 10, 55, { align: "right" });
+
+        // Footer Signatures
+        const footerY = doc.internal.pageSize.height - 25;
+        const pageWidth = doc.internal.pageSize.width;
+        const x1 = 15;
+        const x2 = pageWidth / 2 - 20;
+        const x3 = pageWidth - 60;
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+
+        doc.text("Prepared by", x1, footerY, { align: "left" });
+        doc.text("Sr. Engineer", x1, footerY + 5, { align: "left" });
+        doc.text("Name:", x1, footerY + 10, { align: "left" });
+        doc.text("Sign:", x1, footerY + 15, { align: "left" });
+
+        doc.text("Reviewed by", x2, footerY, { align: "left" });
+        doc.text("DTM", x2, footerY + 5, { align: "left" });
+        doc.text("Name:", x2, footerY + 10, { align: "left" });
+        doc.text("Sign:", x2, footerY + 15, { align: "left" });
+
+        doc.text("Approved by", x3, footerY, { align: "left" });
+        doc.text("TM", x3, footerY + 5, { align: "left" });
+        doc.text("Name:", x3, footerY + 10, { align: "left" });
+        doc.text("Sign:", x3, footerY + 15, { align: "left" });
+      }
+
       doc.save(`equipmentlist_${today.toISOString().split('T')[0]}.pdf`);
-      
+
     } catch (err) {
       console.error("Error generating PDF:", err);
       toast.error("Failed to generate PDF");

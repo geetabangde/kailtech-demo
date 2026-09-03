@@ -117,7 +117,7 @@ export default function EquipmentList() {
       // Map JSON response object properties to columns
       rows = rows.map((row, index) => {
         const code = (row.equipment_id || "").split('/')[0].trim();
-        const matchedInst = currentInstList.find(item => 
+        const matchedInst = currentInstList.find(item =>
           (item.idno && String(item.idno).trim() === code) ||
           (item.newidno && String(item.newidno).trim() === code) ||
           (item.instrument_id && String(item.instrument_id).trim() === code) ||
@@ -140,11 +140,11 @@ export default function EquipmentList() {
           last_calibration_date: row.last_calibration_date || "",
           calibration_due_date: row.calibration_due_date || "",
           calibrated_by: row.calibrated_by || "",
-          id: dbId || row.id || row.instrument_id || "",
+          id: row.id || dbId || row.instrument_id || "",
           labId: row.department || row.labid || row.instrumentlocation || matchedInst?.instrumentlocation || matchedInst?.department || filters.department?.[0] || "",
         };
       });
-      
+
       console.log("Mapped equipment data:", rows);
       setTableData(rows);
     } catch (err) {
@@ -159,19 +159,7 @@ export default function EquipmentList() {
     fetchEquipmentData();
   };
 
-  const handleExport = (e) => {
-    e?.preventDefault?.();
-    const params = new URLSearchParams();
-    if (filters.category) {
-      params.append('category', filters.category);
-    }
-    if (filters.department && filters.department.length > 0) {
-      filters.department.forEach(dept => {
-        params.append('department[]', dept);
-      });
-    }
-    navigate(`export?${params.toString()}`);
-  };
+
 
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -223,6 +211,27 @@ export default function EquipmentList() {
     onColumnPinningChange: setColumnPinning,
     autoResetPageIndex,
   });
+
+  const handleExport = (e) => {
+    e?.preventDefault?.();
+    const params = new URLSearchParams();
+    if (filters.category) {
+      params.append('category', filters.category);
+    }
+    if (filters.department && filters.department.length > 0) {
+      filters.department.forEach(dept => {
+        params.append('department[]', dept);
+      });
+    }
+
+    const selectedRows = table.getSelectedRowModel().rows;
+    if (selectedRows.length > 0) {
+      const selectedIds = selectedRows.map(row => row.original.equipment_id);
+      params.append('ids', selectedIds.join(','));
+    }
+
+    navigate(`export?${params.toString()}`);
+  };
 
   useDidUpdate(() => table.resetRowSelection(), [tableData]);
   useLockScrollbar(tableSettings.enableFullScreen);

@@ -68,7 +68,7 @@ export const columns = [
     header: "Status",
     cell: (info) => {
       const status = String(info.getValue() || "").toLowerCase();
-      
+
       if (status.includes("accept") || status.includes("active") || status.includes("joined") || status === "1" || status === "approved") {
         return (
           <Badge className="rounded-full" color="success" variant="soft">

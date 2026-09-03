@@ -4,6 +4,28 @@ import { createColumnHelper } from "@tanstack/react-table";
 // Local Imports
 import { RowActions } from "./RowActions";
 
+export const parseDateToTime = (dateStr) => {
+  if (!dateStr) return 0;
+  if (typeof dateStr !== "string") return new Date(dateStr).getTime() || 0;
+
+  const trimmed = dateStr.trim();
+  const match = trimmed.match(
+    /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/
+  );
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const year = parseInt(match[3], 10);
+    const hour = match[4] ? parseInt(match[4], 10) : 0;
+    const min = match[5] ? parseInt(match[5], 10) : 0;
+    const sec = match[6] ? parseInt(match[6], 10) : 0;
+    return new Date(year, month, day, hour, min, sec).getTime() || 0;
+  }
+
+  const parsed = new Date(trimmed).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 const columnHelper = createColumnHelper();
 export const columns = [
   // Sr. No
@@ -35,6 +57,11 @@ export const columns = [
     size: 100,
     cell: (info) => info.getValue() ?? "—",
     filterFn: "includesString",
+    sortingFn: (rowA, rowB, columnId) => {
+      const timeA = parseDateToTime(rowA.getValue(columnId));
+      const timeB = parseDateToTime(rowB.getValue(columnId));
+      return timeA - timeB;
+    },
   }),
 
   // Product

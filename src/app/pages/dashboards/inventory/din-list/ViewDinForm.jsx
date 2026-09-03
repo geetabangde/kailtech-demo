@@ -5,6 +5,16 @@ import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 import { Page } from "components/shared/Page";
 import { Button } from "components/ui";
+import appLogo from "assets/logo.png";
+import { IMAGE_HOST_API } from "configs/auth.config";
+
+const getLogoUrl = (logoPath) => {
+  if (!logoPath) return appLogo;
+  if (logoPath.startsWith("http://") || logoPath.startsWith("https://")) {
+    return logoPath.replace(/https?:\/\/lims?\.kailtech\.in/i, IMAGE_HOST_API);
+  }
+  return `${IMAGE_HOST_API}/${logoPath.replace(/^\//, "")}`;
+};
 
 export default function ViewDinForm() {
   const [searchParams] = useSearchParams();
@@ -92,9 +102,47 @@ export default function ViewDinForm() {
 
   const statusInt = parseInt(dinDetails.status);
 
-  // Logic gates matching PHP
-  const isStandardTable = purposeId ? [1, 2, 3, 4, 5, 11].includes(purposeId) : true; // Fallback to standard if purpose not found
-  const showIdNumber = purposeId !== 11;
+  // Purpose ID detection: check direct purpose ID keys first, then match name from dependencies
+  const currentPurposeId = Number(
+    dinDetails.purpose_id ||
+    dinDetails.purpose ||
+    dinDetails.dispatch_purpose_id ||
+    purposeId
+  );
+
+  const purposeName = (dinDetails.dispatch_purpose || "").toLowerCase().trim();
+
+  // Known Courier / Sample / Inward Purposes (Purposes 6, 7, 8, 9, 10 in PHP: After Calibration, Sample Return, etc.)
+  const isExplicitCourierName = [
+    "after calibration",
+    "sample dispatch",
+    "customer instrument return",
+    "remnant",
+    "trf",
+    "courier",
+    "outward",
+    "inward"
+  ].some((name) => purposeName.includes(name));
+
+  // Check if items have TRF/Inward structure characteristic of Courier Table (Table 2)
+  const hasCourierItems = items.some(
+    (item) => Boolean(item.trfitemid || item.inwarditemid || (item.brn && (item.certificate || item.instrument)))
+  );
+
+  // Logic gates matching PHP:
+  // Standard format if purpose is in [1, 2, 3, 4, 5, 11]
+  const isStandardTable = dinDetails.is_standard_format !== undefined
+    ? Boolean(dinDetails.is_standard_format)
+    : currentPurposeId
+      ? [1, 2, 3, 4, 5, 11].includes(currentPurposeId)
+      : isExplicitCourierName || hasCourierItems
+        ? false
+        : true;
+
+  // ID Number is shown for all standard tables EXCEPT purpose 11 (General Challan)
+  const showIdNumber = currentPurposeId
+    ? currentPurposeId !== 11
+    : !purposeName.includes("general") && !purposeName.includes("custom");
 
   let watermarkText = "";
   if (statusInt === 99) watermarkText = "REJECTED";
@@ -105,7 +153,7 @@ export default function ViewDinForm() {
     if (!dateStr) return "";
     if (dateStr.includes("/")) return dateStr;
     return dayjs(dateStr).format("DD/MM/YYYY");
-  }
+  };
 
   return (
     <Page title="View DIN Form">
@@ -156,6 +204,7 @@ export default function ViewDinForm() {
             #printable-challan table th,
             #printable-challan table td {
               padding: 6px !important;
+              background-color: transparent !important;
             }
             #printable-challan .mb-8 {
               margin-bottom: 12px !important;
@@ -202,17 +251,23 @@ export default function ViewDinForm() {
 
           <div className="relative z-10">
             {/* Challan Title */}
-            <h2 className="text-sm font-bold uppercase mb-2 text-left tracking-wide">
-              {(dinDetails.challan_title || dinDetails.basis + " CHALLAN")}
+            <h2 className="text-sm font-semibold text-gray-900 uppercase mb-2 text-left tracking-wide">
+              {(dinDetails.challan_title || (dinDetails.basis ? `${dinDetails.basis} CHALLAN` : "CHALLAN"))}
             </h2>
 
             {/* Header / Kailtech Info */}
             <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6 text-sm">
               {/* Logo */}
               <div className="w-48 shrink-0">
-                {companyInfo?.branding?.logo && (
-                  <img src={companyInfo.branding.logo} alt="Company Logo" className="w-40 object-contain" />
-                )}
+                <img
+                  src={getLogoUrl(companyInfo?.branding?.logo)}
+                  alt="Company Logo"
+                  className="w-40 object-contain"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = appLogo;
+                  }}
+                />
               </div>
 
               {/* Center Company Info */}
@@ -233,7 +288,7 @@ export default function ViewDinForm() {
 
               {/* Right Challan Info */}
               <div className="w-48 shrink-0 text-right text-xs">
-                <div>{companyInfo?.company?.gst_no}</div>
+                <div>{companyInfo?.company?.gst_no || dinDetails.company_gst_no}</div>
                 <div>Challan no. {dinDetails.challan_no}</div>
               </div>
             </div>
@@ -242,70 +297,85 @@ export default function ViewDinForm() {
             <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-8 text-sm">
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Customer:</span>
-                <span>{dinDetails.customer_name}</span>
+                <span>{dinDetails.customer_name || "-"}</span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Customer Address:</span>
-                <span>{dinDetails.customer_address}<br />{dinDetails.gst_no}</span>
+                <span>{dinDetails.customer_address || "-"}<br />{dinDetails.gst_no ? `GST. No: ${dinDetails.gst_no}` : ""}</span>
               </div>
 
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Concern Person name:</span>
-                <span>{dinDetails.concern_person}</span>
+                <span>{dinDetails.concern_person || "-"}</span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Concern Person Designation:</span>
-                <span>{dinDetails.concern_person_designation}</span>
+                <span>{dinDetails.concern_person_designation || "-"}</span>
               </div>
 
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Concern person email:</span>
-                <span>{dinDetails.concern_person_email}</span>
+                <span className="flex-1 min-w-0">
+                  {dinDetails.concern_person_email
+                    ? (() => {
+                        const emails = dinDetails.concern_person_email
+                          .split(",")
+                          .map((email) => email.trim())
+                          .filter(Boolean);
+                        return emails.map((email, idx) => (
+                          <div key={idx} className="break-all">
+                            {email}
+                            {idx < emails.length - 1 ? "," : ""}
+                          </div>
+                        ));
+                      })()
+                    : "-"}
+                </span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Concern person mobile:</span>
-                <span>{dinDetails.concern_person_phone}</span>
+                <span>{dinDetails.concern_person_phone || "-"}</span>
               </div>
 
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Dispatch Purpose:</span>
-                <span>{dinDetails.dispatch_purpose}</span>
+                <span>{dinDetails.dispatch_purpose || "-"}</span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Responsible person:</span>
-                <span>{dinDetails.responsible_person}</span>
+                <span>{dinDetails.responsible_person || "-"}</span>
               </div>
 
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Dispatch Date:</span>
-                <span>{safeDate(dinDetails.dispatch_date)}</span>
+                <span>{safeDate(dinDetails.dispatch_date) || "-"}</span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Dispatch Through:</span>
                 <span>
-                  {dinDetails.dispatch_through === "By Courier" && dinDetails.courier_no
-                    ? `By Courier (${dinDetails.courier_no})`
-                    : dinDetails.dispatch_through === "By Customer Person" && dinDetails.consign_name
-                      ? `By Customer Person (${dinDetails.consign_name} - ${dinDetails.consign_phone})`
-                      : dinDetails.dispatch_through === "By Employee" && dinDetails.employee_name
-                        ? `By Employee (${dinDetails.employee_name})`
-                        : dinDetails.dispatch_through || "N/A"
-                  }
+                  <div>{dinDetails.dispatch_through || "N/A"}</div>
+                  {dinDetails.employee_name && <div>{dinDetails.employee_name}</div>}
+                  {dinDetails.consign_name && (
+                    <div>
+                      {dinDetails.consign_name} {dinDetails.consign_phone ? `Ph. ${dinDetails.consign_phone}` : ""}
+                    </div>
+                  )}
+                  {dinDetails.courier_no && <div>{dinDetails.courier_no}</div>}
                 </span>
               </div>
 
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Dispatch Detail:</span>
-                <span>{dinDetails.dispatch_detail}</span>
+                <span>{dinDetails.dispatch_detail || "-"}</span>
               </div>
               <div className="flex">
                 <span className="font-bold w-40 shrink-0">Dispatched By:</span>
-                <span>{dinDetails.dispatched_by}</span>
+                <span>{dinDetails.dispatched_by || "-"}</span>
               </div>
             </div>
 
             {/* Conditional Tables based on Purpose */}
-            <div className="mb-8">
+            <div className="mb-8 overflow-x-auto">
               {isStandardTable ? (
                 <table className="w-full border-collapse border border-gray-300 text-sm text-left">
                   <thead>
@@ -320,31 +390,41 @@ export default function ViewDinForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, index) => (
-                      <tr key={index}>
-                        <td className="border border-gray-300 p-2">{index + 1}</td>
-                        {showIdNumber && <td className="border border-gray-300 p-2">{item.newidno || item.idno}</td>}
-                        <td className="border border-gray-300 p-2">{item.serialno}</td>
-                        <td className="border border-gray-300 p-2">
-                          {item.instrument_name || item.name}
-                          {item.brn && (
-                            <>
-                              <br />
-                              <b>BRN:</b> {item.brn}
-                            </>
+                    {items.length > 0 ? (
+                      items.map((item, index) => (
+                        <tr key={index}>
+                          <td className="border border-gray-300 p-2">{index + 1}</td>
+                          {showIdNumber && (
+                            <td className="border border-gray-300 p-2">{item.newidno || item.idno || item.instrument_id_no || "-"}</td>
                           )}
+                          <td className="border border-gray-300 p-2">{item.serialno || item.serial_no || "-"}</td>
+                          <td className="border border-gray-300 p-2">
+                            {item.instrument_name || item.name || item.item_name || "-"}
+                          </td>
+                          <td className="border border-gray-300 p-2">{item.description || "-"}</td>
+                          <td className="border border-gray-300 p-2">{item.remark || "-"}</td>
+                          <td className="border border-gray-300 p-2">
+                            {item.qty} {showIdNumber ? (item.unit_name || item.unit_description || item.unit || "") : ""}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={showIdNumber ? 7 : 6} className="border border-gray-300 p-4 text-center text-gray-500">
+                          No items found.
                         </td>
-                        <td className="border border-gray-300 p-2">{item.description}</td>
-                        <td className="border border-gray-300 p-2">{item.remark}</td>
-                        <td className="border border-gray-300 p-2">{item.qty} {item.unit_name}</td>
                       </tr>
-                    ))}
-                    <tr>
-                      <td colSpan={showIdNumber ? 6 : 5} className="border border-gray-300 p-2 font-bold text-right">Total</td>
-                      <td className="border border-gray-300 p-2 font-bold">
-                        {items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0)}
-                      </td>
-                    </tr>
+                    )}
+                    {items.length > 0 && (
+                      <tr>
+                        <td colSpan={showIdNumber ? 6 : 5} className="border border-gray-300 p-2 font-bold text-right">
+                          Total
+                        </td>
+                        <td className="border border-gray-300 p-2 font-bold">
+                          {items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0)}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               ) : (
@@ -359,23 +439,48 @@ export default function ViewDinForm() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, index) => (
-                      <tr key={index}>
-                        <td className="border border-gray-300 p-2">{index + 1}</td>
-                        <td className="border border-gray-300 p-2">
-                          {(item.instrument_name || item.name)} {(item.newidno || item.idno)}. <b>BRN:</b> {item.brn}
+                    {items.length > 0 ? (
+                      items.map((item, index) => {
+                        const itemName = [item.instrument_name || item.name || item.item_name, item.newidno || item.idno]
+                          .filter(Boolean)
+                          .join(" ");
+
+                        // Form items attached string matching PHP's TRF package quantity & document flags
+                        const attachedDetails = [
+                          item.received_items || item.package_details || item.items_attached || (item.instrument === "Yes" ? "Instrument" : ""),
+                          item.certificate === "Yes" || item.certificate === 1 ? "Certificate" : "",
+                          item.invoice === "Yes" || item.invoice === 1 ? "Invoice" : ""
+                        ]
+                          .filter(Boolean)
+                          .join(", ");
+
+                        return (
+                          <tr key={index}>
+                            <td className="border border-gray-300 p-2">{index + 1}</td>
+                            <td className="border border-gray-300 p-2">
+                              <span>{itemName || "-"}</span>
+                              {item.brn && (
+                                <span>
+                                  {". "}
+                                  <b>BRN:</b> {item.brn}
+                                </span>
+                              )}
+                            </td>
+                            <td className="border border-gray-300 p-2">{item.description || "-"}</td>
+                            <td className="border border-gray-300 p-2">
+                              {attachedDetails || "-"}
+                            </td>
+                            <td className="border border-gray-300 p-2">{item.remark || "-"}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="border border-gray-300 p-4 text-center text-gray-500">
+                          No items found.
                         </td>
-                        <td className="border border-gray-300 p-2">{item.description}</td>
-                        <td className="border border-gray-300 p-2">
-                          {[
-                            item.instrument === "Yes" ? "Instrument" : "",
-                            item.certificate === "Yes" ? "Certificate" : "",
-                            item.invoice === "Yes" ? "Invoice" : ""
-                          ].filter(Boolean).join(", ")}
-                        </td>
-                        <td className="border border-gray-300 p-2">{item.remark}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               )}
@@ -390,14 +495,26 @@ export default function ViewDinForm() {
               )}
 
               <div className="mt-12 print:mt-6 text-left print:break-inside-avoid">
-                <p className="font-bold mb-8 print:mb-2">Regards<br />For {companyInfo?.company?.name || "KAILTECH TEST & RESEARCH CENTRE PVT. LTD."}</p>
-                {(dinDetails.approved_by || dinDetails.approved_on) && (
+                <p className="font-bold mb-8 print:mb-2">
+                  Regards<br />
+                  For {companyInfo?.company?.name || "KAILTECH TEST & RESEARCH CENTRE PVT. LTD."}
+                </p>
+
+                {/* Only render authorised signature when status is approved (status == 1) */}
+                {statusInt === 1 && (dinDetails.approved_by || dinDetails.approved_on) && (
                   <div className="mb-4 print:mb-2">
-                    {/* If approved_on is a URL, render it as an image (Digital Signature) */}
-                    {dinDetails.approved_on && dinDetails.approved_on.includes("http") ? (
-                      <img src={dinDetails.approved_on} alt="Digital Signature" className="h-20 print:h-16 object-contain print:block" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
+                    {dinDetails.approved_on && String(dinDetails.approved_on).includes("http") ? (
+                      <img
+                        src={dinDetails.approved_on}
+                        alt="Digital Signature"
+                        className="h-20 print:h-16 object-contain print:block"
+                        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+                      />
                     ) : (
-                      <div className="text-xs italic text-gray-600 border border-gray-300 inline-block p-2 print:p-1 rounded print:border-gray-500" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                      <div
+                        className="text-xs italic text-gray-600 border border-gray-300 inline-block p-2 print:p-1 rounded print:border-gray-500"
+                        style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
+                      >
                         Electronically signed by<br />
                         {dinDetails.approved_by}<br />
                         Date: {safeDate(dinDetails.approved_on)}

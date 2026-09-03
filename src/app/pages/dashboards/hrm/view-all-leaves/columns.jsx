@@ -7,6 +7,29 @@ import { RowActions } from "./RowActions";
 
 const columnHelper = createColumnHelper();
 
+/**
+ * Safe date formatting helper to prevent "30/11/1899" or invalid dates for "0000-00-00" / null
+ */
+const formatDateSafe = (dateVal, format = "DD/MM/YYYY") => {
+  if (
+    !dateVal ||
+    dateVal === "0000-00-00" ||
+    dateVal === "0000-00-00 00:00:00" ||
+    dateVal === "null" ||
+    dateVal === "undefined" ||
+    String(dateVal).trim() === ""
+  ) {
+    return "-";
+  }
+
+  const parsed = dayjs(dateVal);
+  if (!parsed.isValid() || parsed.year() < 1970) {
+    return "-";
+  }
+
+  return parsed.format(format);
+};
+
 export const columns = [
   // ✅ Serial Number
   columnHelper.accessor((_row, index) => index + 1, {
@@ -19,49 +42,49 @@ export const columns = [
   columnHelper.accessor("username", {
     id: "username",
     header: "User Name",
-    cell: (info) => info.getValue(),
+    cell: (info) => info.getValue() || "—",
   }),
 
   // ✅ Leave Type
   columnHelper.accessor("leave_type_label", {
     id: "leave_type",
     header: "Leave Type",
-    cell: (info) => info.getValue(),
+    cell: (info) => info.getValue() || "—",
   }),
 
   // ✅ Compoff Date
   columnHelper.accessor("compoffdate", {
     id: "compoffdate",
     header: "Compoff Date",
-    cell: (info) => info.getValue() ? dayjs(info.getValue()).format("DD/MM/YYYY") : "-",
+    cell: (info) => formatDateSafe(info.getValue()),
   }),
 
   // ✅ Start Date
   columnHelper.accessor("startdate", {
     id: "startdate",
     header: "Start Date",
-    cell: (info) => info.getValue() ? dayjs(info.getValue()).format("DD/MM/YYYY") : "-",
+    cell: (info) => formatDateSafe(info.getValue()),
   }),
 
   // ✅ End Date
   columnHelper.accessor("enddate", {
     id: "enddate",
     header: "End Date",
-    cell: (info) => info.getValue() ? dayjs(info.getValue()).format("DD/MM/YYYY") : "-",
+    cell: (info) => formatDateSafe(info.getValue()),
   }),
 
   // ✅ Reason
   columnHelper.accessor("reason", {
     id: "reason",
     header: "Reason",
-    cell: (info) => info.getValue(),
+    cell: (info) => info.getValue() || "—",
   }),
 
   // ✅ Applied On
   columnHelper.accessor("added_on", {
     id: "applied_on",
     header: "Applied On",
-    cell: (info) => info.getValue() ? dayjs(info.getValue()).format("DD/MM/YYYY HH:mm:ss") : "-",
+    cell: (info) => formatDateSafe(info.getValue(), "DD/MM/YYYY HH:mm:ss"),
   }),
 
   // ✅ Approved At
@@ -70,9 +93,7 @@ export const columns = [
     header: "Approved At",
     cell: (info) => {
       const { status } = info.row.original;
-      return status != 0 && info.getValue() 
-        ? dayjs(info.getValue()).format("DD/MM/YYYY HH:mm:ss") 
-        : "-";
+      return status != 0 ? formatDateSafe(info.getValue(), "DD/MM/YYYY HH:mm:ss") : "-";
     },
   }),
 

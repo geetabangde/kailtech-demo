@@ -1,6 +1,7 @@
 // Import Dependencies
 import { createColumnHelper } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
+import { SelectHeader, SelectCell } from "components/shared/table/SelectCheckbox";
 
 const columnHelper = createColumnHelper();
 
@@ -27,6 +28,11 @@ const formatDate = (val) => {
 };
 
 export const columns = [
+  columnHelper.display({
+    id: "select",
+    header: ({ table }) => <SelectHeader table={table} />,
+    cell: ({ row }) => <SelectCell row={row} />,
+  }),
   columnHelper.accessor("sno", {
     id: "sno",
     header: "Sr. No",

@@ -32,6 +32,38 @@ const customSelectStyles = {
 };
 
 
+function getMeasurementHistory(pid, elName) {
+  try {
+    const custom = JSON.parse(localStorage.getItem(`lims_meas_hist_${pid}`) || "[]");
+    const defaults = [];
+    if (elName && /visual|bend|observation|appearance|cracks|remark/i.test(elName)) {
+      defaults.push(
+        "No Cracks Observed",
+        "Not required",
+        "Cracks Observed",
+        "Sample Broken",
+        "No cracks observed on the outer surface",
+        "-"
+      );
+    }
+    return [...custom, ...defaults.filter((d) => !custom.includes(d))];
+  } catch {
+    return [];
+  }
+}
+
+function saveMeasurementHistory(pid, val) {
+  if (!val || typeof val !== "string" || !val.trim()) return;
+  try {
+    const key = `lims_meas_hist_${pid}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const updated = [val.trim(), ...existing.filter((x) => x !== val.trim())].slice(0, 20);
+    localStorage.setItem(key, JSON.stringify(updated));
+  } catch {
+    // Ignore localStorage errors (e.g. quota exceeded or private browsing mode)
+  }
+}
+
 function Spinner() {
   return (
     <svg className="h-5 w-5 animate-spin text-blue-600" viewBox="0 0 24 24">
@@ -67,6 +99,7 @@ function ResultsTable({ results = [], decimal }) {
               "Parameter",
               "Unit",
               "Results",
+              "Pass/Fail",
               "Test Method",
               "Permissible Value",
             ].map((h) => (
@@ -80,39 +113,81 @@ function ResultsTable({ results = [], decimal }) {
           </tr>
         </thead>
         <tbody>
-          {list.map((r, i) => (
-            <tr
-              key={i}
-              className="border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <td className="border-r border-gray-300 px-3 py-2 text-gray-500 last:border-r-0 dark:border-gray-700">{i + 1}</td>
-              <td className="border-r border-gray-300 px-3 py-2 font-medium text-gray-800 last:border-r-0 dark:border-gray-700 dark:text-gray-200">
-                {r.parameter ?? "—"}
-              </td>
-              <td className="border-r border-gray-300 px-3 py-2 text-gray-600 last:border-r-0 dark:border-gray-700 dark:text-gray-400">
-                {r.unit ?? "—"}
-              </td>
-              {/* PHP: resultype 1=min,2=max,3=avg → round(result, decimal) */}
-              <td className="border-r border-gray-300 px-3 py-2 font-semibold text-gray-800 last:border-r-0 dark:border-gray-700 dark:text-gray-100">
-                {(() => {
-                  const val = r.result ?? r.avg;
-                  if (val === null || val === undefined) return "—";
+          {list.map((r, i) => {
+            const paramName =
+              r.parameter_name ??
+              (typeof r.parameter === "object" ? r.parameter?.name : r.parameter) ??
+              "—";
+            const unitText =
+              typeof r.unit === "object"
+                ? r.unit?.description || r.unit?.name || "—"
+                : r.unit ?? "—";
+            const resultVal =
+              typeof r.result === "object"
+                ? r.result?.display_value ?? r.result?.value ?? "—"
+                : (() => {
+                    const val = r.result ?? r.avg;
+                    if (val === null || val === undefined) return "—";
+                    const numVal = Number(val);
+                    const dec = r.decimal ?? decimal;
+                    if (
+                      !isNaN(numVal) &&
+                      dec !== undefined &&
+                      dec !== null &&
+                      dec !== ""
+                    ) {
+                      return numVal.toFixed(Number(dec));
+                    }
+                    return val;
+                  })();
+            const methodName =
+              typeof r.method === "object"
+                ? r.method?.name ?? "—"
+                : r.method ?? "—";
+            const spec = r.specification ?? "—";
+            const compliance = r.compliance;
 
-                  const numVal = Number(val);
-                  if (!isNaN(numVal) && decimal !== undefined && decimal !== null) {
-                    return numVal.toFixed(Number(decimal));
-                  }
-                  return val;
-                })()}
-              </td>
-              <td className="border-r border-gray-300 px-3 py-2 text-gray-600 last:border-r-0 dark:border-gray-700 dark:text-gray-400">
-                {r.method ?? "—"}
-              </td>
-              <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
-                {r.specification ?? "—"}
-              </td>
-            </tr>
-          ))}
+            return (
+              <tr
+                key={i}
+                className="border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <td className="border-r border-gray-300 px-3 py-2 text-gray-500 last:border-r-0 dark:border-gray-700">
+                  {r.sno ?? i + 1}
+                </td>
+                <td className="border-r border-gray-300 px-3 py-2 font-medium text-gray-800 last:border-r-0 dark:border-gray-700 dark:text-gray-200">
+                  {paramName}
+                </td>
+                <td className="border-r border-gray-300 px-3 py-2 text-gray-600 last:border-r-0 dark:border-gray-700 dark:text-gray-400">
+                  {unitText}
+                </td>
+                <td className="border-r border-gray-300 px-3 py-2 font-semibold text-gray-800 last:border-r-0 dark:border-gray-700 dark:text-gray-100">
+                  {resultVal}
+                </td>
+                <td className="border-r border-gray-300 px-3 py-2 text-center last:border-r-0 dark:border-gray-700">
+                  {compliance === "pass" && (
+                    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                      Pass
+                    </span>
+                  )}
+                  {compliance === "fail" && (
+                    <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                      Fail
+                    </span>
+                  )}
+                  {!compliance && (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="border-r border-gray-300 px-3 py-2 text-gray-600 last:border-r-0 dark:border-gray-700 dark:text-gray-400">
+                  {methodName}
+                </td>
+                <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                  {spec}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -317,7 +392,7 @@ export default function TestInput() {
   //      if (in_array($brow['id'], $iinstruments)) echo "selected='selected'"
   useEffect(() => {
     if (!evt.instruments || instrList.length === 0) return;
-    const savedIds = evt.instruments
+    const savedIds = String(evt.instruments || "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
@@ -391,7 +466,9 @@ export default function TestInput() {
       paramElements.forEach((el) => {
         const pid = el.measurement_id;
         for (let i = 0; i < cycle; i++) {
-          fd.append(`${pid}[]`, measurements[i]?.[pid] ?? "");
+          const val = measurements[i]?.[pid] ?? "";
+          fd.append(`${pid}[]`, val);
+          if (val) saveMeasurementHistory(pid, val);
         }
       });
 
@@ -502,6 +579,9 @@ export default function TestInput() {
             </label>
             <input
               type="text"
+              id="temperature"
+              name="temperature"
+              autoComplete="on"
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
               placeholder="Environment Temperature in deg celsius"
@@ -522,6 +602,9 @@ export default function TestInput() {
             </label>
             <input
               type="text"
+              id="humidity"
+              name="humidity"
+              autoComplete="on"
               value={humidity}
               onChange={(e) => setHumidity(e.target.value)}
               placeholder="Environment Humidity in %"
@@ -535,6 +618,8 @@ export default function TestInput() {
               Remark
             </label>
             <textarea
+              id="remark"
+              name="remark"
               value={remark}
               onChange={(e) => setRemark(e.target.value)}
               placeholder="Theory & Remark"
@@ -550,6 +635,8 @@ export default function TestInput() {
             </label>
             <input
               type="file"
+              id="attachment"
+              name="attachment"
               onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
               className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600"
             />
@@ -745,15 +832,28 @@ export default function TestInput() {
                             <td key={pid} className="border-r border-gray-300 px-2 py-1 last:border-r-0 dark:border-gray-700">
                               {status === 0 ? (
                                 // PHP: <input name="$pid[]" placeholder="enter value in $unit" />
-                                <input
-                                  type="text"
-                                  placeholder={placeholder}
-                                  value={measurements[i]?.[pid] ?? ""}
-                                  onChange={(e) =>
-                                    handleMeasurement(i, pid, e.target.value)
-                                  }
-                                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                                />
+                                <>
+                                  <input
+                                    type="text"
+                                    id={`measurement_${pid}_${i}`}
+                                    name={`${pid}[]`}
+                                    list={`datalist_${pid}`}
+                                    autoComplete="on"
+                                    placeholder={placeholder}
+                                    value={measurements[i]?.[pid] ?? ""}
+                                    onChange={(e) =>
+                                      handleMeasurement(i, pid, e.target.value)
+                                    }
+                                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                  />
+                                  <datalist id={`datalist_${pid}`}>
+                                    {getMeasurementHistory(pid, el.name).map(
+                                      (optVal, optIdx) => (
+                                        <option key={optIdx} value={optVal} />
+                                      ),
+                                    )}
+                                  </datalist>
+                                </>
                               ) : (
                                 <span className="text-sm text-gray-700 dark:text-gray-300">
                                   {measurements[i]?.[pid] ?? "—"} {unit}

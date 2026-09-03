@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import { Button } from "components/ui";
+import Select from 'react-select';
 import appLogo from "/images/logo.png";
 import axios from "utils/axios";
 
@@ -19,7 +20,6 @@ const LrnBrnRegister = () => {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedReportCustomer, setSelectedReportCustomer] = useState('');
   const [showResults, setShowResults] = useState(false);
-  const [showExport, setShowExport] = useState(false);
   const [registerData, setRegisterData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -75,60 +75,34 @@ const LrnBrnRegister = () => {
     return dateStr;
   };
 
-  // Format date for display (YYYY-MM-DD to DD/MM/YYYY)
-  // Format date for display
+  // Format date for display (handles YYYY-MM-DD and YYYY-MM-DD HH:mm:ss)
   const formatDateForDisplay = (dateStr) => {
-    if (!dateStr || dateStr === '0000-00-00') return '-';
+    if (!dateStr || dateStr === '0000-00-00' || dateStr.startsWith('0000-00-00') || dateStr === '-') return '-';
     try {
-      const [year, month, day] = dateStr.split('-');
-      return `${day}/${month}/${year}`;
+      const cleanDate = dateStr.split(' ')[0];
+      const [year, month, day] = cleanDate.split('-');
+      if (year && month && day && year.length === 4) {
+        return `${day}/${month}/${year}`;
+      }
+      return cleanDate;
     } catch {
       return dateStr;
     }
   };
 
-
-  // Calculate TAT (Turn Around Time) in days
-  const calculateTAT = (committedDate, reportingDate) => {
-    if (!committedDate || !reportingDate || committedDate === '0000-00-00' || reportingDate === '0000-00-00') {
-      return '-';
-    }
-    try {
-      const date1 = new Date(committedDate);
-      const date2 = new Date(reportingDate);
-      const diffTime = Math.abs(date2 - date1);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return `${diffDays} days`;
-    } catch {
-      return '-';
-    }
-  };
-
   // Function to get customer ID
   const getCustomerId = (customer) => {
-    return customer.id || customer.customerId || customer._id;
+    return customer.id;
   };
 
   // Function to format customer display name
   const getCustomerDisplayName = (customer) => {
-    if (customer.name && customer.mobile) {
-      return `${customer.name} (${customer.mobile})`;
+    if (customer.name && customer.pnumber) {
+      return `${customer.name} (${customer.pnumber})`;
     } else if (customer.name && customer.phone) {
       return `${customer.name} (${customer.phone})`;
-    } else if (customer.companyName && customer.contactNumber) {
-      return `${customer.companyName} (${customer.contactNumber})`;
-    } else if (customer.customerName && customer.phone) {
-      return `${customer.customerName} (${customer.phone})`;
-    } else if (customer.fullName && customer.mobileNumber) {
-      return `${customer.fullName} (${customer.mobileNumber})`;
-    } else if (customer.name) {
-      return customer.name;
-    } else if (customer.companyName) {
-      return customer.companyName;
-    } else if (customer.customerName) {
-      return customer.customerName;
     }
-    return 'Unknown Customer';
+    return customer.name;
   };
 
   const handleSearch = async () => {
@@ -205,80 +179,64 @@ const LrnBrnRegister = () => {
   };
 
   const handleExport = () => {
-    setShowExport(true);
+    if (!registerData.length) return;
 
-    const exportContent = `
-LRN BRN Register Export
-======================
+    // Generate CSV format for Excel/spreadsheet compatibility
+    const headers = [
+      'Sr No',
+      'Date',
+      'BRN',
+      'LRN',
+      'Inward No',
+      'Party Name',
+      'Contact Person',
+      'Sample Details',
+      'ID No',
+      'Serial No',
+      'Quantity',
+      'Department',
+      'Parameters',
+      'Committed Date',
+      'Reporting Date',
+      'TAT',
+      'Remarks',
+      'Status',
+      'Accreditation'
+    ];
 
-Search Parameters:
-- Start Date: ${formatDateForDisplay(startDate)}
-- End Date: ${formatDateForDisplay(endDate)}
-- Customer ID: ${selectedCustomer || 'All'}
-- Report Customer ID: ${selectedReportCustomer || 'All'}
+    const rows = registerData.map((record, index) => [
+      index + 1,
+      formatDateForDisplay(record.inwarddate),
+      `"${String(record.brn ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.lrn ?? '').replace(/"/g, '""')}"`,
+      record.inward_id,
+      `"${String(record.customername ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.concernpersonname ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.sample_details ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.idno ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.serialno ?? '').replace(/"/g, '""')}"`,
+      record.quantity,
+      `"${String(record.department ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.parameters ?? '').replace(/"/g, '""')}"`,
+      formatDateForDisplay(record.committed_date),
+      formatDateForDisplay(record.reporting_date),
+      `"${String(record.tat ?? '').replace(/"/g, '""')}"`,
+      `"${String(record.remarks ?? '').replace(/"/g, '""')}"`,
+      record.is_lrn_canceled ? 'LRN Canceled' : 'Active',
+      `"${String(record.accreditation ?? '').replace(/"/g, '""')}"`
+    ]);
 
-Total Records: ${registerData.length}
-
-Records:
-${registerData.map((record, index) => `
-Record ${index + 1}:
-- ID: ${record.id}
-- Inward Date: ${formatDateForDisplay(record.inwarddate)}
-- BRN: ${record.bookingrefno}
-- LRN: ${record.labreferenceno}
-- Customer: ${record.customername}
-- Total Amount: ${record.total || '-'}
-`).join('\n')}
-`;
-
-    const blob = new Blob([exportContent], { type: 'text/plain' });
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lrn_brn_register_${Date.now()}.txt`;
+    a.download = `lrn_brn_register_${Date.now()}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   };
-
-  if (showExport) {
-    return (
-      <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm">
-          <div className="p-6">
-            <div className="text-center">
-              <div className="bg-white p-8 border border-gray-200 rounded-lg">
-                <div className="space-y-2">
-                  <div className="border-b-2 border-black w-full h-1"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                  <div className="border-b border-black w-full h-0.5"></div>
-                </div>
-                <div className="text-gray-600 text-sm mt-4">
-                  Export document generated successfully
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 text-center">
-              <Button
-                onClick={() => setShowExport(false)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-              >
-                Back to Register
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-100" style={{ background: "none" }}>
@@ -310,24 +268,43 @@ Record ${index + 1}:
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Customer (Optional)</label>
-                  <select
-                    value={selectedCustomer}
-                    onChange={(e) => setSelectedCustomer(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={loadingCustomers}
-                  >
-                    <option value="">
-                      {loadingCustomers ? 'Loading customers...' : errorMessage ? 'Error loading customers' : 'All Customers'}
-                    </option>
-                    {customers.map((customer) => (
-                      <option
-                        key={getCustomerId(customer)}
-                        value={getCustomerId(customer)}
-                      >
-                        {getCustomerDisplayName(customer)}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={
+                      customers
+                        .map((c) => ({ value: getCustomerId(c), label: getCustomerDisplayName(c) }))
+                        .find((opt) => String(opt.value) === String(selectedCustomer)) || null
+                    }
+                    onChange={(opt) => setSelectedCustomer(opt ? opt.value : '')}
+                    options={customers.map((c) => ({
+                      value: getCustomerId(c),
+                      label: getCustomerDisplayName(c)
+                    }))}
+                    isLoading={loadingCustomers}
+                    isDisabled={loadingCustomers}
+                    isClearable={true}
+                    isSearchable={true}
+                    placeholder={loadingCustomers ? 'Loading customers...' : 'Select Customer (Optional)'}
+                    noOptionsMessage={() =>
+                      customers.length === 0 && !loadingCustomers ? 'No customers found' : 'Type to search'
+                    }
+                    className="w-full text-sm"
+                    classNamePrefix="react-select"
+                    styles={{
+                      control: (base, state) => ({
+                        ...base,
+                        minHeight: '38px',
+                        borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
+                        boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+                        '&:hover': {
+                          borderColor: '#9ca3af'
+                        }
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        zIndex: 9999
+                      })
+                    }}
+                  />
                 </div>
               </div>
 
@@ -348,24 +325,43 @@ Record ${index + 1}:
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Report Customer (Optional)</label>
-                  <select
-                    value={selectedReportCustomer}
-                    onChange={(e) => setSelectedReportCustomer(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={loadingCustomers}
-                  >
-                    <option value="">
-                      {loadingCustomers ? 'Loading customers...' : errorMessage ? 'Error loading customers' : 'All Customers'}
-                    </option>
-                    {customers.map((customer) => (
-                      <option
-                        key={getCustomerId(customer)}
-                        value={getCustomerId(customer)}
-                      >
-                        {getCustomerDisplayName(customer)}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={
+                      customers
+                        .map((c) => ({ value: getCustomerId(c), label: getCustomerDisplayName(c) }))
+                        .find((opt) => String(opt.value) === String(selectedReportCustomer)) || null
+                    }
+                    onChange={(opt) => setSelectedReportCustomer(opt ? opt.value : '')}
+                    options={customers.map((c) => ({
+                      value: getCustomerId(c),
+                      label: getCustomerDisplayName(c)
+                    }))}
+                    isLoading={loadingCustomers}
+                    isDisabled={loadingCustomers}
+                    isClearable={true}
+                    isSearchable={true}
+                    placeholder={loadingCustomers ? 'Loading customers...' : 'Select Report Customer (Optional)'}
+                    noOptionsMessage={() =>
+                      customers.length === 0 && !loadingCustomers ? 'No customers found' : 'Type to search'
+                    }
+                    className="w-full text-sm"
+                    classNamePrefix="react-select"
+                    styles={{
+                      control: (base, state) => ({
+                        ...base,
+                        minHeight: '38px',
+                        borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
+                        boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+                        '&:hover': {
+                          borderColor: '#9ca3af'
+                        }
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        zIndex: 9999
+                      })
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -481,18 +477,19 @@ Record ${index + 1}:
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 border border-gray-300 whitespace-nowrap">TAT</th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 border border-gray-300 whitespace-nowrap">Remarks</th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 border border-gray-300 whitespace-nowrap">Status</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 border border-gray-300 whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan="18" className="p-8 text-center text-gray-500">
+                        <td colSpan="19" className="p-8 text-center text-gray-500">
                           <div className="text-sm">Loading...</div>
                         </td>
                       </tr>
                     ) : registerData.length === 0 ? (
                       <tr>
-                        <td colSpan="18" className="p-8 text-center text-gray-500">
+                        <td colSpan="19" className="p-8 text-center text-gray-500">
                           <div className="text-sm">
                             No records found for the selected criteria.
                           </div>
@@ -503,26 +500,49 @@ Record ${index + 1}:
                         <tr key={record.id} className="hover:bg-gray-50">
                           <td className="px-3 py-2 text-xs border border-gray-300">{index + 1}</td>
                           <td className="px-3 py-2 text-xs border border-gray-300">{formatDateForDisplay(record.inwarddate)}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.bookingrefno || 'N.A'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.labreferenceno || 'N.A'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.id}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.customername || '-'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.concernpersonname || '-'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.instrumentlocation || '-'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">N.A</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">N.A</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">1</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.department || 'SITE CALIBRATION'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">-</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{formatDateForDisplay(record.deadline)}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{formatDateForDisplay(record.updated_on?.split(' ')[0]) || '-'}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{calculateTAT(record.deadline, record.updated_on?.split(' ')[0])}</td>
-                          <td className="px-3 py-2 text-xs border border-gray-300">{record.remark || '-'}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.brn}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.lrn}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.inward_id}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.customername}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.concernpersonname}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.sample_details}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.idno}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.serialno}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.quantity}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.department}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.parameters}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{formatDateForDisplay(record.committed_date)}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{formatDateForDisplay(record.reporting_date)}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.tat}</td>
+                          <td className="px-3 py-2 text-xs border border-gray-300">{record.remarks}</td>
                           <td className="px-3 py-2 text-xs border border-gray-300">
-                            <span className={`px-2 py-1 rounded text-xs ${record.status === 4 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                              {record.status === 4 ? 'Completed' : 'In Progress'}
-                            </span>
+                            {record.is_lrn_canceled ? (
+                              <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-700 font-medium">
+                                LRN Canceled
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+                                Active
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs border border-gray-300 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              {record.accreditation === 'Nabl' && (
+                                <Link
+                                  to={`/dashboards/calibration-process/inward-entry-lab/view-cmc-calculation/${record.inward_id}/${record.id}`}
+                                  className="px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-medium transition-colors inline-block text-center"
+                                >
+                                  View CMC Calculation
+                                </Link>
+                              )}
+                              <Link
+                                to={`/dashboards/calibration-process/inward-entry-lab/view-rawdata/${record.inward_id}/${record.id}`}
+                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors inline-block text-center"
+                              >
+                                View Rawdata
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       ))

@@ -75,19 +75,19 @@ export default function TQuotationFollowUp() {
       // Process follow-up data to match calibration structure
       const rawData = followupRes.data.timeline || [];
       const processedData = [];
-      
+
       // Group followup with next_followup like calibration does
       // The pattern is: next_followup, followup, next_followup, followup, etc.
       for (let i = 0; i < rawData.length; i++) {
         const current = rawData[i];
-        
+
         if (current.type === "followup") {
           // Look for the immediate previous item if it's a next_followup
           let nextFollowUp = null;
           if (i - 1 >= 0 && rawData[i - 1].type === "next_followup") {
             nextFollowUp = rawData[i - 1];
           }
-          
+
           // Create grouped item like calibration
           processedData.push({
             ...current,
@@ -102,7 +102,7 @@ export default function TQuotationFollowUp() {
           });
         }
       }
-      
+
       // Handle closed items (items with type: "closed")
       rawData.forEach(item => {
         if (item.type === "closed") {
@@ -133,7 +133,7 @@ export default function TQuotationFollowUp() {
     }
   }, [id]);
 
-    useEffect(() => {
+  useEffect(() => {
     fetchFollowUps();
   }, [fetchFollowUps]);
 

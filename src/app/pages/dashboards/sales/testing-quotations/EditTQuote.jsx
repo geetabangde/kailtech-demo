@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { Page } from "components/shared/Page";
 import { Button, Card } from "components/ui";
@@ -8,17 +8,20 @@ import Select from "react-select";
 import { DatePicker } from "components/shared/form/Datepicker";
 import dayjs from "dayjs";
 import { TextEditor } from "components/shared/form/TextEditor";
+import { parseUserPermissions } from "utils/permissions";
 
 export default function EditTestingQuotation() {
     const { id } = useParams();
     const [searchParams] = useSearchParams();
     const isRevision = searchParams.get('revise') === 'true';
     const navigate = useNavigate();
-    const permissions = JSON.parse(localStorage.getItem("userPermissions") || "[]");
+    const userPermissionsRaw = localStorage.getItem("userPermissions");
+    const permissions = useMemo(() => parseUserPermissions(userPermissionsRaw), [userPermissionsRaw]);
 
     useEffect(() => {
-        if (!permissions.includes(95)) {
+        if (!permissions.includes(94) && !permissions.includes(141)) {
             navigate("/dashboards/sales/testing-quotations");
+            toast.error("You don't have permission to edit quotations");
         }
     }, [navigate, permissions]);
 

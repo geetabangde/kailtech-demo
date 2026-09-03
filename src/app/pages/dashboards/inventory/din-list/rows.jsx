@@ -88,7 +88,22 @@ export function ConcernPersonCell({ row }) {
     <div className="flex flex-col text-sm space-y-0.5">
       <span className="font-medium text-gray-800 dark:text-dark-100">{concernperson}</span>
       {concernpersondesignation && <span className="text-gray-500">{concernpersondesignation}</span>}
-      {concernpersonemail && <span className="text-gray-500 italic">{concernpersonemail}</span>}
+      {concernpersonemail && (
+        <div className="flex flex-col text-gray-500 italic">
+          {(() => {
+            const emails = concernpersonemail
+              .split(",")
+              .map((email) => email.trim())
+              .filter(Boolean);
+            return emails.map((email, idx) => (
+              <span key={idx} className="break-all">
+                {email}
+                {idx < emails.length - 1 ? "," : ""}
+              </span>
+            ));
+          })()}
+        </div>
+      )}
       {concernpersonphone && <span className="text-gray-500 font-mono">{concernpersonphone}</span>}
     </div>
   );

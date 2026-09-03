@@ -8,6 +8,7 @@ import { getStoredPermissions } from "app/navigation/dashboards";
 import { ArrowLeftIcon, PrinterIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import logo from "assets/krtc.jpg";
 import rubySignature from "assets/ruby_signature.png";
+import { formatOfferLetterRefNo } from "./offerLetterUtils";
 
 // ----------------------------------------------------------------------
 
@@ -77,7 +78,9 @@ function ApproveModal({ show, onClose, onOk, loading, title = "Approve Offer Let
 }
 
 export default function ViewOfferLetter() {
-  const { id } = useParams();
+  const params = useParams();
+  const rawId = params["*"] || params.id || "";
+  const id = decodeURIComponent(rawId);
   const navigate = useNavigate();
   const permissions = getStoredPermissions();
 
@@ -98,7 +101,13 @@ export default function ViewOfferLetter() {
     // Check newly created local records first
     try {
       const stored = JSON.parse(localStorage.getItem("local_offer_letters") || "[]");
-      const matched = stored.find((item) => String(item.id) === String(id));
+      const matched = stored.find(
+        (item) =>
+          String(item.id) === String(id) ||
+          String(item.reference_no) === String(id) ||
+          decodeURIComponent(String(item.id)) === String(id) ||
+          decodeURIComponent(String(item.reference_no)) === String(id)
+      );
       if (matched) {
         setOfferLetter(matched);
         setLoading(false);
@@ -167,12 +176,7 @@ export default function ViewOfferLetter() {
     let data = null;
 
     // List of resilient endpoints to try
-    const endpoints = [
-      `/hrm/get-offer-letter/${id}`,
-      `/hrm/offer-letter-get-byid/${id}`,
-      `/hrm/get-offerletter/${id}`,
-      `/hrm/offer-letter/${id}`,
-    ];
+    const endpoints = [`/hrm/offer-letter-get-byid/${id}`];
 
     for (const url of endpoints) {
       try {
@@ -181,14 +185,33 @@ export default function ViewOfferLetter() {
           data = res.data.data;
           success = true;
           break;
-        } else if (res.data) {
+        } else if (res.data?.data) {
+          data = res.data.data;
+          success = true;
+          break;
+        } else if (res.data && !res.data.status) {
           data = res.data;
           success = true;
           break;
         }
       } catch {
         // Continue to next fallback
-        console.warn(`Failed fetching from ${url}, trying fallback...`);
+      }
+    }
+
+    // Fallback: check local storage if backend is not yet populated
+    if (!success) {
+      try {
+        const stored = JSON.parse(localStorage.getItem("local_offer_letters") || "[]");
+        const found = stored.find(
+          (item) => String(item.id) === String(id) || String(item.reference_no) === String(id)
+        );
+        if (found) {
+          data = found;
+          success = true;
+        }
+      } catch (err) {
+        console.warn("Could not read from localStorage", err);
       }
     }
 
@@ -358,40 +381,7 @@ export default function ViewOfferLetter() {
 
   // Helper to format reference ID: KTRC/OFFER/DDMMYYYY/001 (e.g. KTRC/OFFER/25082026/001)
   const getOfferLetterRefNo = () => {
-    if (
-      offerLetter?.reference_no &&
-      typeof offerLetter.reference_no === "string" &&
-      offerLetter.reference_no.startsWith("KTRC/OFFER/")
-    ) {
-      return offerLetter.reference_no;
-    }
-
-    // Extract raw date for DDMMYYYY
-    let d = offerLetter?.offerletterdate ? new Date(offerLetter.offerletterdate) : new Date();
-    if (isNaN(d.getTime())) d = new Date();
-
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = String(d.getFullYear());
-    const datePart = `${dd}${mm}${yyyy}`;
-
-    // Extract sequence number (3-digits padded: 001, 002, 003...)
-    let seq = "001";
-    if (offerLetter?.id) {
-      const idStr = String(offerLetter.id);
-      const parts = idStr.split("/");
-      const lastPart = parts[parts.length - 1];
-      const num = parseInt(lastPart, 10);
-      if (!isNaN(num)) {
-        seq = String(num).padStart(3, "0");
-      } else {
-        seq = idStr.padStart(3, "0");
-      }
-    } else if (offerLetter?.seq_no) {
-      seq = String(offerLetter.seq_no).padStart(3, "0");
-    }
-
-    return `KTRC/OFFER/${datePart}/${seq}`;
+    return formatOfferLetterRefNo(offerLetter);
   };
 
   const handleApprove = async () => {

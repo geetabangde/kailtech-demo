@@ -109,6 +109,7 @@ export function Toolbar({ table }) {
         >
           <div className="flex shrink-0 space-x-2">
             <SearchInput table={table} />
+            <TableConfig table={table} />
           </div>
         </div>
       )}

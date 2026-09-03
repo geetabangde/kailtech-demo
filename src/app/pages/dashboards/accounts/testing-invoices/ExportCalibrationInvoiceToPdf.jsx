@@ -86,7 +86,7 @@ function InvoicePrintTemplate({ inv, addr, items, qrUrl, signUrl, digitalSignUrl
                 </div>
             )}
 
-            <div style={{ textAlign: "center", marginBottom: 8, marginTop: withLH ? 10 : 80 }}>
+            <div style={{ textAlign: "center", marginBottom: 8, paddingTop: withLH ? 10 : 80 }}>
                 <div style={{ fontSize: 14, fontWeight: "bold", textTransform: "uppercase" }}>TAX INVOICE</div>
                 <div style={{ fontSize: 12, textTransform: "uppercase", marginTop: 4 }}>FOR {inv.typeofinvoice || ""} CHARGES</div>
                 <div style={{ fontSize: 12, textTransform: "uppercase", marginTop: 2 }}>ORIGINAL FOR RECIPIENT</div>

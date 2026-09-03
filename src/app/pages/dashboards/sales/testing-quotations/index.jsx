@@ -62,7 +62,7 @@ export default function TestingQuotationList() {
     pageIndex: 0,
     pageSize: 10,
   });
-  
+
   // New Filters
   const [minDate, setMinDate] = useState("");
   const [maxDate, setMaxDate] = useState("");
@@ -73,7 +73,7 @@ export default function TestingQuotationList() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Fetch ALL data - client-side pagination
       const params = {
         // Remove pagination parameters - fetch everything
@@ -92,7 +92,7 @@ export default function TestingQuotationList() {
       // PHP: if(!(in_array("346", $permissions) || (in_array(394, $permissions)))) { $search .= " and (tquotations.added_by='".$_SESSION['employee']."' )"; }
       const hasPermission346 = permissions.includes(346);
       const hasPermission394 = permissions.includes(394);
-      
+
       if (!hasPermission346 && !hasPermission394) {
         // User can only see their own data
         const employeeId = localStorage.getItem('employee') || localStorage.getItem('userId');
@@ -102,9 +102,9 @@ export default function TestingQuotationList() {
       }
 
       // Client-side sorting and searching is handled by React Table
-      
+
       const res = await axios.get("/sales/testing-quotation-list", { params });
-      
+
       if (res.data && res.data.data) {
         const rawData = res.data.data;
         setData(rawData);
@@ -240,13 +240,13 @@ export default function TestingQuotationList() {
           className={clsx(
             "flex h-full w-full flex-col",
             tableSettings.enableFullScreen &&
-              "dark:bg-dark-900 fixed inset-0 z-61 bg-white pt-3",
+            "dark:bg-dark-900 fixed inset-0 z-61 bg-white pt-3",
           )}
         >
           {/* ── Toolbar ── */}
-          <Toolbar 
-            table={table} 
-            globalFilter={globalFilter} 
+          <Toolbar
+            table={table}
+            globalFilter={globalFilter}
             setGlobalFilter={setGlobalFilter}
             minDate={minDate}
             setMinDate={setMinDate}
@@ -297,9 +297,9 @@ export default function TestingQuotationList() {
                                   {header.isPlaceholder
                                     ? null
                                     : flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext(),
-                                      )}
+                                      header.column.columnDef.header,
+                                      header.getContext(),
+                                    )}
                                 </span>
                                 <TableSortIcon
                                   sorted={header.column.getIsSorted()}

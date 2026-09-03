@@ -5,6 +5,16 @@ import { toast } from "react-hot-toast";
 import dayjs from "dayjs";
 import { Page } from "components/shared/Page";
 import { Button } from "components/ui";
+import appLogo from "assets/logo.png";
+import { IMAGE_HOST_API } from "configs/auth.config";
+
+const getLogoUrl = (logoPath) => {
+  if (!logoPath) return appLogo;
+  if (logoPath.startsWith("http://") || logoPath.startsWith("https://")) {
+    return logoPath.replace(/https?:\/\/lims?\.kailtech\.in/i, IMAGE_HOST_API);
+  }
+  return `${IMAGE_HOST_API}/${logoPath.replace(/^\//, "")}`;
+};
 
 export default function ApproveDispatch() {
     const [searchParams] = useSearchParams();
@@ -149,16 +159,22 @@ export default function ApproveDispatch() {
 
                     <div className="relative z-10">
                         {/* Challan Title */}
-                        <h2 className="text-sm font-bold uppercase mb-2 text-left tracking-wide">
+                        <h2 className="text-sm font-semibold text-gray-900 uppercase mb-2 text-left tracking-wide">
                             {(dinDetails.challan_title || dinDetails.basis + " CHALLAN")}
                         </h2>
 
                         {/* Header / Kailtech Info */}
                         <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6 text-sm">
                             <div className="w-48 shrink-0">
-                                {companyInfo?.branding?.logo && (
-                                    <img src={companyInfo.branding.logo} alt="Company Logo" className="w-40 object-contain" />
-                                )}
+                                <img
+                                    src={getLogoUrl(companyInfo?.branding?.logo)}
+                                    alt="Company Logo"
+                                    className="w-40 object-contain"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = appLogo;
+                                    }}
+                                />
                             </div>
 
                             <div className="flex-1 text-center px-4">
@@ -204,11 +220,26 @@ export default function ApproveDispatch() {
 
                             <div className="flex">
                                 <span className="font-bold w-40 shrink-0">Concern person email:</span>
-                                <span>{dinDetails.concern_person_email}</span>
+                                <span className="flex-1 min-w-0">
+                                    {dinDetails.concern_person_email
+                                        ? (() => {
+                                            const emails = dinDetails.concern_person_email
+                                                .split(",")
+                                                .map((email) => email.trim())
+                                                .filter(Boolean);
+                                            return emails.map((email, idx) => (
+                                                <div key={idx} className="break-all">
+                                                    {email}
+                                                    {idx < emails.length - 1 ? "," : ""}
+                                                </div>
+                                            ));
+                                        })()
+                                        : "-"}
+                                </span>
                             </div>
                             <div className="flex">
                                 <span className="font-bold w-40 shrink-0">Concern person mobile:</span>
-                                <span>{dinDetails.concern_person_phone}</span>
+                                <span>{dinDetails.concern_person_phone || "-"}</span>
                             </div>
 
                             <div className="flex">
@@ -226,7 +257,16 @@ export default function ApproveDispatch() {
                             </div>
                             <div className="flex">
                                 <span className="font-bold w-40 shrink-0">Dispatch Through:</span>
-                                <span>{dinDetails.dispatch_through || "N/A"}</span>
+                                <span>
+                                    <div>{dinDetails.dispatch_through || "N/A"}</div>
+                                    {dinDetails.employee_name && <div>{dinDetails.employee_name}</div>}
+                                    {dinDetails.consign_name && (
+                                        <div>
+                                            {dinDetails.consign_name} {dinDetails.consign_phone ? `Ph. ${dinDetails.consign_phone}` : ""}
+                                        </div>
+                                    )}
+                                    {dinDetails.courier_no && <div>{dinDetails.courier_no}</div>}
+                                </span>
                             </div>
 
                             <div className="flex">

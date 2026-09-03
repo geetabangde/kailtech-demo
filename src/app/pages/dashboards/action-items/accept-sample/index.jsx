@@ -22,7 +22,7 @@ import { useLockScrollbar, useDidUpdate, useLocalStorage } from "hooks";
 import { fuzzyFilter } from "utils/react-table/fuzzyFilter";
 import { useSkipper } from "utils/react-table/useSkipper";
 import { Toolbar } from "./Toolbar";
-import { columns } from "./columns.jsx";
+import { columns, parseDateToTime } from "./columns.jsx";
 import { PaginationSection } from "components/shared/table/PaginationSection";
 import { SelectedRowsActions } from "./SelectedRowsActions";
 import { useThemeContext } from "app/contexts/theme/context";
@@ -152,13 +152,23 @@ export default function AcceptSample() {
         `/actionitem/get-accept-sample?${params.toString()}`
       );
 
-      if (response.data && Array.isArray(response.data)) {
-        setProducts([...response.data].reverse());
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        setProducts([...response.data.data].reverse());
-      } else {
-        setProducts([]);
-      }
+      const raw = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+
+      // Sort with latest date first, secondary by id desc
+      const sorted = [...raw].sort((a, b) => {
+        const timeA = parseDateToTime(a.added_on);
+        const timeB = parseDateToTime(b.added_on);
+        if (timeB !== timeA) {
+          return timeB - timeA;
+        }
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
+
+      setProducts(sorted);
     } catch (err) {
       console.error("Error fetching accept sample list:", err);
       setProducts([]);
@@ -173,10 +183,11 @@ export default function AcceptSample() {
   const [tableSettings, setTableSettings] = useState({
     enableFullScreen: false,
     enableRowDense: false,
+    enableSorting: true,
   });
 
   const [globalFilter, setGlobalFilter] = useState("");
-  const [sorting, setSorting] = useState([]);
+  const [sorting, setSorting] = useState([{ id: "added_on", desc: true }]);
   const [columnFilters, setColumnFilters] = useState([]);
 
   const [columnVisibility, setColumnVisibility] = useLocalStorage(
@@ -214,7 +225,7 @@ export default function AcceptSample() {
       refreshData: fetchProducts,
     },
     filterFns: { fuzzy: fuzzyFilter },
-    enableSorting: tableSettings.enableSorting,
+    enableSorting: tableSettings.enableSorting ?? true,
     enableColumnFilters: true,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),

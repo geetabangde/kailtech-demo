@@ -593,7 +593,7 @@ export default function ViewCMCCalculation() {
               values: item.master || [item.master_0, item.master_1, item.master_2, item.master_3, item.master_4],
               unit: item.unit,
               calibrationPoint: item.calibration_point,
-              average: item.average,
+              average: item.average_master,
               stdDeviation: item.std_deviation,
               typeA: item.type_a,
               uncertaintyOfMaster: item.uncertainty_master,

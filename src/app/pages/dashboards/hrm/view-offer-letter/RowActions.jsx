@@ -217,9 +217,10 @@ export function RowActions({ row, table }) {
     row.original.status === "0" ||
     String(row.original.status).toLowerCase() === "pending";
 
+  const viewTargetId = encodeURIComponent(row.original.id || "");
   const viewUrl = isInternship
-    ? `/dashboards/hrm/view-offer-letter/view-internship/${row.original.id}`
-    : `/dashboards/hrm/view-offer-letter/view/${row.original.id}`;
+    ? `/dashboards/hrm/view-offer-letter/view-internship/${viewTargetId}`
+    : `/dashboards/hrm/view-offer-letter/view/${viewTargetId}`;
 
   const viewLabel = isInternship ? "Internship Letter" : "Offer Letter";
 

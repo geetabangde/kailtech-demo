@@ -97,6 +97,9 @@ export const useObservations = (observationTemplate, instId, inwardId) => {
       case 'observationctg':
         processCTGData(data);
         break;
+      case 'observationvc':
+        processVCData(data);
+        break;
       case 'observationtswoi':
         processTSWOIData(data);
         break;

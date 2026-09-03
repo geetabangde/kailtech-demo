@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from "components/ui";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router";
 import axios from 'axios';
 import { toast } from "sonner";
 import { JWT_HOST_API, IMAGE_HOST_API } from "configs/auth.config";
@@ -46,6 +46,10 @@ export default function CalibrationReport() {
 
   console.log('Extracted Parameters:', { instid, inwardid, caliblocation, calibacc });
 
+  const reportUrl = inwardid && instid
+    ? `/dashboards/calibration-process/inward-entry-lab/view-rawdata/${inwardid}/${instid}?caliblocation=${caliblocation}&calibacc=${calibacc}`
+    : `${window.location.pathname}${window.location.search}`;
+
   // State management
   const [equipmentData, setEquipmentData] = useState({});
   const [calibratedByImageUrl, setCalibratedByImageUrl] = useState('');
@@ -55,15 +59,17 @@ export default function CalibrationReport() {
   const [observationData, setObservationData] = useState([]);
   const [observationType, setObservationType] = useState('');
   const [thermalCoeff, setThermalCoeff] = useState({});
+  const [parallelism, setParallelism] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rawdata, setRawdata] = useState({});
 
-  // New state for dynamic observation table
   const [dynamicObservations, setDynamicObservations] = useState([]);
   const [observationTemplate, setObservationTemplate] = useState('');
   const [tableStructure, setTableStructure] = useState(null);
   const [diagram, setDiagram] = useState('');
+  const [instrumentInfo, setInstrumentInfo] = useState(null);
+  const [itemStatus, setItemStatus] = useState(null);
 
   // Configure axios defaults
   useEffect(() => {
@@ -225,15 +231,23 @@ export default function CalibrationReport() {
     let hasSpecification = instrument.specificationtoshow === "Yes";
     let specIdx = hasSpecification ? colIdx++ : -1;
 
+    let masterdone = false;
+    let uucdone = false;
+
+    const masterCount = parseInt(instrument.master || 1);
+    const uucCount = parseInt(instrument.uuc || 1);
+
     let hasSetpoint = instrument.setpointtoshow === "Yes";
-    let setpointIdx = hasSetpoint ? colIdx++ : -1;
+    let setpointIdx = -1;
 
-    let hasMaster = instrument.mastertoshow === "Yes";
-    let masterCount = parseInt(instrument.master || 1);
-    let hasUuc = instrument.uuctoshow === "Yes";
-    let uucCount = parseInt(instrument.uuc || 1);
-
-    let masterFirst = masterCount <= uucCount;
+    if (hasSetpoint) {
+      setpointIdx = colIdx++;
+      if (instrument.setpoint === "Master") {
+        masterdone = true;
+      } else if (instrument.setpoint === "UUC") {
+        uucdone = true;
+      }
+    }
 
     let masterObsIndices = [];
     let avgMasterIdx = -1;
@@ -243,16 +257,26 @@ export default function CalibrationReport() {
     const pushMaster = () => {
       for (let i = 0; i < masterCount; i++) masterObsIndices.push(colIdx++);
       if (masterCount > 1) avgMasterIdx = colIdx++;
+      masterdone = true;
     };
 
     const pushUuc = () => {
       for (let i = 0; i < uucCount; i++) uucObsIndices.push(colIdx++);
       if (uucCount > 1) avgUucIdx = colIdx++;
+      uucdone = true;
     };
 
-    if (hasMaster && masterFirst) pushMaster();
-    if (hasUuc) pushUuc();
-    if (hasMaster && !masterFirst) pushMaster();
+    if (instrument.mastertoshow === "Yes" && !masterdone && masterCount <= uucCount) {
+      pushMaster();
+    }
+
+    if (instrument.uuctoshow === "Yes" && !uucdone) {
+      pushUuc();
+    }
+
+    if (instrument.mastertoshow === "Yes" && !masterdone) {
+      pushMaster();
+    }
 
     let hasError = instrument.errortoshow === "Yes";
     let errorIdx = hasError ? colIdx++ : -1;
@@ -575,6 +599,19 @@ export default function CalibrationReport() {
       },
     },
     {
+      id: 'observationvc',
+      name: 'Observation VC',
+      category: 'Vernier Caliper',
+      structure: {
+        thermalCoeff: true,
+        singleHeaders: ['Sr. No.', 'Nominal/ Set Value'],
+        subHeaders: {
+          'Observation on UUC': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5'],
+        },
+        remainingHeaders: ['Average', 'Error'],
+      },
+    },
+    {
       id: 'observationit',
       name: 'Observation IT',
       category: 'Internal Thread',
@@ -798,9 +835,10 @@ export default function CalibrationReport() {
 
 
   const createObservationRows = useCallback((observationData, template) => {
-    if (!observationData) return { rows: [], unitTypes: [], modes: [] };
+    if (!observationData) return { rows: [], matrixGroups: [], unitTypes: [], modes: [] };
 
     let dataArray = [];
+    let matrixGroups = [];
     let unitTypes = [];
     let modes = [];
 
@@ -833,11 +871,23 @@ export default function CalibrationReport() {
           if (layout.setpointIdx !== -1) row[layout.setpointIdx] = safeGetValue(point.point);
 
           const masterVals = safeGetArray(point.master, layout.masterObsIndices.length);
-          layout.masterObsIndices.forEach((idx, i) => row[idx] = safeGetValue(masterVals[i]));
+          layout.masterObsIndices.forEach((idx, i) => {
+            let val = safeGetValue(masterVals[i]);
+            if (!val && layout.uucObsIndices.length === 0) {
+              val = safeGetValue(point.uuc?.[i] ?? point.uuc);
+            }
+            row[idx] = val;
+          });
           if (layout.avgMasterIdx !== -1) row[layout.avgMasterIdx] = safeGetValue(point.averagemaster);
 
           const uucVals = safeGetArray(point.uuc, layout.uucObsIndices.length);
-          layout.uucObsIndices.forEach((idx, i) => row[idx] = safeGetValue(uucVals[i]));
+          layout.uucObsIndices.forEach((idx, i) => {
+            let val = safeGetValue(uucVals[i]);
+            if (!val && layout.masterObsIndices.length === 0) {
+              val = safeGetValue(point.master?.[i] ?? point.master);
+            }
+            row[idx] = val;
+          });
           if (layout.avgUucIdx !== -1) row[layout.avgUucIdx] = safeGetValue(point.averageuuc);
 
           if (layout.errorIdx !== -1) row[layout.errorIdx] = safeGetValue(point.error);
@@ -1058,6 +1108,21 @@ export default function CalibrationReport() {
           rows.push(row);
         });
       });
+    } else if (template === 'observationmg') {
+      dataArray.forEach((point) => {
+        if (!point) return;
+        const row = [
+          point.sequence_number?.toString() || point.sr_no?.toString() || '',
+          safeGetValue(point.set_pressure?.uuc_value ?? point.uuc_value),
+          safeGetValue(point.set_pressure?.converted_value ?? point.converted_uuc_value ?? point.set_pressure?.uuc_value),
+          safeGetValue(point.observations?.master_1 ?? point.m1 ?? (Array.isArray(point.master_readings) ? point.master_readings[0] : '')),
+          safeGetValue(point.observations?.master_2 ?? point.m2 ?? (Array.isArray(point.master_readings) ? point.master_readings[1] : '')),
+          safeGetValue(point.calculations?.mean ?? point.mean ?? point.average_master),
+          safeGetValue(point.calculations?.error ?? point.error),
+          safeGetValue(point.calculations?.hysteresis ?? point.hysterisis ?? point.hysteresis),
+        ];
+        rows.push(row);
+      });
     } else if (template === 'observationodfm') {
       dataArray.forEach((obs) => {
         if (!obs) return;
@@ -1084,6 +1149,76 @@ export default function CalibrationReport() {
           safeGetValue(point?.error),
         ];
         rows.push(row);
+      });
+    } else if (template === 'observationvc') {
+      const isGroupedArray = dataArray.length > 0 && (dataArray[0]?.calibration_points || dataArray[0]?.points);
+
+      let groups = [];
+      if (isGroupedArray) {
+        groups = dataArray.map(g => ({
+          title: `${g.matrixtype || g.matrix_type || g.name || 'Measurement'}(in ${g.unit?.description || g.unit_description || g.unit_name || g.unit || 'mm'} )`,
+          points: g.calibration_points || g.points || []
+        }));
+      } else {
+        const hasPointMatrixType = dataArray.some(p => p && (p.matrixtype || p.matrix_type || p.matrix_name));
+        if (hasPointMatrixType) {
+          const map = new Map();
+          dataArray.forEach(p => {
+            if (!p) return;
+            const mType = p.matrixtype || p.matrix_type || p.matrix_name || 'Measurement';
+            const mUnit = p.unit_description || p.unit?.description || p.unit_name || p.unit || 'mm';
+            const key = `${mType}(in ${mUnit} )`;
+            if (!map.has(key)) {
+              map.set(key, { title: key, points: [] });
+            }
+            map.get(key).points.push(p);
+          });
+          groups = Array.from(map.values());
+        } else {
+          groups = [{ title: '', points: dataArray }];
+        }
+      }
+
+      groups.forEach((group) => {
+        const points = group.points || [];
+        let maxPointVal = -Infinity;
+        points.forEach((p) => {
+          const ptVal = parseFloat(p?.point || p?.nominal_value || p?.test_point || 0);
+          if (!isNaN(ptVal) && ptVal > maxPointVal) {
+            maxPointVal = ptVal;
+          }
+        });
+
+        const groupRows = [];
+        points.forEach((point, pointIndex) => {
+          if (!point) return;
+          const ptVal = parseFloat(point.point || point.nominal_value || point.test_point || 0);
+          const isMaxPoint =
+            (ptVal === maxPointVal && maxPointVal !== -Infinity) ||
+            point.repeatable_cycle === 5 ||
+            point.repeatablecycle === 5;
+          const repeatableCycle = isMaxPoint ? 5 : 3;
+
+          const observations = safeGetArray(point.observations, 5);
+          const row = [
+            point.sr_no?.toString() || point.sequence_number?.toString() || (pointIndex + 1).toString(),
+            safeGetValue(point.point || point.nominal_value || point.test_point),
+            ...Array.from({ length: 5 }, (_, index) =>
+              index < repeatableCycle ? safeGetValue(observations[index]) : ''
+            ),
+            safeGetValue(point.average || point.average_master),
+            safeGetValue(point.error),
+          ];
+
+          while (row.length < 9) row.push('');
+          groupRows.push(row);
+          rows.push(row);
+        });
+
+        matrixGroups.push({
+          title: group.title,
+          rows: groupRows,
+        });
       });
     } else if (template === 'observationit') {
       dataArray.forEach((point) => {
@@ -1424,7 +1559,7 @@ export default function CalibrationReport() {
       }
     }
 
-    return { rows, unitTypes, modes };
+    return { rows, matrixGroups, unitTypes, modes };
   }, []);
 
   const renderObservationUCTables = () => {
@@ -1492,28 +1627,43 @@ export default function CalibrationReport() {
     );
   };
 
-  const generateTableStructure = useCallback((selectedTableData) => {
+  const generateTableStructure = useCallback((selectedTableData, unitInfo) => {
     const structure = selectedTableData.structure;
     const headers = [];
     const subHeadersRow = [];
 
+    const uucUnit = unitInfo?.uuc_unit?.description || unitInfo?.uuc_unit || '';
+    const masterUnit = unitInfo?.master_unit?.description || unitInfo?.master_unit || '';
+
+    const formatHeader = (text) => {
+      if (typeof text !== 'string') return text;
+      let formatted = text;
+      if (uucUnit) {
+        formatted = formatted.replace(/\[unit\]/gi, uucUnit).replace(/\[CALCULATIONUNIT\]/gi, uucUnit);
+      }
+      if (masterUnit) {
+        formatted = formatted.replace(/\[master unit\]/gi, masterUnit).replace(/\[MASTERUNIT\]/gi, masterUnit);
+      }
+      return formatted.replace(/\[|\]/g, '');
+    };
+
     structure.singleHeaders.forEach((header) => {
-      headers.push({ name: header, colspan: 1 });
+      headers.push({ name: formatHeader(header), colspan: 1 });
       subHeadersRow.push(null);
     });
 
     if (structure.subHeaders && Object.keys(structure.subHeaders).length > 0) {
       Object.entries(structure.subHeaders).forEach(([groupName, subHeaders]) => {
-        headers.push({ name: groupName, colspan: subHeaders.length });
+        headers.push({ name: formatHeader(groupName), colspan: subHeaders.length });
         subHeaders.forEach((subHeader) => {
-          subHeadersRow.push(subHeader);
+          subHeadersRow.push(formatHeader(subHeader));
         });
       });
     }
 
     if (structure.remainingHeaders && structure.remainingHeaders.length > 0) {
       structure.remainingHeaders.forEach((header) => {
-        headers.push({ name: header, colspan: 1 });
+        headers.push({ name: formatHeader(header), colspan: 1 });
         subHeadersRow.push(null);
       });
     }
@@ -1617,7 +1767,45 @@ export default function CalibrationReport() {
         // Process observations based on template type - ENHANCED WITH MM SUPPORT AND ADDED IT, MT, MG, FG, HG, EXM, PPG, AVG, RTDWI, MSR, GTM, AND NOW DG
         let processedObservations = [];
 
-        if (observationTemplate === 'observationctg' && observationData.points) {
+        if (observationTemplate === 'observationvc') {
+          const therm = observationData.thermal_coeff || observationData.thermal_coefficients;
+          if (therm) {
+            setThermalCoeff({
+              uuc: therm.uuc || therm.thermal_coeff_uuc || '',
+              master: therm.master || therm.thermal_coeff_master || '',
+              thickness_of_graduation: '',
+            });
+          }
+          const parall = observationData.parallelism || observationData.parallel;
+          if (parall) {
+            setParallelism({
+              parallinternal: parall.parallinternal || parall.internal || '',
+              parallexternal: parall.parallexternal || parall.external || '',
+            });
+          } else {
+            setParallelism({
+              parallinternal: observationData.parallinternal || '',
+              parallexternal: observationData.parallexternal || '',
+            });
+          }
+
+          if (observationData.matrix_groups && Array.isArray(observationData.matrix_groups)) {
+            processedObservations = observationData.matrix_groups;
+          } else if (observationData.matrices && Array.isArray(observationData.matrices)) {
+            processedObservations = observationData.matrices;
+          } else if (observationData.unit_types && Array.isArray(observationData.unit_types)) {
+            processedObservations = observationData.unit_types;
+          } else if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
+            processedObservations = observationData.calibration_points;
+          } else if (observationData.points && Array.isArray(observationData.points)) {
+            processedObservations = observationData.points;
+          } else if (observationData.data && Array.isArray(observationData.data)) {
+            processedObservations = observationData.data;
+          } else if (Array.isArray(observationData)) {
+            processedObservations = observationData;
+          }
+        }
+        else if (observationTemplate === 'observationctg' && observationData.points) {
           processedObservations = observationData.points;
         }
         else if (observationTemplate === 'observationodfm' && observationData.calibration_points) {
@@ -1945,7 +2133,7 @@ export default function CalibrationReport() {
         // Generate table structure
         const selectedTable = observationTables.find(table => table.id === observationTemplate);
         if (selectedTable) {
-          setTableStructure(generateTableStructure(selectedTable));
+          setTableStructure(generateTableStructure(selectedTable, observationData?.unit_info));
         }
       } else {
         console.log('No dynamic observations found');
@@ -2039,39 +2227,6 @@ export default function CalibrationReport() {
         setLoading(true);
         setError(null);
 
-        // FIRST: Try to get observation template from step3 details API (same as CalibrateStep3)
-        try {
-          console.log('🔍 Fetching step3 details for observation template...');
-          const step3Response = await axios.get('https://kailtech.in/newlims/api/calibrationprocess/get-calibration-step3-details', {
-            params: {
-              inward_id: inwardid,
-              instid: instid,
-              caliblocation: caliblocation,
-              calibacc: calibacc,
-            },
-          });
-
-          if (step3Response.data && step3Response.data.observationTemplate) {
-            const foundTemplate = step3Response.data.observationTemplate;
-            console.log('✅ Found observation template from step3:', foundTemplate);
-            setObservationType(foundTemplate);
-            setObservationTemplate(foundTemplate);
-
-            if (step3Response.data.instrument) {
-              if (step3Response.data.instrument.daigram) {
-                setDiagram(step3Response.data.instrument.daigram);
-              } else if (step3Response.data.instrument.diagram) {
-                setDiagram(step3Response.data.instrument.diagram);
-              }
-            }
-
-            // Fetch dynamic observations immediately
-            await fetchDynamicObservations(foundTemplate);
-          }
-        } catch (step3Error) {
-          console.log('⚠️ Could not fetch step3 details:', step3Error);
-        }
-
         const apiUrl = `${JWT_HOST_API}/calibrationprocess/view-raw-data`;
 
         const params = {
@@ -2089,23 +2244,31 @@ export default function CalibrationReport() {
         console.log('API Response received:', response.data);
 
         if (response.data && response.data.success === true && response.data.data) {
-          const { uuc_details, master_details, calibration_results, observation_data } = response.data.data;
+          const { uuc_details, master_details, calibration_results, observation_data, instrument_info } = response.data.data;
 
-          // Check if observation data exists and fetch detailed observations
-          if (observation_data && observation_data.observation_type) {
-            const foundType = observation_data.observation_type;
-            setObservationType(foundType);
-
-            // Only set template if not already set
-            if (!observationTemplate) {
-              setObservationTemplate(foundType);
-              console.log('Found observation type from raw data:', foundType);
-              await fetchDynamicObservations(foundType);
-            }
-
-            await fetchObservationData(foundType);
+          if (instrument_info) {
+            setInstrumentInfo(instrument_info);
+          }
+          if (response.data.data.status !== undefined) {
+            setItemStatus(response.data.data.status);
           }
 
+          // Resolve observation template directly from instrument_info.suffix or observation_data
+          let resolvedTemplate = '';
+          const rawSuffix = instrument_info?.suffix || response.data.data.instrument?.suffix || '';
+          if (rawSuffix) {
+            resolvedTemplate = rawSuffix.startsWith('observation') ? rawSuffix : `observation${rawSuffix}`;
+          } else if (observation_data && observation_data.observation_type) {
+            resolvedTemplate = observation_data.observation_type;
+          }
+
+          if (resolvedTemplate) {
+            console.log('✅ Resolved observation template:', resolvedTemplate);
+            setObservationType(resolvedTemplate);
+            setObservationTemplate(resolvedTemplate);
+            await fetchDynamicObservations(resolvedTemplate);
+            await fetchObservationData(resolvedTemplate);
+          }
 
           if (uuc_details) {
             // Extract reference standards from standards array
@@ -2129,12 +2292,14 @@ export default function CalibrationReport() {
               leastCount: uuc_details.least_count || uuc_details.leastCount || "N/A",
               condition: uuc_details.condition || "N/A",
               performedAt: uuc_details.calibration_location || uuc_details.performedAt || caliblocation,
-              startedOn: formatDateTime(uuc_details.started_on || uuc_details.calibrated_on) || "N/A",
-              calibratedon: response.data.data.instrument?.calibratedon || uuc_details.calibrated_on || "N/A",
-              endedOn: formatDateTime(uuc_details.ended_on || uuc_details.due_date) || "N/A",
+              startedOn: formatDateTime(uuc_details.started_on || uuc_details.startdate || uuc_details.start_date) || "N/A",
+              calibratedon: response.data.data.instrument?.calibratedon || uuc_details.calibrated_on || uuc_details.calibratedon || "N/A",
+              endedOn: formatDateTime(uuc_details.ended_on || uuc_details.enddate || uuc_details.end_date) || "N/A",
               referenceStd: referenceStandards,
-              temperature: uuc_details.temperature || "N/A",
-              humidity: uuc_details.humidity || "N/A",
+              temperature: uuc_details.temperature !== undefined && uuc_details.temperature !== null ? uuc_details.temperature : "N/A",
+              humidity: uuc_details.humidity !== undefined && uuc_details.humidity !== null ? uuc_details.humidity : "N/A",
+              tempend: uuc_details.temperature_end ?? uuc_details.temp_end ?? uuc_details.tempend ?? response.data.data.instrument?.tempend ?? "N/A",
+              humiend: uuc_details.humidity_end ?? uuc_details.humi_end ?? uuc_details.humiend ?? response.data.data.instrument?.humiend ?? "N/A",
               pressurestart: uuc_details.pressurestart || uuc_details.pressure_start || "N/A",
               pressureend: uuc_details.pressureend || uuc_details.pressure_end || "N/A",
               stabilizationtime: uuc_details.stabilizationtime || uuc_details.stabilization_time || "N/A",
@@ -2142,7 +2307,6 @@ export default function CalibrationReport() {
               certificateNo: uuc_details.certificate_no || "N/A",
               calibratedBy: uuc_details.calibrated_by,
               authorizedBy: uuc_details.authorized_by,
-              // REMOVED: calibratedByImage and approvedByImage from here
             };
             setEquipmentData(mappedEquipmentData);
 
@@ -2155,7 +2319,6 @@ export default function CalibrationReport() {
               }
             }
 
-            // ADDED: Set image URLs from API response root level
             if (response.data.data.calibrated_by) {
               setCalibratedByImageUrl(response.data.data.calibrated_by);
               console.log('✅ Calibrated By Image URL set:', response.data.data.calibrated_by);
@@ -2173,8 +2336,8 @@ export default function CalibrationReport() {
               reference: master.reference_standard || master.reference || master.name || "N/A",
               srNo: master.sr_no || master.serial_no || `${index + 1}`,
               idNo: master.id_no || master.id || "N/A",
-              certificate: master.certificate_no || master.cert_no || "N/A",
-              validUpto: formatDate(master.valid_upto || master.validity) || "N/A"
+              certificate: master.certificate_no || master.certificate || master.cert_no || "N/A",
+              validUpto: formatDate(master.valid_upto || master.validity || master.enddate) || "N/A"
             }));
 
             setMasterData(mappedMasterData);
@@ -2247,28 +2410,42 @@ export default function CalibrationReport() {
 
   // Helper functions for date formatting
   const formatDate = (dateString) => {
-    if (!dateString || dateString === '0000-00-00' || dateString === 'null' || dateString === null) return '';
+    if (!dateString || dateString === '0000-00-00' || dateString === 'null' || dateString === null || dateString === '-') return '-';
+    if (typeof dateString === 'string') {
+      const trimmed = dateString.trim();
+      // If already in DD.MM.YYYY, DD/MM/YYYY, or DD-MM-YYYY format, return directly
+      if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(trimmed)) {
+        return trimmed.replace(/-/g, '.');
+      }
+    }
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '';
+      if (isNaN(date.getTime())) return dateString;
       return date.toLocaleDateString('en-GB');
     } catch {
-      return '';
+      return dateString || '-';
     }
   };
 
   const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString || dateTimeString === '0000-00-00 00:00:00' || dateTimeString === 'null' || dateTimeString === null) return '';
+    if (!dateTimeString || dateTimeString === '0000-00-00 00:00:00' || dateTimeString === 'null' || dateTimeString === null || dateTimeString === '-') return '';
+    if (typeof dateTimeString === 'string') {
+      const trimmed = dateTimeString.trim();
+      // If already formatted like DD/MM/YYYY HH:mm:ss, DD.MM.YYYY, or DD-MM-YYYY
+      if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(trimmed)) {
+        return trimmed;
+      }
+    }
     try {
       const date = new Date(dateTimeString);
-      if (isNaN(date.getTime())) return '';
+      if (isNaN(date.getTime())) return dateTimeString;
       return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB', {
         hour12: false,
         hour: '2-digit',
         minute: '2-digit'
       });
     } catch {
-      return '';
+      return dateTimeString || '';
     }
   };
 
@@ -2276,7 +2453,11 @@ export default function CalibrationReport() {
     navigate(`/dashboards/calibration-process/inward-entry-lab/perform-calibration/${inwardid}?caliblocation=${caliblocation}&calibacc=${calibacc}`);
   };
 
-  const handlePrint = () => {
+  const handlePrint = (e) => {
+    if (e && (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1)) {
+      return;
+    }
+    e?.preventDefault();
     const printableElement = document.getElementById('printable-content');
     if (!printableElement) {
       toast.error('No content to print');
@@ -2559,7 +2740,7 @@ export default function CalibrationReport() {
 
   const maxObservations = getMaxObservations();
   const selectedTableData = observationTables.find(table => table.id === observationTemplate);
-  const observationRows = selectedTableData ? createObservationRows(dynamicObservations, observationTemplate) : { rows: [], unitTypes: [], modes: [] };
+  const observationRows = selectedTableData ? createObservationRows(dynamicObservations, observationTemplate) : { rows: [], matrixGroups: [], unitTypes: [], modes: [] };
 
   return (
     <>
@@ -2598,6 +2779,11 @@ export default function CalibrationReport() {
             <h2 className="text-lg font-semibold text-gray-800">
               View Raw Data - Calibration Report
             </h2>
+            {itemStatus === 0 && (
+              <span className="ml-3 px-2 py-0.5 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded">
+                DRAFT
+              </span>
+            )}
           </div>
           <Button
             variant="outline"
@@ -2609,14 +2795,14 @@ export default function CalibrationReport() {
         </div>
 
         {/* Wrap all printable content in this div */}
-        <div id="printable-content">
+        <div id="printable-content" className={itemStatus === 0 ? "relative bg-[url('/images/draft.png')] bg-no-repeat bg-center" : "relative"}>
           {/* Current Observation Template Display */}
           {observationType && (
             <div></div>
           )}
 
-          {/* Thermal Coefficients Display */}
-          {Object.keys(thermalCoeff).length > 0 && (
+          {/* Thermal Coefficients Display for non-VC templates */}
+          {observationTemplate !== 'observationvc' && Object.keys(thermalCoeff).length > 0 && (
             <div className="mb-6 p-4 bg-gray-50 rounded">
               <h3 className="font-semibold mb-2">Thermal Coefficients</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -2630,28 +2816,53 @@ export default function CalibrationReport() {
           )}
 
           {/* Details Of UUC */}
-          <div className="flex items-center mb-4">
-            <img src="/images/logo.png" alt="Logo" className="h-14 mr-4" onError={(e) => { e.target.style.display = 'none' }} />
-            <br />
-            <h2 className="text-lg font-semibold">(Details Of UUC)</h2>
+          <div className="mb-4">
+            <div className="flex items-center justify-between">
+              <img src="/images/logo.png" alt="Logo" className="h-14" onError={(e) => { e.target.style.display = 'none' }} />
+              {[27, 179, 174, 168, 95, 26, 24].includes(Number(instrumentInfo?.id)) && (
+                <h3 className="text-sm font-bold text-gray-700">KTRC/CF/CAL/02-R1</h3>
+              )}
+            </div>
+            {[27, 179, 174, 168, 95, 26, 24].includes(Number(instrumentInfo?.id)) ? (
+              <div className="text-center my-3">
+                <h2 className="text-base font-bold underline uppercase">CALIBRATION RAW DATA SHEET OF FORCE</h2>
+                <h3 className="text-sm font-semibold mt-1">Details Of UUC</h3>
+              </div>
+            ) : (
+              <h2 className="text-lg font-semibold mt-2">(Details Of UUC)</h2>
+            )}
           </div>
 
           {/* Equipment Details */}
           <div className="grid grid-cols-2 gap-y-1 gap-x-8 mb-6 text-sm">
             <p><b>Name Of The Equipment:</b> {equipmentData.name}</p>
             <p><b>BRN No:</b> {equipmentData.brnNo}</p>
+
             <p><b>Make:</b> {equipmentData.make}</p>
             <p><b>Receive Date:</b> {equipmentData.inwarddate}</p>
+
             <p><b>Model:</b> {equipmentData.model}</p>
             <p><b>Range:</b> {equipmentData.range}</p>
+
             <p><b>Serial No:</b> {equipmentData.serialNo}</p>
             <p><b>Least Count:</b> {equipmentData.leastCount}</p>
+
             <p><b>ID No:</b> {equipmentData.idNo}</p>
             <p><b>Condition Of UUC:</b> {equipmentData.condition}</p>
+
+            {equipmentData.startedOn && equipmentData.startedOn !== "N/A" && (
+              <p><b>Started On:</b> {equipmentData.startedOn}</p>
+            )}
+            {equipmentData.endedOn && equipmentData.endedOn !== "N/A" && (
+              <p><b>Ended On:</b> {equipmentData.endedOn}</p>
+            )}
+
             <p><b>Calibration Performed At:</b> {equipmentData.performedAt}</p>
             <p><b>Calibrated On:</b> {equipmentData.calibratedon}</p>
+
             <p><b>Suggested Due Date:</b> {equipmentData.suggestedDueDate}</p>
             <p><b>Reference Standard:</b> {equipmentData.referenceStd}</p>
+
             <p><b>Temperature (°C):</b> {equipmentData.temperature}</p>
             <p><b>Humidity (%RH):</b> {equipmentData.humidity}</p>
           </div>
@@ -2695,7 +2906,84 @@ export default function CalibrationReport() {
           {observationTemplate && tableStructure && observationRows.rows.length > 0 && (
             <>
               <h3 className="font-semibold mb-2 text-base">Calibration Results - {selectedTableData?.name}</h3>
-              {observationTemplate === 'observationwb' || observationTemplate === 'observationwbn' ? (
+              {/* Thermal Coefficients Table for Observation VC matching rawdatavc.php */}
+              {observationTemplate === 'observationvc' && (
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full border border-gray-300 text-sm">
+                    <tbody>
+                      <tr className="bg-white">
+                        <td className="border border-gray-300 px-3 py-2 font-medium w-1/4 text-gray-700">
+                          Thermal Co-eff of UUC
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 w-1/4 text-gray-900">
+                          {thermalCoeff.uuc || ''}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 font-medium w-1/4 text-gray-700">
+                          Thermal. Co-eff of MASTER
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 w-1/4 text-gray-900">
+                          {thermalCoeff.master || ''}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {observationTemplate === 'observationvc' ? (
+                (observationRows.matrixGroups && observationRows.matrixGroups.length > 0
+                  ? observationRows.matrixGroups
+                  : [{ title: '', rows: observationRows.rows }]
+                ).map((mGroup, gIdx) => (
+                  <div key={gIdx} className="mb-6">
+                    {mGroup.title && (
+                      <div className="font-semibold text-sm mb-2 text-gray-800">
+                        {mGroup.title}
+                      </div>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border border-gray-300 text-sm">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th rowSpan={2} className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                              Sr. No.
+                            </th>
+                            <th rowSpan={2} className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                              Nominal/ Set Value
+                            </th>
+                            <th colSpan={5} className="border border-gray-300 px-3 py-2 text-center font-medium text-gray-700">
+                              Observation on UUC
+                            </th>
+                            <th rowSpan={2} className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                              Average
+                            </th>
+                            <th rowSpan={2} className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                              Error
+                            </th>
+                          </tr>
+                          <tr className="bg-gray-50">
+                            <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600">Observation 1</th>
+                            <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600">Observation 2</th>
+                            <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600">Observation 3</th>
+                            <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600">Observation 4</th>
+                            <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600">Observation 5</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mGroup.rows.map((row, rIdx) => (
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              {row.map((cell, cIdx) => (
+                                <td key={cIdx} className="border border-gray-300 px-3 py-2">
+                                  {cell || ''}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              ) : observationTemplate === 'observationwb' || observationTemplate === 'observationwbn' ? (
                 renderWeighingBalanceTables()
               ) : observationTemplate === 'observationtm' ? (
                 renderObservationTMTable()
@@ -2875,6 +3163,29 @@ export default function CalibrationReport() {
                   </table>
                 </div>
               )}
+              {/* Parallelism Table for Observation VC matching rawdatavc.php */}
+              {observationTemplate === 'observationvc' && (
+                <div className="overflow-x-auto mb-6">
+                  <table className="w-full border border-gray-300 text-sm">
+                    <tbody>
+                      <tr className="bg-white">
+                        <td className="border border-gray-300 px-3 py-2 font-medium w-1/4 text-gray-700">
+                          Parallelism of external jaws (&micro;m)
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 w-1/4 text-gray-900">
+                          {parallelism.parallinternal ? `${parallelism.parallinternal} µm` : ''}
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 font-medium w-1/4 text-gray-700">
+                          Parallelism Of Internal Jaws (&micro;m)
+                        </td>
+                        <td className="border border-gray-300 px-3 py-2 w-1/4 text-gray-900">
+                          {parallelism.parallexternal ? `${parallelism.parallexternal} µm` : ''}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           )}
 
@@ -2956,59 +3267,64 @@ export default function CalibrationReport() {
             </>
           )}
 
-          {/* Environmental Conditions */}
-          {(equipmentData.temperature !== "N/A" || equipmentData.humidity !== "N/A" || equipmentData.pressurestart !== "N/A" || equipmentData.pressureend !== "N/A" || equipmentData.stabilizationtime !== "N/A") && (
-            <div className="mb-6 p-4 bg-gray-50 rounded">
-              <h3 className="font-semibold mb-2">Environmental Conditions During Calibration</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <p><b>Temperature:</b> {equipmentData.temperature}°C</p>
-                <p><b>Humidity:</b> {equipmentData.humidity}% RH</p>
-                {observationTemplate === 'observationdw' && (
-                  <>
-                    <p><b>Pressure Start:</b> {equipmentData.pressurestart} hpa</p>
-                    <p><b>Pressure End:</b> {equipmentData.pressureend} hpa</p>
-                    <p><b>Thermal Stabilization:</b> {equipmentData.stabilizationtime} hour</p>
-                  </>
-                )}
-              </div>
+          {/* Temperature End & Humidity End right below Calibration Results / Observation Table (matching PHP rawdata.php) */}
+          {(equipmentData.tempend !== "N/A" || equipmentData.humiend !== "N/A" || equipmentData.pressurestart !== "N/A" || equipmentData.pressureend !== "N/A" || equipmentData.stabilizationtime !== "N/A") && (
+            <div className="grid grid-cols-2 gap-y-1 gap-x-8 my-4 p-3 bg-gray-50 rounded border border-gray-200 text-sm">
+              {equipmentData.tempend && equipmentData.tempend !== "N/A" && (
+                <p><b>Temperature End (&deg;C):</b> {equipmentData.tempend}</p>
+              )}
+              {equipmentData.humiend && equipmentData.humiend !== "N/A" && (
+                <p><b>Humidity End (%RH):</b> {equipmentData.humiend}</p>
+              )}
+              {observationTemplate === 'observationdw' && (
+                <>
+                  <p><b>Pressure Start:</b> {equipmentData.pressurestart} hpa</p>
+                  <p><b>Pressure End:</b> {equipmentData.pressureend} hpa</p>
+                  <p><b>Thermal Stabilization:</b> {equipmentData.stabilizationtime} hour</p>
+                </>
+              )}
             </div>
           )}
 
-          {/* Footer - Electronic Signatures */}
-          <div className="flex justify-between mt-12 pt-8 border-t text-xs">
-            {/* UPDATED: Only show if image URL exists */}
-            {calibratedByImageUrl && (
-              <div>
-                <p className="font-semibold mb-1">Calibrated By</p>
+          {/* Footer - Electronic Signatures (Matching PHP 50/50 centered layout) */}
+          <div className="grid grid-cols-2 gap-4 mt-12 pt-8 border-t text-xs">
+            <div className="text-center flex flex-col items-center justify-center">
+              <p className="font-bold text-sm mb-2">Calibrated by</p>
+              {calibratedByImageUrl ? (
                 <img
                   src={calibratedByImageUrl}
                   alt="Calibrated By Signature"
-                  className="h-16 w-auto mb-1"
+                  className="h-16 w-auto object-contain mb-1"
                   onError={(e) => {
                     console.error('❌ Failed to load calibrated_by image:', calibratedByImageUrl);
                     e.target.style.display = 'none';
                   }}
                 />
+              ) : (
+                <div className="h-16 flex items-center justify-center text-gray-400 italic">
+                  (Signature)
+                </div>
+              )}
+            </div>
 
-              </div>
-            )}
-
-            {/* UPDATED: Only show if image URL exists */}
-            {approvedByImageUrl && (
-              <div className="text-right">
-                <p className="font-semibold mb-1" style={{ marginRight: "303px" }}>Authorized By</p>
+            <div className="text-center flex flex-col items-center justify-center">
+              <p className="font-bold text-sm mb-2">Authorised By</p>
+              {approvedByImageUrl ? (
                 <img
                   src={approvedByImageUrl}
                   alt="Authorized By Signature"
-                  className="h-16 w-auto mb-1"
+                  className="h-16 w-auto object-contain mb-1"
                   onError={(e) => {
                     console.error('❌ Failed to load approvedby image:', approvedByImageUrl);
                     e.target.style.display = 'none';
                   }}
                 />
-
-              </div>
-            )}
+              ) : (
+                <div className="h-16 flex items-center justify-center text-gray-400 italic">
+                  (Signature)
+                </div>
+              )}
+            </div>
           </div>
 
 
@@ -3019,12 +3335,15 @@ export default function CalibrationReport() {
 
         {/* Action Buttons - Hidden on print */}
         <div className="mt-6 flex gap-3 no-print">
-          <Button
-            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-6 py-2 rounded"
+          <Link
+            to={reportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-6 py-2 rounded inline-flex items-center justify-center font-medium transition-colors cursor-pointer"
             onClick={handlePrint}
           >
             Print Report
-          </Button>
+          </Link>
         </div>
       </div>
     </>

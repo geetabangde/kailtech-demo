@@ -7,17 +7,20 @@ import axios from "utils/axios";
 import { toast } from "sonner";
 import Select from "react-select";
 import { Plus, Trash2, Save } from "lucide-react";
+import { parseUserPermissions } from "utils/permissions";
 
 // ----------------------------------------------------------------------
 
 export default function EditTQuotationItem() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const permissions = JSON.parse(localStorage.getItem("userPermissions") || "[]");
+    const userPermissionsRaw = localStorage.getItem("userPermissions");
+    const permissions = useMemo(() => parseUserPermissions(userPermissionsRaw), [userPermissionsRaw]);
 
     useEffect(() => {
-        if (!permissions.includes(95)) {
+        if (!permissions.includes(94) && !permissions.includes(141)) {
             navigate("/dashboards/sales/testing-quotations");
+            toast.error("You don't have permission to edit quotation items");
         }
     }, [navigate, permissions]);
 
@@ -193,7 +196,7 @@ export default function EditTQuotationItem() {
             if (quoteRes.data?.status) {
                 const q = quoteRes.data.quotation;
                 setQuoteData(q || null);
-                
+
                 if (isInitial) {
                     setTaxData({
                         discnumber: q?.discnumber || 0,

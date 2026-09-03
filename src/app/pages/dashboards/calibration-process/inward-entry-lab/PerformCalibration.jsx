@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button, Select, Pagination, PaginationItems, PaginationNext, PaginationPrevious } from "components/ui";
 import axios from "utils/axios";
 import { toast } from "sonner";
@@ -462,11 +462,7 @@ const PerformCalibration = () => {
         }
     };
 
-    const handleBackToList = () => {
-        navigate(
-            `/dashboards/calibration-process/inward-entry-lab?caliblocation=${caliblocation}&calibacc=${calibacc}`
-        );
-    };
+
 
     const handleBulkAction = async (action) => {
         try {
@@ -1235,16 +1231,27 @@ const PerformCalibration = () => {
     };
 
     // Handle Edit Calib Point confirmation
-    const handleEditCalibPointConfirm = () => {
-        const baseUrl = `/dashboards/calibration-process/inward-entry-lab`;
-        const params = `?caliblocation=${caliblocation}&calibacc=${calibacc}`;
+    const handleEditCalibPointConfirm = async () => {
+        try {
+            const response = await axios.get(
+                `/calibrationprocess/edit-points-and-detail?inward_id=${inwardId}&inst_id=${currentEditCalibPointItem.id}`
+            );
 
-        // Navigate to edit calib point page
-        navigate(`${baseUrl}/edit-calib-point/${inwardId}/${currentEditCalibPointItem.id}${params}`);
-
-        // Close the modal
-        setShowEditCalibPointModal(false);
-        setCurrentEditCalibPointItem(null);
+            if (response.data.status === true || response.data.status === "true" || response.data.status === 1) {
+                toast.success(response.data.message || "Updated successfully!");
+                // Refresh data
+                fetchCalibrationData();
+            } else {
+                toast.error(response.data.message || "Failed to update status.");
+            }
+        } catch (error) {
+            console.error("Edit Calib Point error:", error);
+            toast.error(error.response?.data?.message || "Failed to update status.");
+        } finally {
+            // Close the modal
+            setShowEditCalibPointModal(false);
+            setCurrentEditCalibPointItem(null);
+        }
     };
 
     // Handle Edit Calib Point modal close
@@ -1285,12 +1292,12 @@ const PerformCalibration = () => {
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
                     <div className="flex items-center justify-between p-4 border-b border-gray-200">
                         <h1 className="text-xl font-semibold text-gray-800">Perform Calibration</h1>
-                        <Button
-                            onClick={handleBackToList}
-                            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                        <Link
+                            to={`/dashboards/calibration-process/inward-entry-lab?caliblocation=${caliblocation}&calibacc=${calibacc}`}
+                            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center justify-center"
                         >
                             ← Back to Inward Entry List
-                        </Button>
+                        </Link>
                     </div>
                 </div>
 
@@ -1461,17 +1468,20 @@ const PerformCalibration = () => {
                                                     {allotedToDisplay}
                                                 </td>
                                                 <td className="p-3 text-center border border-gray-200">
-                                                    <Button
-                                                        onClick={() => handleAction('matrix', item)}
-                                                        className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+                                                    <Link
+                                                        to={`/dashboards/calibration-process/inward-entry-lab/matrix/${inwardId}/${item.id}?caliblocation=${caliblocation}&calibacc=${calibacc}`}
+                                                        className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors inline-flex items-center justify-center"
                                                     >
                                                         Matrix
-                                                    </Button>
+                                                    </Link>
                                                 </td>
                                                 <td className="p-3 text-center border border-gray-200">
                                                     <PerformActions
                                                         item={item}
                                                         onAction={handleAction}
+                                                        inwardId={inwardId}
+                                                        caliblocation={caliblocation}
+                                                        calibacc={calibacc}
                                                     />
                                                 </td>
                                             </tr>
@@ -1558,30 +1568,55 @@ const PerformCalibration = () => {
                             >
                                 Review Selected
                             </Button>
-                            <Button
-                                onClick={() => handleBulkAction('viewSticker')}
-                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                            <Link
+                                to={selectedItems.length > 0 ? `/dashboards/calibration-process/inward-entry-lab/view-sticker/${inwardId}/${selectedItems.join(',')}?caliblocation=${caliblocation}&calibacc=${calibacc}` : '#'}
+                                state={{ caliblocation, calibacc }}
+                                onClick={(e) => {
+                                    if (selectedItems.length === 0) {
+                                        e.preventDefault();
+                                        toast.error("Please select at least one item");
+                                    }
+                                }}
+                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors inline-flex items-center justify-center"
                             >
                                 View Sticker
-                            </Button>
-                            <Button
-                                onClick={() => handleBulkAction('viewMultipleDraft')}
-                                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                            </Link>
+                            <Link
+                                to={selectedItems.length > 0 ? `/dashboards/calibration-process/inward-entry-lab/ViewMultiple/${inwardId}/${selectedItems.join(',')}?caliblocation=${caliblocation}&calibacc=${calibacc}` : '#'}
+                                onClick={(e) => {
+                                    if (selectedItems.length === 0) {
+                                        e.preventDefault();
+                                        toast.error("Please select at least one item");
+                                    }
+                                }}
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors inline-flex items-center justify-center"
                             >
                                 View Multiple Draft
-                            </Button>
-                            <Button
-                                onClick={() => handleBulkAction('viewMultipleTraceability')}
-                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                            </Link>
+                            <Link
+                                to={selectedItems.length > 0 ? `/dashboards/calibration-process/inward-entry-lab/view-multiple-traceability/${inwardId}/${selectedItems.join(',')}?caliblocation=${caliblocation}&calibacc=${calibacc}` : '#'}
+                                onClick={(e) => {
+                                    if (selectedItems.length === 0) {
+                                        e.preventDefault();
+                                        toast.error("Please select at least one item");
+                                    }
+                                }}
+                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors inline-flex items-center justify-center"
                             >
                                 View Multiple Traceability
-                            </Button>
-                            <Button
-                                onClick={() => handleBulkAction('viewMultipleApprovedCertificate')}
-                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                            </Link>
+                            <Link
+                                to={selectedItems.length > 0 ? `/dashboards/calibration-process/inward-entry-lab/view-multiple-approved-certificate/${inwardId}/${selectedItems.join(',')}?caliblocation=${caliblocation}&calibacc=${calibacc}` : '#'}
+                                onClick={(e) => {
+                                    if (selectedItems.length === 0) {
+                                        e.preventDefault();
+                                        toast.error("Please select at least one item");
+                                    }
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors inline-flex items-center justify-center"
                             >
                                 View Multiple Approved Certificate
-                            </Button>
+                            </Link>
                             <Button
                                 onClick={() => handleBulkAction('downloadWithLetterhead')}
                                 className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"

@@ -13,67 +13,67 @@ import rubySignature from "assets/ruby_signature.png";
 
 // ── Custom Approve Modal (Same as Invoices) ──────────────────────────────────
 function ApproveModal({ show, onClose, onOk, loading, title = "Approve Internship Letter?" }) {
-  if (!show) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="dark:bg-dark-800 w-full max-w-sm rounded-lg bg-white shadow-xl">
-        {/* Icon */}
-        <div className="flex flex-col items-center px-6 pt-6 pb-4">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <CheckCircleIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
-          </div>
-          <h3 className="dark:text-dark-50 text-base font-semibold text-gray-800">
-            {title}
-          </h3>
-          <p className="dark:text-dark-400 mt-1.5 text-center text-sm text-gray-500">
-            Are you sure you want to approve this Internship Letter?
-          </p>
+    if (!show) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="dark:bg-dark-800 w-full max-w-sm rounded-lg bg-white shadow-xl">
+                {/* Icon */}
+                <div className="flex flex-col items-center px-6 pt-6 pb-4">
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                        <CheckCircleIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h3 className="dark:text-dark-50 text-base font-semibold text-gray-800">
+                        {title}
+                    </h3>
+                    <p className="dark:text-dark-400 mt-1.5 text-center text-sm text-gray-500">
+                        Are you sure you want to approve this Internship Letter?
+                    </p>
+                </div>
+                {/* Buttons */}
+                <div className="dark:border-dark-500 flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-4">
+                    <button
+                        onClick={onClose}
+                        disabled={loading}
+                        className="dark:border-dark-500 dark:text-dark-300 rounded-md border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onOk}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {loading ? (
+                            <>
+                                <svg
+                                    className="h-4 w-4 animate-spin"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                >
+                                    <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                    />
+                                    <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"
+                                    />
+                                </svg>
+                                Approving…
+                            </>
+                        ) : (
+                            "Approve"
+                        )}
+                    </button>
+                </div>
+            </div>
         </div>
-        {/* Buttons */}
-        <div className="dark:border-dark-500 flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-4">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="dark:border-dark-500 dark:text-dark-300 rounded-md border border-gray-300 px-5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onOk}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <svg
-                  className="h-4 w-4 animate-spin"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"
-                  />
-                </svg>
-                Approving…
-              </>
-            ) : (
-              "Approve"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default function ViewIntershipLetter() {
@@ -153,13 +153,33 @@ export default function ViewIntershipLetter() {
                     data = res.data.data;
                     success = true;
                     break;
-                } else if (res.data) {
+                } else if (res.data?.data) {
+                    data = res.data.data;
+                    success = true;
+                    break;
+                } else if (res.data && !res.data.status) {
                     data = res.data;
                     success = true;
                     break;
                 }
             } catch {
-                console.warn(`Failed fetching from ${url}, trying fallback...`);
+                // Continue to next fallback
+            }
+        }
+
+        // Fallback: check local storage if backend is not yet populated
+        if (!success) {
+            try {
+                const stored = JSON.parse(localStorage.getItem("local_offer_letters") || "[]");
+                const found = stored.find(
+                    (item) => String(item.id) === String(id) || String(item.reference_no) === String(id)
+                );
+                if (found) {
+                    data = found;
+                    success = true;
+                }
+            } catch (err) {
+                console.warn("Could not read from localStorage", err);
             }
         }
 

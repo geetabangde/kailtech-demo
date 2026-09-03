@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getStoredPermissions } from "app/navigation/dashboards";
 import { ArrowLeftIcon, DocumentTextIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
+import { generateOfferLetterId } from "./offerLetterUtils";
 
 
 // ----------------------------------------------------------------------
@@ -320,8 +321,22 @@ export default function AddOfferLetter() {
       const matchedBranch = branches.find((b) => String(b.id || b.value) === String(formData.branch));
       const matchedDept = departments.find((d) => String(d.id || d.value) === String(formData.department));
 
+      // Generate date-wise reference ID only for Offer Letters (KTRC/OFFER/DDMMYYYY/001...)
+      let letterId = `INT-${Date.now().toString().slice(-4)}`;
+      let refNo = "";
+      let seqNo = null;
+
+      if (letterType === "offer") {
+        const generatedIdInfo = generateOfferLetterId(formData.offerletterdate);
+        letterId = generatedIdInfo.id;
+        refNo = generatedIdInfo.reference_no;
+        seqNo = generatedIdInfo.seq_no;
+      }
+
       const newRecord = {
-        id: `OFF-${Date.now().toString().slice(-4)}`,
+        id: letterId,
+        ...(refNo ? { reference_no: refNo } : {}),
+        ...(seqNo ? { seq_no: seqNo } : {}),
         ...payload,
         designation_name: matchedDesig ? (matchedDesig.name || matchedDesig.label) : (letterType === "internship" ? "Graduate Apprentice" : formData.designation),
         department_name: matchedDept ? (matchedDept.name || matchedDept.label) : formData.department,
@@ -343,6 +358,14 @@ export default function AddOfferLetter() {
       Object.entries(payload).forEach(([key, value]) => {
         form.append(key, value || "");
       });
+      form.append("id", letterId);
+      if (refNo) {
+        form.append("reference_no", refNo);
+        form.append("offer_id", refNo);
+      }
+      if (seqNo) {
+        form.append("seq_no", seqNo);
+      }
 
       try {
         await axios.post("/hrm/insert-offer-letter", form);
@@ -354,8 +377,8 @@ export default function AddOfferLetter() {
         }
       }
 
-      toast.success(`${letterType === "internship" ? "Internship Letter" : "Offer Letter"} created successfully ✅`, {
-        duration: 2000,
+      toast.success(`${letterType === "internship" ? "Internship Letter" : "Offer Letter"}${refNo ? ` (${refNo})` : ""} created successfully ✅`, {
+        duration: 2500,
         icon: "✅",
       });
 
@@ -537,9 +560,19 @@ export default function AddOfferLetter() {
 
           {/* Section 1: Candidate Basic & Contact Details */}
           <Card className="p-6 border-none shadow-soft dark:bg-dark-700">
-            <h3 className="text-base font-bold text-gray-800 dark:text-dark-100 mb-6 pb-2 border-b border-gray-100 dark:border-dark-600">
-              Basic & Contact Information
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-2 border-b border-gray-100 dark:border-dark-600 gap-2">
+              <h3 className="text-base font-bold text-gray-800 dark:text-dark-100">
+                Basic & Contact Information
+              </h3>
+              {letterType === "offer" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 font-medium">Auto Generated ID:</span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                    {generateOfferLetterId(formData.offerletterdate).reference_no}
+                  </span>
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {/* Date */}

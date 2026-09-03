@@ -1,6 +1,7 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 
 // Ensure location is available (e.g., with React Router or window object)
 const searchParams =
@@ -306,9 +307,22 @@ const ArrowDownTrayIcon = ({ className }) => (
 // Utility function for class names
 const clsx = (...classes) => classes.filter(Boolean).join(" ");
 
-export function PerformActions({ item, onAction }) {
+export function PerformActions({ item, onAction, inwardId, caliblocation, calibacc }) {
   // Theme state for light/dark mode
   const [theme, setTheme] = useState("light");
+
+  const pathParts =
+    typeof window !== "undefined" ? window.location.pathname.split("/") : [];
+  const currentInwardId =
+    inwardId ||
+    item.inward_id ||
+    item.inwardid ||
+    (pathParts.length > 0 ? pathParts[pathParts.length - 1] : "");
+
+  const currentCalibLocation =
+    caliblocation || searchParams.get("caliblocation") || "Lab";
+  const currentCalibAcc =
+    calibacc || searchParams.get("calibacc") || "Nabl";
 
   // Theme detection
   useEffect(() => {
@@ -795,6 +809,58 @@ export function PerformActions({ item, onAction }) {
         : permissions.includes(action.permission)),
   );
 
+  const getActionUrl = (actionName) => {
+    const baseUrl = `/dashboards/calibration-process/inward-entry-lab`;
+    const params = `?caliblocation=${encodeURIComponent(currentCalibLocation)}&calibacc=${encodeURIComponent(currentCalibAcc)}`;
+    const resolvedInwardId = currentInwardId;
+
+    switch (actionName) {
+      case "matrix":
+        return `${baseUrl}/matrix/${resolvedInwardId}/${item.id}${params}`;
+      case "viewDocuments":
+        return `${baseUrl}/view-documents/${resolvedInwardId}/${item.id}${params}`;
+      case "addCrf":
+        return `${baseUrl}/add-crf/${resolvedInwardId}/${item.id}${params}`;
+      case "cloneItem":
+        return `${baseUrl}/clone-item/${resolvedInwardId}/${item.id}${params}`;
+      case "editInstrumentDetail":
+        return `${baseUrl}/edit-instrumental-crf/${resolvedInwardId}/${item.id}${params}`;
+      case "editDetailsForRevision":
+        return `${baseUrl}/edit-details-revision/${resolvedInwardId}/${item.id}${params}`;
+      case "calibrateStep1":
+      case "backToStep1":
+        return `${baseUrl}/calibrate-step1/${resolvedInwardId}/${item.id}${params}`;
+      case "calibrateStep2":
+        return `${baseUrl}/calibrate-step2/${resolvedInwardId}/${item.id}${params}`;
+      case "changeMaster":
+        return `${baseUrl}/change-master/${resolvedInwardId}/${item.id}${params}`;
+      case "calibrateStep3":
+        return `${baseUrl}/calibrate-step3/${resolvedInwardId}/${item.id}${params}`;
+      case "editInstrumentDetail2":
+        return `${baseUrl}/edit-instrument-detail-2/${resolvedInwardId}/${item.id}${params}`;
+      case "viewRawdata":
+        return `${baseUrl}/view-rawdata/${resolvedInwardId}/${item.id}${params}`;
+      case "viewTraceability":
+        return `${baseUrl}/view-traceability/${resolvedInwardId}/${item.id}${params}`;
+      case "viewCertificate":
+        return `${baseUrl}/view-certificate/${resolvedInwardId}/${item.id}${params}`;
+      case "viewApprovedCertificate":
+        return item.fileWithFullPath || `${baseUrl}/view-certificate/${resolvedInwardId}/${item.id}${params}`;
+      case "viewCertificateWithLH":
+        return `${baseUrl}/view-certificate-with-lh/${resolvedInwardId}/${item.id}${params}`;
+      case "viewCMCCalculation":
+        return `${baseUrl}/view-cmc-calculation/${resolvedInwardId}/${item.id}${params}`;
+      case "review":
+        return `${baseUrl}/review/${resolvedInwardId}/${item.id}${params}`;
+      case "approve":
+        return `${baseUrl}/approve/${resolvedInwardId}/${item.id}${params}`;
+      case "regenerateCache":
+        return `${baseUrl}/regenerate-cache/${resolvedInwardId}/${item.id}${params}`;
+      default:
+        return null;
+    }
+  };
+
   const handleActionClick = (action) => {
     //console.log('PerformActions: Triggering action:', action);
     onAction(action, item);
@@ -805,18 +871,52 @@ export function PerformActions({ item, onAction }) {
       <div className="justify-left flex flex-wrap gap-2">
         {filteredActions.map((action, index) => {
           const IconComponent = action.icon;
+          const url = getActionUrl(action.action);
+          const btnClassName = clsx(
+            "btn-base btn h-7 rounded border px-2.5 py-1 text-xs font-medium outline-none transition-all hover:shadow-md inline-flex items-center justify-center",
+            action.bgColor || "bg-slate-100",
+            action.color || "text-slate-800",
+            action.hoverColor || "hover:bg-slate-200",
+            action.borderColor,
+            "focus:ring-2 focus:ring-slate-300 focus:ring-offset-1 dark:focus:ring-slate-500",
+          );
+
+          if (action.action === "viewApprovedCertificate" && item.fileWithFullPath) {
+            return (
+              <a
+                key={`${action.action}-${index}`}
+                href={item.fileWithFullPath}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={btnClassName}
+                title={action.label}
+              >
+                <IconComponent className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{action.label}</span>
+              </a>
+            );
+          }
+
+          if (url) {
+            return (
+              <Link
+                key={`${action.action}-${index}`}
+                to={url}
+                className={btnClassName}
+                title={action.label}
+              >
+                <IconComponent className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{action.label}</span>
+              </Link>
+            );
+          }
+
           return (
             <button
               key={`${action.action}-${index}`}
+              type="button"
               onClick={() => handleActionClick(action.action)}
-              className={clsx(
-                "btn-base btn h-7 rounded border px-2.5 py-1 text-xs font-medium outline-none transition-all hover:shadow-md",
-                action.bgColor || "bg-slate-100",
-                action.color || "text-slate-800",
-                action.hoverColor || "hover:bg-slate-200",
-                action.borderColor,
-                "focus:ring-2 focus:ring-slate-300 focus:ring-offset-1 dark:focus:ring-slate-500",
-              )}
+              className={btnClassName}
               title={action.label}
             >
               <IconComponent className="mr-1.5 h-4 w-4 flex-shrink-0" />
@@ -838,4 +938,7 @@ export function PerformActions({ item, onAction }) {
 PerformActions.propTypes = {
   item: PropTypes.object.isRequired,
   onAction: PropTypes.func.isRequired,
+  inwardId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  caliblocation: PropTypes.string,
+  calibacc: PropTypes.string,
 };

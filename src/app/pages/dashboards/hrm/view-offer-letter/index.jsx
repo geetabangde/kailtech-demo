@@ -40,8 +40,8 @@ const dummyOfferLetters = [
     companyname: "Kailtech Test and Research Centre Pvt Ltd.",
     branch: "Indore Laboratory",
     department: "Laboratory",
-    designation_name: "Graduate Apprentice", 
-    designation: "Graduate Apprentice", 
+    designation_name: "Graduate Apprentice",
+    designation: "Graduate Apprentice",
     offerletterdate: "2026-03-13T10:00:00Z",
     joiningdate: "2026-03-13T09:00:00Z",
     duration: "1 Year",
@@ -61,8 +61,8 @@ const dummyOfferLetters = [
     companyname: "KAILTECH TEST & RESEARCH CENTRE PVT. LTD.",
     branch: "Indore Laboratory",
     department: "Microbiology",
-    designation_name: "Sr. Microbiologist", 
-    designation: "Sr. Microbiologist", 
+    designation_name: "Sr. Microbiologist",
+    designation: "Sr. Microbiologist",
     offerletterdate: "2026-08-06T10:00:00Z",
     joiningdate: "2026-09-17T09:00:00Z",
     duration: "1 Year",
@@ -273,7 +273,7 @@ export default function ViewOfferLettersList() {
           className={clsx(
             "flex h-full w-full flex-col",
             tableSettings.enableFullScreen &&
-              "fixed inset-0 z-61 bg-white pt-3 dark:bg-dark-900",
+            "fixed inset-0 z-61 bg-white pt-3 dark:bg-dark-900",
           )}
         >
           <Toolbar table={table} />
@@ -306,9 +306,9 @@ export default function ViewOfferLettersList() {
                               "bg-gray-50 text-xs font-bold uppercase text-gray-600 dark:bg-dark-800 dark:text-dark-200 align-top",
                               header.column.getCanPin() && [
                                 header.column.getIsPinned() === "left" &&
-                                  "sticky z-2 ltr:left-0 rtl:right-0",
+                                "sticky z-2 ltr:left-0 rtl:right-0",
                                 header.column.getIsPinned() === "right" &&
-                                  "sticky z-2 ltr:right-0 rtl:left-0",
+                                "sticky z-2 ltr:right-0 rtl:left-0",
                               ],
                             )}
                           >
@@ -321,9 +321,9 @@ export default function ViewOfferLettersList() {
                                   {header.isPlaceholder
                                     ? null
                                     : flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext(),
-                                      )}
+                                      header.column.columnDef.header,
+                                      header.getContext(),
+                                    )}
                                 </span>
                                 <TableSortIcon
                                   sorted={header.column.getIsSorted()}
@@ -354,9 +354,9 @@ export default function ViewOfferLettersList() {
                                 "text-sm bg-white dark:bg-dark-700",
                                 cell.column.getCanPin() && [
                                   cell.column.getIsPinned() === "left" &&
-                                    "sticky z-2 ltr:left-0 rtl:right-0",
+                                  "sticky z-2 ltr:left-0 rtl:right-0",
                                   cell.column.getIsPinned() === "right" &&
-                                    "sticky z-2 ltr:right-0 rtl:left-0",
+                                  "sticky z-2 ltr:right-0 rtl:left-0",
                                 ],
                               )}
                             >

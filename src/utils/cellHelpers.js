@@ -105,6 +105,10 @@ export function getDisabledStatus(
       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
       break;
 
+    case 'observationvc':
+      isDisabled = isDisabled || [0, 1, 7, 8].includes(colIndex);
+      break;
+
     case 'observationmsr':
       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
       break;

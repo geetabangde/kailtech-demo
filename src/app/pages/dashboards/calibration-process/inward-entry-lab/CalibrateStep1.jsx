@@ -19,6 +19,7 @@ const Calibratestep1 = () => {
         equipmentName: '',
         brnNo: '',
         receiveDate: '',
+        sampleReceivedDate: '',
         make: '',
         model: '',
         srNo: '',
@@ -34,7 +35,7 @@ const Calibratestep1 = () => {
         humidity: ''
     });
 
-    // Add state for range values and validation
+    // Range values and validation
     const [rangeValues, setRangeValues] = useState({
         temprangemin: null,
         temprangemax: null,
@@ -42,13 +43,17 @@ const Calibratestep1 = () => {
         humirangemax: null
     });
 
+    const [lengthOfItemDocuments, setLengthOfItemDocuments] = useState(0);
+    const [calibrationValidity, setCalibrationValidity] = useState('');
+
     // Store original API values for placeholder
     const [originalValues, setOriginalValues] = useState({
         temperature: '',
         humidity: '',
         conditionOfUIC: '',
         calibratedStart: '',
-        suggestedDueDate: ''
+        suggestedDueDate: '',
+        sampleReceivedDate: ''
     });
 
     const [validationErrors, setValidationErrors] = useState({
@@ -56,7 +61,8 @@ const Calibratestep1 = () => {
         humidity: '',
         conditionOfUIC: '',
         calibratedStart: '',
-        suggestedDueDate: ''
+        suggestedDueDate: '',
+        sampleReceivedDate: ''
     });
 
     const [loading, setLoading] = useState(true);
@@ -90,7 +96,6 @@ const Calibratestep1 = () => {
         
         axios.interceptors.request.use(
             (config) => {
-                console.log('API Request:', config);
                 return config;
             },
             (error) => {
@@ -113,6 +118,73 @@ const Calibratestep1 = () => {
         );
     }, []);
 
+    // Helper functions
+    const formatDate = (dateString) => {
+        if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') return '';
+        try {
+            return new Date(dateString).toLocaleDateString('en-GB');
+        } catch {
+            return dateString;
+        }
+    };
+
+    const formatDateForInput = (dateString) => {
+        if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') return '';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        } catch {
+            return '';
+        }
+    };
+
+    const calculateDueDate = (startDateStr, frequency) => {
+        if (!startDateStr || !frequency || frequency === 'NA') return '';
+        try {
+            const startDate = new Date(startDateStr);
+            if (isNaN(startDate.getTime())) return '';
+            
+            const freq = frequency.toLowerCase().trim();
+            const match = freq.match(/^(\d+)\s*(year|years|month|months|day|days)/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                const unit = match[2];
+                const result = new Date(startDate);
+                if (unit.startsWith('year')) {
+                    result.setFullYear(result.getFullYear() + num);
+                } else if (unit.startsWith('month')) {
+                    result.setMonth(result.getMonth() + num);
+                } else if (unit.startsWith('day')) {
+                    result.setDate(result.getDate() + num);
+                }
+                return formatDateForInput(result);
+            }
+            const result = new Date(startDate);
+            result.setFullYear(result.getFullYear() + 1);
+            return formatDateForInput(result);
+        } catch {
+            return '';
+        }
+    };
+
+    const getReferenceSite = (instrument_entry, instrument_master) => {
+        if (instrument_entry?.referencestd) {
+            return instrument_entry.referencestd;
+        }
+        const defaultReferences = {
+            'temperature': 'DKD-R 6-1\nIS 3651 (Part II) : 1985',
+            'pressure': 'DKD-R 6-1\nIS 3651 (Part I) : 1985',
+            'electrical': 'IS 13540 : 1993\nIEC 61010-1',
+            'dimensional': 'IS 3651 (Part III) : 1985\nDKD-R 4-3'
+        };
+        const discipline = instrument_master?.discipline?.toLowerCase();
+        return defaultReferences[discipline] || 'DKD-R 6-1\nIS 3651 (Part II) : 1985';
+    };
+
     // Validation function for temperature, humidity, and other fields
     const validateRange = (value, min, max, fieldName) => {
         if (!value && fieldName !== 'conditionOfUIC') return `${fieldName} is required`;
@@ -120,13 +192,9 @@ const Calibratestep1 = () => {
         if (fieldName === 'temperature' || fieldName === 'humidity') {
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return `Invalid ${fieldName.toLowerCase()}`;
-            if (numValue < min || numValue > max) {
+            if (min !== null && max !== null && (numValue < min || numValue > max)) {
                 return `${fieldName} must be between ${min} and ${max}`;
             }
-        }
-        
-        if (fieldName === 'conditionOfUIC' && !value) {
-            return 'Condition of UUC is required';
         }
 
         if (fieldName === 'calibratedStart') {
@@ -137,6 +205,11 @@ const Calibratestep1 = () => {
         if (fieldName === 'suggestedDueDate') {
             const date = new Date(value);
             if (isNaN(date.getTime())) return 'Invalid suggested due date';
+        }
+
+        if (fieldName === 'sampleReceivedDate') {
+            const date = new Date(value);
+            if (isNaN(date.getTime())) return 'Invalid sample received date';
         }
 
         return '';
@@ -157,12 +230,8 @@ const Calibratestep1 = () => {
                     caliblocation: caliblocation,
                     calibacc: calibacc
                 };
-
-                console.log('Fetching data with params:', params);
                 
                 const response = await axios.get(apiUrl, { params });
-                
-                console.log('API Response:', response.data);
                 
                 if (response.data.status === "true" && response.data.data) {
                     const { inward, instrument_entry, instrument_master } = response.data.data;
@@ -175,17 +244,44 @@ const Calibratestep1 = () => {
                         humirangemax: response.data.data.humirangemax
                     });
 
+                    // Set lengthOfItemDocuments if returned from backend
+                    if (response.data.data.lengthOfItemDocuments !== undefined) {
+                        setLengthOfItemDocuments(response.data.data.lengthOfItemDocuments);
+                    } else if (response.data.data.itemDocuments) {
+                        setLengthOfItemDocuments(Array.isArray(response.data.data.itemDocuments) ? response.data.data.itemDocuments.length : 0);
+                    }
+
+                    const validity = instrument_entry?.calibrationvalidity || '';
+                    setCalibrationValidity(validity);
+
+                    const defaultStartDate = instrument_entry?.startdate && instrument_entry.startdate !== '0000-00-00 00:00:00' && instrument_entry.startdate !== '0000-00-00'
+                        ? formatDateForInput(instrument_entry.startdate)
+                        : (instrument_entry?.calibratedon && instrument_entry.calibratedon !== '0000-00-00 00:00:00' && instrument_entry.calibratedon !== '0000-00-00'
+                            ? formatDateForInput(instrument_entry.calibratedon)
+                            : formatDateForInput(new Date()));
+
+                    let defaultDueDate = instrument_entry?.duedate && instrument_entry.duedate !== '0000-00-00'
+                        ? formatDateForInput(instrument_entry.duedate)
+                        : '';
+
+                    if (!defaultDueDate && defaultStartDate && validity) {
+                        defaultDueDate = calculateDueDate(defaultStartDate, validity);
+                    }
+
+                    const sampleRecDate = instrument_entry?.sample_received_on && instrument_entry.sample_received_on !== '0000-00-00'
+                        ? formatDateForInput(instrument_entry.sample_received_on)
+                        : (inward?.sample_received_on && inward.sample_received_on !== '0000-00-00'
+                            ? formatDateForInput(inward.sample_received_on)
+                            : (inward?.inwarddate ? formatDateForInput(inward.inwarddate) : formatDateForInput(new Date())));
+
                     // Store original values for placeholder
                     setOriginalValues({
                         temperature: instrument_entry?.temperature || '',
                         humidity: instrument_entry?.humidity || '',
                         conditionOfUIC: instrument_entry?.conditiononrecieve || 'Satisfactory',
-                        calibratedStart: instrument_entry?.startdate && instrument_entry.startdate !== '0000-00-00 00:00:00' 
-                            ? formatDateTimeLocal(instrument_entry.startdate)
-                            : new Date().toISOString().slice(0, 16),
-                        suggestedDueDate: instrument_entry?.duedate && instrument_entry.duedate !== '0000-00-00'
-                            ? new Date(instrument_entry.duedate).toISOString().split('T')[0]
-                            : ''
+                        calibratedStart: defaultStartDate,
+                        suggestedDueDate: defaultDueDate,
+                        sampleReceivedDate: sampleRecDate
                     });
                     
                     // Map API data to form fields
@@ -195,18 +291,15 @@ const Calibratestep1 = () => {
                         receiveDate: inward?.sample_received_on ? 
                             formatDate(inward.sample_received_on) : 
                             (inward?.inwarddate ? formatDate(inward.inwarddate) : ''),
+                        sampleReceivedDate: sampleRecDate,
                         make: instrument_entry?.make || 'N/A',
                         model: instrument_entry?.model || 'N/A',
                         srNo: instrument_entry?.serialno || 'N/A',
                         idNo: instrument_entry?.idno || 'N/A',
                         range: instrument_entry?.equipmentrange || instrument_entry?.workingrange || '',
                         leastCount: instrument_entry?.leastcount || instrument_entry?.itemleastcount || '',
-                        calibratedStart: instrument_entry?.startdate && instrument_entry.startdate !== '0000-00-00 00:00:00' 
-                            ? formatDateTimeLocal(instrument_entry.startdate)
-                            : new Date().toISOString().slice(0, 16),
-                        suggestedDueDate: instrument_entry?.duedate && instrument_entry.duedate !== '0000-00-00'
-                            ? new Date(instrument_entry.duedate).toISOString().split('T')[0]
-                            : '',
+                        calibratedStart: defaultStartDate,
+                        suggestedDueDate: defaultDueDate,
                         conditionOfUIC: instrument_entry?.conditiononrecieve || 'Satisfactory',
                         calibrationPerformedAt: response.data.data.caliblocation || caliblocation,
                         referenceSite: getReferenceSite(instrument_entry, instrument_master),
@@ -215,13 +308,6 @@ const Calibratestep1 = () => {
                     };
 
                     setFormData(mappedData);
-                    console.log('Form data mapped:', mappedData);
-                    console.log('Range values:', {
-                        temprangemin: response.data.data.temprangemin,
-                        temprangemax: response.data.data.temprangemax,
-                        humirangemin: response.data.data.humirangemin,
-                        humirangemax: response.data.data.humirangemax
-                    });
                 } else {
                     throw new Error(response.data.message || 'Failed to fetch calibration details');
                 }
@@ -247,43 +333,26 @@ const Calibratestep1 = () => {
         }
     }, [id, itemId, caliblocation, calibacc]);
 
-    // Helper functions
-    const formatDate = (dateString) => {
-        if (!dateString || dateString === '0000-00-00') return '';
-        try {
-            return new Date(dateString).toLocaleDateString('en-GB');
-        } catch {
-            return dateString;
-        }
-    };
-
-    const formatDateTimeLocal = (dateTimeString) => {
-        if (!dateTimeString || dateTimeString === '0000-00-00 00:00:00') return '';
-        try {
-            return new Date(dateTimeString).toISOString().slice(0, 16);
-        } catch {
-            return '';
-        }
-    };
-
-    const getReferenceSite = (instrument_entry, instrument_master) => {
-        if (instrument_entry?.referencestd) {
-            return instrument_entry.referencestd;
-        }
-        const defaultReferences = {
-            'temperature': 'DKD-R 6-1\nIS 3651 (Part II) : 1985',
-            'pressure': 'DKD-R 6-1\nIS 3651 (Part I) : 1985',
-            'electrical': 'IS 13540 : 1993\nIEC 61010-1',
-            'dimensional': 'IS 3651 (Part III) : 1985\nDKD-R 4-3'
-        };
-        const discipline = instrument_master?.discipline?.toLowerCase();
-        return defaultReferences[discipline] || 'DKD-R 6-1\nIS 3651 (Part II) : 1985';
-    };
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         
         // Update form data
+        if (name === 'calibratedStart') {
+            const calculatedDue = calculateDueDate(value, calibrationValidity);
+            setFormData(prev => ({
+                ...prev,
+                calibratedStart: value,
+                ...(calculatedDue ? { suggestedDueDate: calculatedDue } : {})
+            }));
+            const error = validateRange(value, null, null, 'Calibrated Start');
+            setValidationErrors(prev => ({
+                ...prev,
+                calibratedStart: error,
+                ...(calculatedDue ? { suggestedDueDate: '' } : {})
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: value
@@ -308,17 +377,17 @@ const Calibratestep1 = () => {
                 ...prev,
                 conditionOfUIC: error
             }));
-        } else if (name === 'calibratedStart') {
-            const error = validateRange(value, null, null, 'Calibrated Start');
-            setValidationErrors(prev => ({
-                ...prev,
-                calibratedStart: error
-            }));
         } else if (name === 'suggestedDueDate') {
             const error = validateRange(value, null, null, 'Suggested Due Date');
             setValidationErrors(prev => ({
                 ...prev,
                 suggestedDueDate: error
+            }));
+        } else if (name === 'sampleReceivedDate') {
+            const error = validateRange(value, null, null, 'Sample Received Date');
+            setValidationErrors(prev => ({
+                ...prev,
+                sampleReceivedDate: error
             }));
         }
     };
@@ -328,86 +397,101 @@ const Calibratestep1 = () => {
         const hasRequiredFields = formData.suggestedDueDate && 
                                 formData.temperature && 
                                 formData.humidity && 
-                                formData.conditionOfUIC && 
-                                formData.calibratedStart;
+                                formData.calibratedStart &&
+                                formData.sampleReceivedDate;
         const hasNoValidationErrors = !validationErrors.temperature && 
                                     !validationErrors.humidity && 
-                                    !validationErrors.conditionOfUIC && 
                                     !validationErrors.calibratedStart && 
-                                    !validationErrors.suggestedDueDate;
-        const isTemperatureInRange = formData.temperature && 
+                                    !validationErrors.suggestedDueDate &&
+                                    !validationErrors.sampleReceivedDate;
+        const isTemperatureInRange = rangeValues.temprangemin === null || rangeValues.temprangemax === null || (
+            formData.temperature && 
             parseFloat(formData.temperature) >= rangeValues.temprangemin && 
-            parseFloat(formData.temperature) <= rangeValues.temprangemax;
-        const isHumidityInRange = formData.humidity && 
+            parseFloat(formData.temperature) <= rangeValues.temprangemax
+        );
+        const isHumidityInRange = rangeValues.humirangemin === null || rangeValues.humirangemax === null || (
+            formData.humidity && 
             parseFloat(formData.humidity) >= rangeValues.humirangemin && 
-            parseFloat(formData.humidity) <= rangeValues.humirangemax;
+            parseFloat(formData.humidity) <= rangeValues.humirangemax
+        );
         
         return hasRequiredFields && hasNoValidationErrors && isTemperatureInRange && isHumidityInRange;
     };
 
-    // Handle form submission
+    // Handle form submission matching PHP logic
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         // Final validation before submission
         const tempError = validateRange(formData.temperature, rangeValues.temprangemin, rangeValues.temprangemax, 'Temperature');
         const humiError = validateRange(formData.humidity, rangeValues.humirangemin, rangeValues.humirangemax, 'Humidity');
-        const conditionError = validateRange(formData.conditionOfUIC, null, null, 'Condition of UUC');
         const calibratedStartError = validateRange(formData.calibratedStart, null, null, 'Calibrated Start');
         const dueDateError = validateRange(formData.suggestedDueDate, null, null, 'Suggested Due Date');
+        const sampleDateError = validateRange(formData.sampleReceivedDate, null, null, 'Sample Received Date');
         
-        if (tempError || humiError || conditionError || calibratedStartError || dueDateError) {
+        if (tempError || humiError || calibratedStartError || dueDateError || sampleDateError) {
             setValidationErrors({
                 temperature: tempError,
                 humidity: humiError,
-                conditionOfUIC: conditionError,
+                conditionOfUIC: '',
                 calibratedStart: calibratedStartError,
-                suggestedDueDate: dueDateError
+                suggestedDueDate: dueDateError,
+                sampleReceivedDate: sampleDateError
             });
             toast.error('Please correct the validation errors before submitting');
             return;
         }
 
-        console.log('Form submitted:', formData);
-
         try {
             const apiUrl = `${JWT_HOST_API}/calibrationprocess/add_step_one`;
             
-            // Format calibrated date - convert datetime-local to DD/MM/YYYY HH:MM:SS format
+            // Format calibrated date to match PHP backend logic
             let formattedCalibratedOn = '';
             if (formData.calibratedStart) {
-                const date = new Date(formData.calibratedStart);
-                const day = date.getDate().toString().padStart(2, '0');
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                const year = date.getFullYear();
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
-                const seconds = date.getSeconds().toString().padStart(2, '0');
-                formattedCalibratedOn = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                const parts = formData.calibratedStart.split('-');
+                if (parts.length === 3) {
+                    const [year, month, day] = parts;
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    
+                    // In PHP: if lengthOfItemDocuments > 0 expects d/m/Y, else d/m/Y H:i:s
+                    if (lengthOfItemDocuments > 0) {
+                        formattedCalibratedOn = `${day}/${month}/${year}`;
+                    } else {
+                        formattedCalibratedOn = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                    }
+                }
+            }
+
+            let formattedSampleReceivedOn = '';
+            if (formData.sampleReceivedDate) {
+                const parts = formData.sampleReceivedDate.split('-');
+                if (parts.length === 3) {
+                    const [year, month, day] = parts;
+                    formattedSampleReceivedOn = `${day}/${month}/${year}`;
+                }
             }
 
             const payload = {
                 inwardid: parseInt(id),
-                id: parseInt(itemId) || 49769,
+                id: parseInt(itemId),
                 performedat: formData.calibrationPerformedAt || "Lab",
                 temperature: formData.temperature,
                 humidity: formData.humidity,
-                referencestd: formData.referenceSite || "13",
-                duedate: formData.suggestedDueDate || "2025-08-05",
+                referencestd: formData.referenceSite,
+                duedate: formData.suggestedDueDate || null,
                 calibratedon: formattedCalibratedOn,
+                sample_received_on: formattedSampleReceivedOn || formData.sampleReceivedDate || null,
                 conditiononrecieve: formData.conditionOfUIC || "Satisfactory",
                 caliblocation: caliblocation || "Lab",
                 calibacc: calibacc || "Nabl"
             };
 
-            console.log('Payload sent:', payload);
-
             const response = await axios.post(apiUrl, payload);
             
-            console.log('API Response:', response.data);
-            
             if (response.data.status === "true" || response.data.status === true) {
-                // Update formData with the latest conditiononrecieve from API response if available
                 const updatedCondition = response.data.data?.instrument_entry?.conditiononrecieve || formData.conditionOfUIC;
                 setFormData(prev => ({
                     ...prev,
@@ -431,7 +515,6 @@ const Calibratestep1 = () => {
             let errorMessage = 'Error submitting form. Please try again.';
             if (error.response) {
                 errorMessage = `Server Error: ${error.response.status} - ${error.response.data?.message || error.message}`;
-                console.log('Response data:', error.response.data);
             } else if (error.request) {
                 errorMessage = 'Network Error: Please check your connection';
             } else {
@@ -455,18 +538,17 @@ const Calibratestep1 = () => {
         window.location.reload();
     };
 
-
-  if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center text-gray-600">
-        <svg className="animate-spin h-6 w-6 mr-2 text-blue-600" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"></path>
-        </svg>
-        Loading Calibration Step1...
-      </div>
-    );
-  }
+    if (loading) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center text-gray-600">
+                <svg className="animate-spin h-6 w-6 mr-2 text-blue-600" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"></path>
+                </svg>
+                Loading Calibration Step1...
+            </div>
+        );
+    }
 
     if (error) {
         return (
@@ -596,7 +678,7 @@ const Calibratestep1 = () => {
                                             </label>
                                             <div className="flex-1">
                                                 <input
-                                                    type="datetime-local"
+                                                    type="date"
                                                     name="calibratedStart"
                                                     value={formData.calibratedStart}
                                                     onChange={handleChange}
@@ -643,6 +725,36 @@ const Calibratestep1 = () => {
                                                 {validationErrors.suggestedDueDate && (
                                                     <div className="text-red-500 dark:text-red-400 text-xs mt-1">
                                                         {validationErrors.suggestedDueDate}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col">
+                                        <div className="flex">
+                                            <label className="w-48 text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
+                                                Sample Received Date <span className="text-red-500">*</span>:
+                                            </label>
+                                            <div className="flex-1">
+                                                <input
+                                                    type="date"
+                                                    name="sampleReceivedDate"
+                                                    value={formData.sampleReceivedDate}
+                                                    onChange={handleChange}
+                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
+                                                        validationErrors.sampleReceivedDate ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
+                                                    }`}
+                                                    required
+                                                    placeholder={
+                                                        originalValues.sampleReceivedDate 
+                                                            ? `Current: ${originalValues.sampleReceivedDate}` 
+                                                            : `Enter sample received date`
+                                                    }
+                                                />
+                                                {validationErrors.sampleReceivedDate && (
+                                                    <div className="text-red-500 dark:text-red-400 text-xs mt-1">
+                                                        {validationErrors.sampleReceivedDate}
                                                     </div>
                                                 )}
                                             </div>
@@ -699,34 +811,16 @@ const Calibratestep1 = () => {
                                         />
                                     </div>
 
-                                    <div className="flex flex-col">
-                                        <div className="flex">
-                                            <label className="w-32 text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
-                                                Condition Of UUC <span className="text-red-500">*</span>:
-                                            </label>
-                                            <div className="flex-1">
-                                                <input
-                                                    type="text"
-                                                    name="conditionOfUIC"
-                                                    value={formData.conditionOfUIC}
-                                                    onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.conditionOfUIC ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
-                                                    required
-                                                    placeholder={
-                                                        originalValues.conditionOfUIC 
-                                                            ? `Current: ${originalValues.conditionOfUIC}` 
-                                                            : `Enter condition (e.g., Satisfactory)`
-                                                    }
-                                                />
-                                                {validationErrors.conditionOfUIC && (
-                                                    <div className="text-red-500 dark:text-red-400 text-xs mt-1">
-                                                        {validationErrors.conditionOfUIC}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                    <div className="flex">
+                                        <label className="w-32 text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Condition Of UUC:</label>
+                                        <input
+                                            type="text"
+                                            name="conditionOfUIC"
+                                            value={formData.conditionOfUIC}
+                                            onChange={handleChange}
+                                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 dark:text-gray-200"
+                                            readOnly
+                                        />
                                     </div>
 
                                     <div className="flex">

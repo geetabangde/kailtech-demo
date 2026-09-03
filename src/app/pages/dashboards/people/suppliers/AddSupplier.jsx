@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Button, Input } from "components/ui";
+import { Button, Input, Textarea } from "components/ui";
 import { Page } from "components/shared/Page";
 import axios from "utils/axios";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ export default function AddSupplier() {
 
   const [countries, setCountries] = useState([]);
   const [states, setStates] = useState([]);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -72,6 +73,9 @@ export default function AddSupplier() {
       ...prev,
       [name]: value,
     }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const handleChangeSelect = (name, option) => {
@@ -79,10 +83,14 @@ export default function AddSupplier() {
       ...prev,
       [name]: option ? option.value : "",
     }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrors({});
 
     if (!formData.country) {
       toast.error("Country is required");
@@ -104,9 +112,16 @@ export default function AddSupplier() {
       }
     } catch (error) {
       console.error("Error adding supplier:", error);
-      toast.error(
-        error.response?.data?.message || "Server error while adding supplier"
-      );
+      const apiErrors = error.response?.data?.errors;
+      if (apiErrors) {
+        setErrors(apiErrors);
+        const firstError = Object.values(apiErrors)[0]?.[0];
+        toast.error(firstError || "Please fix the validation errors in the form.");
+      } else {
+        toast.error(
+          error.response?.data?.message || "Server error while adding supplier"
+        );
+      }
     }
   };
 
@@ -137,22 +152,21 @@ export default function AddSupplier() {
               value={formData.name}
               onChange={handleChange}
               placeholder="Supplier name"
+              error={errors.name?.[0]}
               required
             />
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-white">
-                Address
-              </label>
-              <textarea
+              <Textarea
+                label="Address"
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
                 placeholder="Company Address"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring focus:border-primary-500"
+                error={errors.address?.[0]}
                 rows="3"
                 required
-              ></textarea>
+              />
             </div>
 
             <Input
@@ -161,6 +175,7 @@ export default function AddSupplier() {
               value={formData.company}
               onChange={handleChange}
               placeholder="Company"
+              error={errors.company?.[0]}
             />
             <Input
               label="Email"
@@ -169,6 +184,7 @@ export default function AddSupplier() {
               onChange={handleChange}
               placeholder="Email"
               type="email"
+              error={errors.email?.[0]}
             />
             <Input
               label="Mobile"
@@ -177,6 +193,7 @@ export default function AddSupplier() {
               onChange={handleChange}
               placeholder="Mobile"
               type="tel"
+              error={errors.mobile?.[0]}
             />
             <Input
               label="GST No"
@@ -184,6 +201,7 @@ export default function AddSupplier() {
               value={formData.gstno}
               onChange={handleChange}
               placeholder="GST No"
+              error={errors.gstno?.[0]}
             />
             <Input
               label="PAN No"
@@ -191,6 +209,7 @@ export default function AddSupplier() {
               value={formData.panno}
               onChange={handleChange}
               placeholder="PAN No"
+              error={errors.panno?.[0]}
             />
             <Input
               label="City*"
@@ -198,6 +217,7 @@ export default function AddSupplier() {
               value={formData.city}
               onChange={handleChange}
               placeholder="City"
+              error={errors.city?.[0]}
               required
             />
             <Input
@@ -206,6 +226,7 @@ export default function AddSupplier() {
               value={formData.website}
               onChange={handleChange}
               placeholder="Website"
+              error={errors.website?.[0]}
               required
             />
 
@@ -223,6 +244,9 @@ export default function AddSupplier() {
                 className="react-select-container"
                 classNamePrefix="react-select"
               />
+              {errors.country?.[0] && (
+                <p className="text-xs text-error mt-1">{errors.country[0]}</p>
+              )}
             </div>
 
             {formData.country === "1" || formData.country === 1 ? (
@@ -240,6 +264,9 @@ export default function AddSupplier() {
                   className="react-select-container"
                   classNamePrefix="react-select"
                 />
+                {errors.state?.[0] && (
+                  <p className="text-xs text-error mt-1">{errors.state[0]}</p>
+                )}
               </div>
             ) : (
               <Input
@@ -248,6 +275,7 @@ export default function AddSupplier() {
                 value={formData.state}
                 onChange={handleChange}
                 placeholder="State"
+                error={errors.state?.[0]}
                 required
               />
             )}
@@ -265,6 +293,7 @@ export default function AddSupplier() {
               value={formData.scontact}
               onChange={handleChange}
               placeholder="Primary Name"
+              error={errors.scontact?.[0]}
               required
             />
             <Input
@@ -273,6 +302,7 @@ export default function AddSupplier() {
               value={formData.sphone}
               onChange={handleChange}
               placeholder="Primary Phone Number"
+              error={errors.sphone?.[0]}
               required
               type="tel"
             />
@@ -283,6 +313,7 @@ export default function AddSupplier() {
               onChange={handleChange}
               placeholder="Primary Email"
               type="email"
+              error={errors.semail?.[0]}
             />
             <Input
               label="Designation"
@@ -290,6 +321,7 @@ export default function AddSupplier() {
               value={formData.designation}
               onChange={handleChange}
               placeholder="Designation"
+              error={errors.designation?.[0]}
             />
 
             <div className="md:col-span-2 mt-4 flex justify-start">

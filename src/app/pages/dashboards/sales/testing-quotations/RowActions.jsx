@@ -175,15 +175,17 @@ export function RowActions({ row, table }) {
 
             {hasAddPerm && (
               <>
-                <button
-                  onClick={() => {
-                    setFollowupMode("Add");
-                    setFollowupOpen(true);
-                  }}
-                  className="rounded bg-blue-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-600"
-                >
-                  Add Follow-Up
-                </button>
+                {!(Number(row.original.closed_followups || row.original.closed || 0) > 0) && (
+                  <button
+                    onClick={() => {
+                      setFollowupMode("Add");
+                      setFollowupOpen(true);
+                    }}
+                    className="rounded bg-blue-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-600"
+                  >
+                    Add Follow-Up
+                  </button>
+                )}
                 <Link
                   to={`/dashboards/sales/testing-quotations/followup/${id}`}
                   className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"

@@ -161,8 +161,8 @@ export default function AddTestingQuotation() {
 
         const addrData = allAddresses[0] || {};
         const defaultAddressStr = addrData.address
-            ? `${addrData.address || ""} ${addrData.city || ""} ${addrData.pincode || ""}`.trim()
-            : "";
+          ? `${addrData.address || ""} ${addrData.city || ""} ${addrData.pincode || ""}`.trim()
+          : "";
 
         setFormData((prev) => ({
           ...prev,
@@ -538,7 +538,7 @@ export default function AddTestingQuotation() {
                         ? { label: formData.contactpersonname, value: formData.cperson }
                         : (formData.contactpersonname ? { label: formData.contactpersonname, value: "" } : null)}
                       onChange={(opt) => {
-                        if(opt) {
+                        if (opt) {
                           setFormData(prev => ({ ...prev, cperson: opt.value, contactpersonname: opt.label }));
                         } else {
                           setFormData(prev => ({ ...prev, cperson: "", contactpersonname: "" }));
