@@ -1,13 +1,13 @@
 // Import Dependencies
 import { Link } from "react-router";
-import { EnvelopeIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon, LockClosedIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 
 // Local Imports
-import { Card, Checkbox, Input, InputErrorMsg } from "components/ui";
+import { Card, Checkbox, Input, InputErrorMsg, ReactSelect } from "components/ui";
 import { schema } from "./schema";
 import { Page } from "components/shared/Page";
 import appLogo from "assets/logo.png";
@@ -18,6 +18,7 @@ export default function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
   const [errorMessage, setErrorMessage] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuthContext();
   const finYears = getFinancialYears();
 
@@ -46,6 +47,7 @@ export default function SignIn() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
@@ -147,8 +149,21 @@ export default function SignIn() {
                 <Input
                   label="Password"
                   placeholder="Enter Password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   prefix={<LockClosedIcon className="size-5" strokeWidth="1" />}
+                  suffix={
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeSlashIcon className="size-5" strokeWidth="1" />
+                      ) : (
+                        <EyeIcon className="size-5" strokeWidth="1" />
+                      )}
+                    </button>
+                  }
                   {...register("password")}
                   error={errors?.password?.message}
                   disabled={isLocked}
@@ -168,20 +183,21 @@ export default function SignIn() {
               </div>
 
               <div className="mt-4">
-                <label className="dark:text-dark-100 mb-1 block text-sm font-medium text-gray-700">
-                  Select Financial Year
-                </label>
-                <select
-                  disabled={isLocked}
-                  className="focus:border-primary-500 focus:ring-primary-500 dark:border-dark-300 dark:bg-dark-600 dark:text-dark-100 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:ring-1 focus:outline-none disabled:opacity-60"
-                  {...register("fiscalYear")}
-                >
-                  {finYears.map((fy) => (
-                    <option key={fy} value={fy}>
-                      FY {fy}
-                    </option>
-                  ))}
-                </select>
+                <Controller
+                  name="fiscalYear"
+                  control={control}
+                  render={({ field }) => (
+                    <ReactSelect
+                      label="Select Financial Year"
+                      name={field.name}
+                      value={field.value}
+                      onChange={field.onChange}
+                      isDisabled={isLocked}
+                      options={finYears.map((fy) => ({ label: `FY ${fy}`, value: fy }))}
+                      isClearable={false}
+                    />
+                  )}
+                />
               </div>
 
               <div className="mt-4 flex items-center justify-between space-x-2">

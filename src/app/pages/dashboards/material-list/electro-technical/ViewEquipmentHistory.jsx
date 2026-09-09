@@ -20,9 +20,9 @@ function ViewEquipmentHistory() {
     try {
       setLoading(true);
       const response = await axios.get(`/material/get-equipment-histroy/${id}`);
-      
+
       console.log('✅ Equipment history loaded:', response.data);
-      
+
       if (response.data.status) {
         setData(response.data.data);
         setError(null);
@@ -71,7 +71,7 @@ function ViewEquipmentHistory() {
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <div className="text-lg text-red-600 mb-4">{error}</div>
-          <button 
+          <button
             onClick={handleBackToList}
             className="mt-4 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded transition-colors"
           >
@@ -87,7 +87,7 @@ function ViewEquipmentHistory() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-lg text-gray-600">No data available</div>
-          <button 
+          <button
             onClick={handleBackToList}
             className="mt-4 bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded transition-colors"
           >
@@ -128,7 +128,7 @@ function ViewEquipmentHistory() {
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <h1 className="text-lg font-medium text-gray-900">INSTRUMENT HISTORY</h1>
-          <button 
+          <button
             className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm transition-colors"
             onClick={handleBackToList}
           >
@@ -192,42 +192,54 @@ function ViewEquipmentHistory() {
 
             <div className="p-4">
               <h2 className="text-lg font-medium text-center mb-4 underline">INSTRUMENT HISTORY</h2>
-              
+
               {/* Basic Info Section */}
               <div className="border border-gray-400 mb-4">
                 <div className="flex">
                   {/* Left Section - DEPARTMENT */}
-                  <div className="w-1/2 border-r border-gray-400">
+                  <div className="w-1/2 border-r border-gray-400 flex flex-col">
                     <div className="border-b border-gray-400 px-3 py-2 bg-gray-200">
-                      <span className="text-gray-800 font-medium text-sm">DEPARTMENT: {instrument.department || 'N/A'}</span>
+                      <span className="text-gray-800 font-medium text-sm">DEPARTMENT: {instrument.department}</span>
                     </div>
-                    
-                    <div className="p-0">
-                      <table className="w-full text-sm">
+
+                    <div className="p-0 flex-1">
+                      <table className="w-full text-sm h-full">
                         <tbody>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 w-52 border-r border-gray-400">Name of Instrument :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.name || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.name}</td>
                           </tr>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Make :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.make || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.make}</td>
                           </tr>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Model :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.model || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.model}</td>
                           </tr>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">S.No. :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.serial_no || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.serial_no}</td>
                           </tr>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Date of installation :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.installation_date || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.installation_date}</td>
+                          </tr>
+                          <tr className="border-b border-gray-400">
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Location of Equipment :</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.location}</td>
+                          </tr>
+                          <tr className="border-b border-gray-400">
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Name & Contact details of Service Provider :</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.manufacturer}</td>
+                          </tr>
+                          <tr className="border-b border-gray-400">
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">WI Reference :</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.WIreference}</td>
                           </tr>
                           <tr>
-                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Location of Equipment :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.location || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Software / Firmware details :</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.software}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -235,29 +247,42 @@ function ViewEquipmentHistory() {
                   </div>
 
                   {/* Right Section - Equipment Details */}
-                  <div className="w-1/2">
+                  <div className="w-1/2 flex flex-col">
                     <div className="border-b border-gray-400 px-3 py-2 bg-gray-200">
-                      <span className="text-gray-800 font-medium text-sm">EQPT ID</span>
+                      <span className="text-gray-800 font-medium text-sm">EQPT ID: {instrument.idno}</span>
                     </div>
-                    
-                    <div className="p-0">
-                      <table className="w-full text-sm">
+
+                    <div className="p-0 flex-1">
+                      <table className="w-full text-sm h-full">
                         <tbody>
                           <tr className="border-b border-gray-400">
-                            <td className="py-2 px-3 text-gray-700 w-44 border-r border-gray-400">Range :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.range || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-700 w-44 border-r border-gray-400" rowSpan="2">Range :</td>
+                            <td className="py-2 px-3 text-gray-800" rowSpan="2">{instrument.range}</td>
                           </tr>
+                          <tr className="border-b border-gray-400"></tr>
                           <tr className="border-b border-gray-400">
-                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400">L.C. :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.least_count || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400" rowSpan="2">L.C. :</td>
+                            <td className="py-2 px-3 text-gray-800" rowSpan="2">{instrument.least_count}</td>
                           </tr>
+                          <tr className="border-b border-gray-400"></tr>
                           <tr className="border-b border-gray-400">
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Accuracy :</td>
-                            <td className="py-2 px-3 text-gray-800">{instrument.accuracy || 'N/A'}</td>
+                            <td className="py-2 px-3 text-gray-800">{instrument.accuracy}</td>
                           </tr>
+                          <tr className="border-b border-gray-400">
+                            <td className="py-2 px-3 text-gray-700 border-r border-gray-400" rowSpan="3">
+                              Acceptance Criteria :<br />
+                              (KTRC/QF/0704/07)
+                            </td>
+                            <td className="py-2 px-3 text-gray-800" rowSpan="3">{instrument.Acceptance}</td>
+                          </tr>
+                          <tr className="border-b border-gray-400"></tr>
+                          <tr className="border-b border-gray-400"></tr>
                           <tr>
                             <td className="py-2 px-3 text-gray-700 border-r border-gray-400">Equipment Conforms Specified Requirement</td>
-                            <td className="py-2 px-3 text-gray-800">Yes/No</td>
+                            <td className="py-2 px-3 text-gray-800">
+                              Yes/<span style={{ textDecoration: 'line-through' }}>No</span>
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -319,13 +344,21 @@ function ViewEquipmentHistory() {
                           <td className="border border-gray-300 px-2 py-2">{record.start_date || 'N/A'}</td>
                           <td className="border border-gray-300 px-2 py-2">{record.end_date || 'N/A'}</td>
                           <td className="border border-gray-300 px-2 py-2">{record.certificate_no || 'N/A'}</td>
-                          <td className="border border-gray-300 px-2 py-2">{record.adjustment || ''}</td>
+                          <td className="border border-gray-300 px-2 py-2">
+                            {record.adjustment || ''}
+                            {record.adjustment_remark && (
+                              <>
+                                <br />
+                                {record.adjustment_remark}
+                              </>
+                            )}
+                          </td>
                           <td className="border border-gray-300 px-2 py-2">{record.meet_acceptance || ''}</td>
                           <td className="border border-gray-300 px-2 py-2 text-xs">
                             {record.watermark_url && (
-                              <img 
-                                src={record.watermark_url} 
-                                alt="Signature" 
+                              <img
+                                src={record.watermark_url}
+                                alt="Signature"
                                 className="max-w-32 mb-2"
                                 onError={(e) => { e.target.style.display = 'none'; }}
                               />

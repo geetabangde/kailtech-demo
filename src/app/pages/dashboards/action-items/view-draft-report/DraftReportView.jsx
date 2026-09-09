@@ -38,13 +38,13 @@ function resultColorClass(rowOrResult, specification, rmin, rmax, rmininclude, r
     typeof rowOrResult === "object" && rowOrResult !== null
       ? rowOrResult
       : {
-          result: rowOrResult,
-          specification,
-          rmin,
-          rmax,
-          rmininclude,
-          rmaxinclude,
-        };
+        result: rowOrResult,
+        specification,
+        rmin,
+        rmax,
+        rmininclude,
+        rmaxinclude,
+      };
 
   if (!row) return "";
 
@@ -184,53 +184,184 @@ function ReTestButton({ testEventId, onSuccess }) {
     <button
       onClick={handleRequest}
       disabled={loading}
+      className={clsx(
+        "rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700",
+        loading && "cursor-not-allowed opacity-60",
+      )}
+    >
+      {loading ? "..." : "Request Re-test"}
+    </button>
+  );
+}
+ReTestButton.propTypes = {
+  testEventId: PropTypes.any,
+  onSuccess: PropTypes.func,
+};
+
+// ── Submit HOD Section ──────────────────────────────────────────────────────
+function HodSubmitSection({ tid, partial, allottedItems, disposable, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [hodremark, setHodremark] = useState("");
+
+  const activeItems = (allottedItems ?? []).filter((item) => (item.qleft ?? 0) > 0);
+  const [itemInputs, setItemInputs] = useState(() =>
+    activeItems.map(() => ({ remnant: "", remark: "" }))
+  );
+
+  const setItemField = (idx, field, val) =>
+    setItemInputs((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: val } : r)));
+
+  const handleSubmit = useCallback(async () => {
+    for (let i = 0; i < activeItems.length; i++) {
+      const remnantVal = itemInputs[i]?.remnant;
+      if (remnantVal === "" || remnantVal === null || remnantVal === undefined) {
+        toast.error(`Please enter Remnant Quantity for row ${i + 1}.`);
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        aid: tid,
+        hodremark,
+        qid: activeItems.map((item) => item.qid ?? item.id),
+        remnant: itemInputs.map((r) => r.remnant ?? ""),
+        remark: itemInputs.map((r) => r.remark ?? ""),
+        itemdepartment: activeItems.map((item) => item.department_id ?? item.department),
+      };
+      await axios.post(`/actionitem/submit-hod-request?aid=${tid}`, payload);
+      toast.success(`Submitted for ${partial ? "Partial " : ""}HOD Review ✅`);
+      onSuccess?.();
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Submission failed ❌");
+    } finally {
+      setLoading(false);
+    }
+  }, [tid, partial, hodremark, itemInputs, activeItems, onSuccess]);
+
+  return (
+    <div className="mt-6 w-full rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-dark-800">
+      <textarea
+        value={hodremark}
+        onChange={(e) => setHodremark(e.target.value)}
+        placeholder="Add Remark"
+        rows={3}
+        className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-dark-700 dark:text-gray-200 dark:focus:ring-blue-900"
+      />
+
+      <div
         className={clsx(
-          "rounded bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700",
-          loading && "cursor-not-allowed opacity-60",
+          "mb-4 rounded-lg px-4 py-2 text-left text-sm font-semibold",
+          disposable === 2
+            ? "bg-red-50 text-red-600 dark:bg-red-900/20"
+            : "bg-green-50 text-green-700 dark:bg-green-900/20"
         )}
       >
-        {loading ? "..." : "Request Re-test"}
-      </button>
-    );
-  }
-  ReTestButton.propTypes = {
-    testEventId: PropTypes.any,
-    onSuccess: PropTypes.func,
-  };
+        {disposable === 2
+          ? "This Item Is To Be Return — Not To Be Disposed"
+          : "This Item Is To Be Disposed"}
+      </div>
 
-  // ── Submit HOD Button ──────────────────────────────────────────────────────
-  function SubmitHodButton({ tid, partial, onSuccess }) {
-    const [loading, setLoading] = useState(false);
-    const handleSubmit = useCallback(async () => {
-      setLoading(true);
-      try {
-        await axios.post(`/actionitem/submit-hod-request?aid=${tid}`);
-        toast.success(`Submitted for ${partial ? "Partial " : ""}HOD Review ✅`);
-        onSuccess?.();
-      } catch (err) {
-        toast.error(err?.response?.data?.message ?? "Submission failed ❌");
-      } finally {
-        setLoading(false);
-      }
-    }, [tid, partial, onSuccess]);
-    return (
+      {activeItems.length > 0 && (
+        <div className="mb-4 overflow-x-auto rounded-lg border border-gray-200 text-left dark:border-gray-700">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-100 dark:bg-dark-700">
+              <tr>
+                {["ID", "Quantity", "Allotted", "Left", "Department", "Remnant", "Remark"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="border-b border-gray-200 px-3 py-2 text-center font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {activeItems.map((item, i) => (
+                <tr
+                  key={item.id ?? i}
+                  className="border-b border-gray-100 last:border-0 dark:border-gray-700"
+                >
+                  <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                    {item.id ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                    {item.quantity_name ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                    {item.alloted ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                    {item.qleft ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">
+                    {item.department_name ?? "—"}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      max={item.qleft}
+                      value={itemInputs[i]?.remnant ?? ""}
+                      onChange={(e) => setItemField(i, "remnant", e.target.value)}
+                      placeholder="Remnant qty"
+                      className="w-24 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-dark-700 dark:text-gray-200"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <textarea
+                      rows={2}
+                      value={itemInputs[i]?.remark ?? ""}
+                      onChange={(e) => setItemField(i, "remark", e.target.value)}
+                      placeholder="Remark for remnant"
+                      className="w-36 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-dark-700 dark:text-gray-200"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 dark:bg-dark-800">
+              <tr>
+                {["ID", "Quantity", "Allotted", "Left", "Department", "Remnant", "Remark"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="border-t border-gray-200 px-3 py-2 text-center font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
       <button
         onClick={handleSubmit}
         disabled={loading}
         className={clsx(
-          "rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-green-700",
-          loading && "cursor-not-allowed opacity-60",
+          "w-full rounded-lg bg-green-600 py-3 text-sm font-semibold text-white shadow transition hover:bg-green-700",
+          loading && "cursor-not-allowed opacity-60"
         )}
       >
         {loading
           ? "Submitting..."
-        : `Submit For ${partial ? "Partial " : ""}HOD Review`}
-    </button>
+          : `Submit For ${partial ? "Partial " : ""}HOD Review`}
+      </button>
+    </div>
   );
 }
-SubmitHodButton.propTypes = {
+HodSubmitSection.propTypes = {
   tid: PropTypes.any,
   partial: PropTypes.bool,
+  allottedItems: PropTypes.array,
+  disposable: PropTypes.number,
   onSuccess: PropTypes.func,
 };
 
@@ -340,6 +471,7 @@ export default function DraftReportView() {
     witness,
     witness_detail,
     signatories = [],
+    allotted_items = [],
     counts = {},
     permissions = [],
   } = report;
@@ -561,11 +693,11 @@ export default function DraftReportView() {
                         Sample Particulars: &nbsp; Grade: {grade} &nbsp;{" "}
                         {typeof batchNo === "string" && batchNo.includes("<br/>")
                           ? batchNo.split("<br/>").map((part, i) => (
-                              <span key={i}>
-                                {i > 0 && <br />}
-                                {part}
-                              </span>
-                            ))
+                            <span key={i}>
+                              {i > 0 && <br />}
+                              {part}
+                            </span>
+                          ))
                           : batchNo}
                       </td>
                     </tr>
@@ -625,7 +757,7 @@ export default function DraftReportView() {
 
                         // Result text with NABL prefix
                         let displayResult = row.result ?? "—";
-                        
+
                         if (row.decimal !== undefined && row.decimal !== null && row.result !== null && row.result !== undefined) {
                           const numVal = Number(row.result);
                           if (!isNaN(numVal)) {
@@ -738,23 +870,27 @@ export default function DraftReportView() {
             {/* ── HOD Submit Actions ──────────────────────────────── */}
             <div className="flex items-center justify-center gap-4 pt-2">
               {showPartialHod && (
-                <div className="flex flex-col items-center gap-2 text-center">
+                <div className="flex w-full flex-col items-center gap-2 text-center">
                   <p className="text-xs text-gray-500">
                     {left_count} Tests Pending completion &nbsp;|&nbsp;{" "}
                     {param_count - (done_count + delete_count + left_count)}{" "}
                     Tests Pending Assignment
                   </p>
-                  <SubmitHodButton
+                  <HodSubmitSection
                     tid={id}
                     partial
+                    allottedItems={allotted_items}
+                    disposable={Number(trf_product?.disposable)}
                     onSuccess={() => navigate(-1)}
                   />
                 </div>
               )}
               {showFullHod && !showPartialHod && (
-                <SubmitHodButton
+                <HodSubmitSection
                   tid={id}
                   partial={false}
+                  allottedItems={allotted_items}
+                  disposable={Number(trf_product?.disposable)}
                   onSuccess={() => navigate(-1)}
                 />
               )}

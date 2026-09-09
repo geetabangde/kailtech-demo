@@ -419,10 +419,38 @@ export default function AddTestPermissibleValue() {
   };
 
   // Handle specification changes
-  const handleSpecificationChange = (index, value) => {
+  const handleSpecificationChange = (paramIndex, specIndex, value) => {
     setFormData((prev) => {
       const updatedArray = [...prev.specification];
-      updatedArray[index] = value;
+      const paramSpecs = Array.isArray(updatedArray[paramIndex]) 
+        ? [...updatedArray[paramIndex]] 
+        : [updatedArray[paramIndex] || ""];
+      paramSpecs[specIndex] = value;
+      updatedArray[paramIndex] = paramSpecs;
+      return { ...prev, specification: updatedArray };
+    });
+  };
+
+  const addSpecification = (paramIndex) => {
+    setFormData((prev) => {
+      const updatedArray = [...prev.specification];
+      const paramSpecs = Array.isArray(updatedArray[paramIndex]) 
+        ? [...updatedArray[paramIndex]] 
+        : [updatedArray[paramIndex] || ""];
+      paramSpecs.push("");
+      updatedArray[paramIndex] = paramSpecs;
+      return { ...prev, specification: updatedArray };
+    });
+  };
+
+  const removeSpecification = (paramIndex, specIndex) => {
+    setFormData((prev) => {
+      const updatedArray = [...prev.specification];
+      const paramSpecs = Array.isArray(updatedArray[paramIndex]) 
+        ? [...updatedArray[paramIndex]] 
+        : [updatedArray[paramIndex] || ""];
+      paramSpecs.splice(specIndex, 1);
+      updatedArray[paramIndex] = paramSpecs;
       return { ...prev, specification: updatedArray };
     });
   };
@@ -439,7 +467,7 @@ export default function AddTestPermissibleValue() {
       clause: [...prev.clause, ""],
       pvaluemin: [...prev.pvaluemin, ""],
       pvaluemax: [...prev.pvaluemax, ""],
-      specification: [...prev.specification, ""],
+      specification: [...prev.specification, [""]],
     }));
   };
 
@@ -518,7 +546,12 @@ export default function AddTestPermissibleValue() {
       const formDataToSend = new FormData();
 
       Object.keys(formData).forEach((key) => {
-        if (Array.isArray(formData[key])) {
+        if (key === "specification") {
+          formData.specification.forEach((specItem) => {
+             const joinedSpecs = Array.isArray(specItem) ? specItem.join(" | ") : specItem;
+             formDataToSend.append(`specification[]`, joinedSpecs);
+          });
+        } else if (Array.isArray(formData[key])) {
           formData[key].forEach((value) => {
             formDataToSend.append(`${key}[]`, value);
           });
@@ -756,15 +789,6 @@ export default function AddTestPermissibleValue() {
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                 Parameters
               </h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addParameterRow}
-                className="bg-green-500 text-white hover:bg-green-600"
-              >
-                + Add Parameter
-              </Button>
             </div>
 
             {parameterInputs.map((row, index) => (
@@ -952,16 +976,52 @@ export default function AddTestPermissibleValue() {
                     />
                   </div>
 
-                  {/* Specification */}
+                  {/* Specifications */}
                   <div className="md:col-span-2 lg:col-span-3">
-                    <Input
-                      label="Specification"
-                      value={formData.specification[index] || ""}
-                      onChange={(e) =>
-                        handleSpecificationChange(index, e.target.value)
-                      }
-                      placeholder="Enter specification details"
-                    />
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Specifications
+                      </label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => addSpecification(index)}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        + Add Specification
+                      </Button>
+                    </div>
+                    {(() => {
+                      const specs = Array.isArray(formData.specification[index])
+                        ? formData.specification[index]
+                        : [formData.specification[index] || ""];
+                      
+                      return specs.map((spec, specIndex) => (
+                        <div key={specIndex} className="mb-2 flex items-center gap-2">
+                          <div className="flex-1">
+                            <Input
+                              value={spec}
+                              onChange={(e) =>
+                                handleSpecificationChange(index, specIndex, e.target.value)
+                              }
+                              placeholder="Enter specification details"
+                            />
+                          </div>
+                          {specs.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSpecification(index, specIndex)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
 
@@ -972,6 +1032,18 @@ export default function AddTestPermissibleValue() {
                 )}
               </div>
             ))}
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addParameterRow}
+                className="bg-green-500 text-white hover:bg-green-600"
+              >
+                + Add Parameter
+              </Button>
+            </div>
           </div>
 
           {/* Submit Buttons */}

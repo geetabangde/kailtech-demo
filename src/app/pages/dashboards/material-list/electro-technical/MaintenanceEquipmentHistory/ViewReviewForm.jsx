@@ -85,11 +85,12 @@ const ReviewForm = () => {
     }
   };
 
-  // Format date from YYYY-MM-DD to DD/MM/YYYY
+  // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString) => {
-    if (!dateString || dateString === "0000-00-00") return "";
-    const [year, month, day] = dateString.split("-");
-    return `${day}/${month}/${year}`;
+    if (!dateString || dateString.startsWith("0000-00-00")) return "";
+    const datePart = dateString.split(" ")[0];
+    const [year, month, day] = datePart.split("-");
+    return `${day}-${month}-${year}`;
   };
 
   if (loading) {
@@ -252,7 +253,7 @@ const ReviewForm = () => {
                   Date Of Review
                 </div>
                 <div className="px-4 py-3">
-                  {formatDate(instrument?.purchasedate) || "-"}
+                  {formatDate(mastervalidity?.added_on) || "-"}
                 </div>
               </div>
             </div>
@@ -284,11 +285,10 @@ const ReviewForm = () => {
               return (
                 <div
                   key={item.id}
-                  className={`grid grid-cols-[60px_1fr_120px_200px] ${
-                    index < checklistMapping.length - 1
+                  className={`grid grid-cols-[60px_1fr_120px_200px] ${index < checklistMapping.length - 1
                       ? "border-b border-gray-300"
                       : ""
-                  }`}
+                    }`}
                 >
                   <div className="border-r border-gray-300 px-4 py-3 text-center">
                     {item.id}

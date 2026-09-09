@@ -108,7 +108,7 @@ const DASHBOARD_PERMISSION_RULES = {
   "/dashboards/approvals/witness-approval": [392],
   "/dashboards/approvals/witness-lock": [393],
   "/dashboards/approvals/payment-hold-notification-2": [403],
-  "/dashboards/approvals/calibration-payment-approval-2": [403],
+  "/dashboards/approvals/calibration-payment-approval-2": [392],
   "/dashboards/sales": [164, 91, 385, 140, 141, 165],
   "/dashboards/sales/website-enquiry": [385],
   "/dashboards/sales/enquiry": [91],

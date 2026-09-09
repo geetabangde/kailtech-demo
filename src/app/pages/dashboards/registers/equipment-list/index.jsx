@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import clsx from "clsx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import axios from "utils/axios";
 import { ChevronsLeft } from "lucide-react";
@@ -57,6 +57,7 @@ export default function EquipmentList() {
   const [departments, setDepartments] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [allInstruments, setAllInstruments] = useState([]); // Store all instruments for frontend filtering
 
   // Fetch categories dropdown data
   const fetchCategories = async () => {
@@ -78,7 +79,22 @@ export default function EquipmentList() {
       const res = await axios.get("master/list-lab", {
         params: { status: 1 }
       });
-      setDepartments(res.data?.data || []);
+      
+      const allLabs = res.data?.data || [];
+      const employeeId = Number(localStorage.getItem("userId") || 0);
+      
+      const filteredLabs = allLabs.filter((lab) => {
+        if (!lab.users) return false;
+        if (Array.isArray(lab.users)) {
+          return lab.users.includes(employeeId) || lab.users.map(String).includes(String(employeeId));
+        }
+        if (typeof lab.users === "string") {
+          return lab.users.split(",").map(s => s.trim()).includes(String(employeeId));
+        }
+        return false;
+      });
+      
+      setDepartments(filteredLabs);
     } catch (err) {
       console.error("Error fetching departments:", err);
     } finally {
@@ -86,10 +102,40 @@ export default function EquipmentList() {
     }
   };
 
+  // Pre-fetch instruments to filter departments on frontend
+  const fetchAllInstruments = async () => {
+    try {
+      const resInst = await axios.get('/material/get-mm-instrument');
+      const instData = resInst.data?.data || resInst.data?.instrument || (Array.isArray(resInst.data) ? resInst.data : []);
+      setAllInstruments(instData);
+      setInstrumentsList(instData); // Also populate instrumentsList to avoid refetching during search
+    } catch (err) {
+      console.error("Failed to pre-fetch instruments list:", err);
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
     fetchDepartments();
+    fetchAllInstruments();
   }, []);
+
+  const filteredDepartments = useMemo(() => {
+    if (!filters.category || allInstruments.length === 0) return departments;
+    
+    // Find all valid lab IDs for the selected category
+    const validLabIds = new Set();
+    allInstruments.forEach(inst => {
+      if (String(inst.category) === String(filters.category)) {
+        if (inst.instrumentlocation) validLabIds.add(String(inst.instrumentlocation));
+        if (inst.department) validLabIds.add(String(inst.department));
+        if (inst.labid) validLabIds.add(String(inst.labid));
+      }
+    });
+
+    // Filter departments to only include those present in validLabIds
+    return departments.filter(dept => validLabIds.has(String(dept.id)));
+  }, [departments, filters.category, allInstruments]);
 
   // Fetch equipment list data using PHP endpoint
   const fetchEquipmentData = async () => {
@@ -282,7 +328,7 @@ export default function EquipmentList() {
         onSearch={handleSearch}
         onExport={handleExport}
         categories={categories}
-        departments={departments}
+        departments={filteredDepartments}
         categoriesLoading={categoriesLoading}
         departmentsLoading={departmentsLoading}
       />

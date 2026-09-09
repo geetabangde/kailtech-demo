@@ -162,88 +162,93 @@ export default function PendingTechnicalAcceptance() {
 
   return (
     <Page title="Pending Technical Acceptance">
-      <div className="transition-content w-full pb-8">
+      <div className="transition-content w-full pb-5">
+        <div className="flex h-full w-full flex-col">
+          
+          {/* ── Toolbar ── */}
+          <div className="table-toolbar">
+            <div className="transition-content flex items-center justify-between gap-4 px-[var(--margin-x)] pt-4">
+              <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                Pending Technical Acceptance
+              </h2>
+              <div className="flex items-center gap-2 ml-auto">
+                <div className="relative shrink-0">
+                  <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="h-8 rounded-lg border border-gray-300 py-1 pl-9 pr-4 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:ring-blue-900 ring-primary-500/50 focus:ring-3"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="transition-content pt-2 pb-1 px-[var(--margin-x)]">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Showing {filtered.length} entries
+              </p>
+            </div>
+          </div>
 
-        {/* ── Title ── */}
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Pending Technical Acceptance
-          </h2>
-        </div>
+          <div className="transition-content flex grow flex-col pt-3 px-[var(--margin-x)]">
 
         {/* ── Filters — PHP: ctype (389), specificpurpose (390) ── */}
         {(permissions.includes(389) || permissions.includes(390)) && (
-          <div className="mb-4 flex flex-wrap items-end gap-4 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            {permissions.includes(389) && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Customer Type
-                </label>
-                <Select
-                  value={customerTypes.find(ct => ct.id === ctype) ? { value: ctype, label: customerTypes.find(ct => ct.id === ctype).name } : null}
-                  onChange={(selectedOption) => setCtype(selectedOption ? selectedOption.value : "")}
-                  options={customerTypes.map(ct => ({ value: ct.id, label: ct.name }))}
-                  placeholder="Select Customer Type"
-                  isClearable
-                  styles={customSelectStyles}
-                  menuPortalTarget={document.body}
-                  menuPosition="fixed"
-                />
-              </div>
-            )}
+          <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex flex-wrap items-end gap-4">
+              {permissions.includes(389) && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Customer Type
+                  </label>
+                  <Select
+                    value={customerTypes.find(ct => ct.id === ctype) ? { value: ctype, label: customerTypes.find(ct => ct.id === ctype).name } : null}
+                    onChange={(selectedOption) => setCtype(selectedOption ? selectedOption.value : "")}
+                    options={customerTypes.map(ct => ({ value: ct.id, label: ct.name }))}
+                    placeholder="Select Customer Type"
+                    isClearable
+                    styles={customSelectStyles}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                </div>
+              )}
 
-            {permissions.includes(390) && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Specific Purpose
-                </label>
-                <Select
-                  value={specificPurposes.find(sp => sp.id === specificpurpose) ? { value: specificpurpose, label: specificPurposes.find(sp => sp.id === specificpurpose).name } : null}
-                  onChange={(selectedOption) => setSpecificpurpose(selectedOption ? selectedOption.value : "")}
-                  options={specificPurposes.map(sp => ({ value: sp.id, label: sp.name }))}
-                  placeholder="Select Specific Purpose"
-                  isClearable
-                  styles={customSelectStyles}
-                  menuPortalTarget={document.body}
-                  menuPosition="fixed"
-                />
-              </div>
-            )}
+              {permissions.includes(390) && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Specific Purpose
+                  </label>
+                  <Select
+                    value={specificPurposes.find(sp => sp.id === specificpurpose) ? { value: specificpurpose, label: specificPurposes.find(sp => sp.id === specificpurpose).name } : null}
+                    onChange={(selectedOption) => setSpecificpurpose(selectedOption ? selectedOption.value : "")}
+                    options={specificPurposes.map(sp => ({ value: sp.id, label: sp.name }))}
+                    placeholder="Select Specific Purpose"
+                    isClearable
+                    styles={customSelectStyles}
+                    menuPortalTarget={document.body}
+                    menuPosition="fixed"
+                  />
+                </div>
+              )}
 
-            <button
-              onClick={() => { setCtype(""); setSpecificpurpose(""); }}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
-            >
-              Clear Filters
-            </button>
+              <button
+                onClick={() => { setCtype(""); setSpecificpurpose(""); }}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
         )}
 
         {/* ── Table Card ── */}
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-
-          {/* Search */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-800">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Showing <span className="font-semibold text-gray-700 dark:text-gray-200">{filtered.length}</span> entries
-            </p>
-            <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="rounded-lg border border-gray-300 py-2 pl-9 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:ring-blue-900"
-              />
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px] [&_td]:whitespace-normal [&_td]:break-words">
+        <div className="relative flex grow flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="table-wrapper min-w-full grow overflow-x-auto">
+            <table className="w-full table-auto text-left rtl:text-right text-[11px] [&_td]:whitespace-normal [&_td]:break-words [&_th]:px-1 [&_td]:px-1">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
                   {[
@@ -364,6 +369,8 @@ export default function PendingTechnicalAcceptance() {
             </table>
           </div>
         </div>
+        </div>
+      </div>
       </div>
     </Page>
   );

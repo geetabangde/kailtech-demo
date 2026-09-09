@@ -57,7 +57,6 @@ function QuantityModal({ packageId, onClose, onAdded }) {
         toast.success("Quantity added ✅");
         setForm({ name: "", quantity: "", unit: units[0]?.id ?? "" });
         onAdded();
-        onClose();
       } else {
         toast.error(res.data.message ?? "Failed to add quantity");
       }
@@ -218,8 +217,8 @@ function ParameterModal({ packageId, onClose, onAdded }) {
         res.data.status === "true"
       ) {
         toast.success("Parameter added ✅");
+        setForm({ parameter: "", visible: "", priority: "" });
         onAdded();
-        onClose();
       } else {
         toast.error(res.data.message ?? "Failed to add parameter");
       }

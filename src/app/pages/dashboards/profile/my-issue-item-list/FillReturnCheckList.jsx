@@ -42,7 +42,7 @@ export default function FillReturnCheckList() {
             if (resChecklist.data?.success || resChecklist.data?.status) {
                 const matrixData = resChecklist.data.data?.checklist_records || resChecklist.data.matrix || [];
                 const generalData = resChecklist.data.data?.general_checklist_records || resChecklist.data.general || [];
-                
+
                 console.log("Parsed Matrix List:", matrixData);
                 console.log("Parsed General List:", generalData);
 
@@ -65,20 +65,46 @@ export default function FillReturnCheckList() {
         }
     };
 
+    const isValNA = (val) => {
+        if (!val) return false;
+        const str = String(val).trim().toUpperCase();
+        return str === "NA" || str === "N/A" || str === "N.A" || str === "N.A.";
+    };
+
+    const isRowNA = (row) => {
+        const beforeVal = row.check_point_before_moving || row.checkpointbeforemoving;
+        const checkPointVal = row.check_point || row.checkpoint;
+        return isValNA(beforeVal) || isValNA(checkPointVal);
+    };
+
     const handleMatrixChange = (index, field, value) => {
         const newList = [...matrixList];
         newList[index][field] = value;
 
-        // Auto-calculate error and result when checkpointaftermoving changes
-        if (field === "checkpointaftermoving" && newList[index].checkpoint !== "NA") {
-            const before = parseFloat(newList[index].checkpointbeforemoving);
+        // Keep both key formats in sync
+        if (field === "check_point_after_moving") {
+            newList[index].checkpointaftermoving = value;
+        } else if (field === "checkpointaftermoving") {
+            newList[index].check_point_after_moving = value;
+        } else if (field === "return_remarks") {
+            newList[index].rremark = value;
+        } else if (field === "rremark") {
+            newList[index].return_remarks = value;
+        }
+
+        // Auto-calculate error and result when checkpoint after moving changes
+        if ((field === "checkpointaftermoving" || field === "check_point_after_moving") && !isRowNA(newList[index])) {
+            const beforeVal = newList[index].check_point_before_moving || newList[index].checkpointbeforemoving;
+            const before = parseFloat(beforeVal);
             const after = parseFloat(value);
 
             if (!isNaN(before) && !isNaN(after)) {
                 const errorVal = after - before;
-                newList[index].error = errorVal.toFixed(2); // Keep it formatted
+                const formattedError = errorVal.toFixed(2);
+                newList[index].error = formattedError;
+                newList[index].deviation = formattedError;
 
-                const acceptLimit = parseFloat(newList[index].acceptancelimit);
+                const acceptLimit = parseFloat(newList[index].acceptance_limit || newList[index].acceptancelimit);
                 if (!isNaN(acceptLimit)) {
                     if (Math.abs(errorVal) <= Math.abs(acceptLimit)) {
                         newList[index].result = "Pass";
@@ -103,13 +129,17 @@ export default function FillReturnCheckList() {
 
         // Basic Validation mirroring the PHP HTML5 required checks
         let isValid = true;
-        matrixList.forEach((row) => {
-            if (row.checkpoint !== "NA" && !row.checkpointaftermoving) {
-                toast.error("Check Point After Moving is required.");
+        matrixList.forEach((row, idx) => {
+            const isNA = isRowNA(row);
+            const afterMoving = row.check_point_after_moving || row.checkpointaftermoving;
+            const returnRemarks = row.return_remarks || row.rremark;
+
+            if (!isNA && (!afterMoving || String(afterMoving).trim() === "")) {
+                toast.error(`Check Point After Moving is required (Row ${idx + 1}).`);
                 isValid = false;
             }
-            if (row.checkpoint === "NA" && !row.rremark) {
-                toast.error("Return Remark is required when Check Point is NA.");
+            if (isNA && (!returnRemarks || String(returnRemarks).trim() === "")) {
+                toast.error(`Return Remark is required when Check Point / Check Point Before Moving is NA (Row ${idx + 1}).`);
                 isValid = false;
             }
         });
@@ -218,102 +248,105 @@ export default function FillReturnCheckList() {
                                 </THead>
                                 <TBody>
                                     {matrixList.length > 0 ? (
-                                        matrixList.map((row, idx) => (
-                                            <Tr key={idx}>
-                                                <Td>{idx + 1}</Td>
-                                                <Td className="whitespace-normal min-w-[150px] max-w-[200px] text-xs leading-tight">
-                                                    {row.master_equipment || `${row.name || row.instrument_name || row.equipment_name || ""} (${row.idno || row.instrument_no || row.equipment_idno || ""})`}
-                                                </Td>
-                                                <Td>{row.discipline_name || row.discipline || ""}</Td>
-                                                <Td>
-                                                    <Select
-                                                        className="text-xs min-w-[140px]"
-                                                        classNamePrefix="react-select"
-                                                        options={row.equipment_options || instrumentOptions}
-                                                        value={(row.equipment_options || instrumentOptions).find((opt) => String(opt.value) === String(row.selected_equipment || row.equipformverif)) || null}
-                                                        isDisabled
-                                                        menuPortalTarget={document.body}
-                                                        styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.general_check || row.generalcheck || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>{row.unit || row.unit_description || ""}</Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.check_point || row.checkpoint || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.check_point_before_moving || row.checkpointbeforemoving || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.check_point_after_moving || row.checkpointaftermoving || ""}
-                                                        onChange={(e) => handleMatrixChange(idx, "check_point_after_moving", e.target.value)}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-900"
-                                                        readOnly={(row.check_point || row.checkpoint) === "NA"}
-                                                        required={(row.check_point || row.checkpoint) !== "NA"}
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.deviation || row.error || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.acceptance_limit || row.acceptancelimit || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.result || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.remark || ""}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                                                        readOnly
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <input
-                                                        type="text"
-                                                        value={row.rremark || ""}
-                                                        onChange={(e) => handleMatrixChange(idx, "rremark", e.target.value)}
-                                                        className="form-input text-xs px-2 py-1.5 w-16 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-900"
-                                                        required={row.checkpoint === "NA"}
-                                                    />
-                                                </Td>
-                                            </Tr>
-                                        ))
+                                        matrixList.map((row, idx) => {
+                                            const isNA = isRowNA(row);
+                                            return (
+                                                <Tr key={idx}>
+                                                    <Td>{idx + 1}</Td>
+                                                    <Td className="whitespace-normal min-w-[150px] max-w-[200px] text-xs leading-tight">
+                                                        {row.master_equipment || `${row.name || row.instrument_name || row.equipment_name || ""} (${row.idno || row.instrument_no || row.equipment_idno || ""})`}
+                                                    </Td>
+                                                    <Td>{row.discipline_name || row.discipline || ""}</Td>
+                                                    <Td>
+                                                        <Select
+                                                            className="text-xs min-w-[140px]"
+                                                            classNamePrefix="react-select"
+                                                            options={row.equipment_options || instrumentOptions}
+                                                            value={(row.equipment_options || instrumentOptions).find((opt) => String(opt.value) === String(row.selected_equipment || row.equipformverif)) || null}
+                                                            isDisabled
+                                                            menuPortalTarget={document.body}
+                                                            styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.general_check || row.generalcheck || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>{row.unit || row.unit_description || ""}</Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.check_point || row.checkpoint || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.check_point_before_moving || row.checkpointbeforemoving || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.check_point_after_moving || row.checkpointaftermoving || ""}
+                                                            onChange={(e) => handleMatrixChange(idx, "check_point_after_moving", e.target.value)}
+                                                            className={`form-input text-xs px-2 py-1.5 w-16 rounded border-gray-300 dark:border-dark-600 ${isNA ? "bg-gray-100 dark:bg-dark-800 cursor-not-allowed" : "dark:bg-dark-900"}`}
+                                                            readOnly={isNA}
+                                                            required={!isNA}
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.deviation || row.error || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.acceptance_limit || row.acceptancelimit || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.result || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.remark || row.remarks || ""}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 bg-gray-100 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                                                            readOnly
+                                                        />
+                                                    </Td>
+                                                    <Td>
+                                                        <input
+                                                            type="text"
+                                                            value={row.return_remarks || row.rremark || ""}
+                                                            onChange={(e) => handleMatrixChange(idx, "return_remarks", e.target.value)}
+                                                            className="form-input text-xs px-2 py-1.5 w-16 rounded border-gray-300 dark:border-dark-600 dark:bg-dark-900"
+                                                            required={isNA}
+                                                        />
+                                                    </Td>
+                                                </Tr>
+                                            );
+                                        })
                                     ) : (
                                         <Tr>
                                             <Td colSpan={14} className="text-center p-4">No Matrix Records Found</Td>

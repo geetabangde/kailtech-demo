@@ -55,38 +55,58 @@ function ViewSticker() {
 
                 // Fetch sticker data for each instrument
                 const promises = instIds.map(async (id) => {
-                    console.log('Making API call for instId:', id);
+                    try {
+                        console.log('Making API call for instId:', id);
 
-                    const response = await fetch(
-                        `${JWT_HOST_API}/calibrationprocess/view-sticker`,
-                        {
-                            method: 'POST',
-                            headers: headers,
-                            body: JSON.stringify({
-                                inwardid: inwardId,
-                                instid: id
-                            }),
+                        const response = await fetch(
+                            `${JWT_HOST_API}/calibrationprocess/view-sticker`,
+                            {
+                                method: 'POST',
+                                headers: headers,
+                                body: JSON.stringify({
+                                    inwardid: inwardId,
+                                    instid: id
+                                }),
+                            }
+                        );
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                throw new Error('Authentication failed. Please login again.');
+                            }
+                            if (response.status === 404) {
+                                console.warn(`Sticker not found for instId ${id}`);
+                                return null;
+                            }
+                            console.warn(`HTTP error! status: ${response.status} for instId ${id}`);
+                            return null;
                         }
-                    );
 
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            throw new Error('Authentication failed. Please login again.');
+                        const result = await response.json();
+
+                        if (result.status === "true" || result.status === true) {
+                            return result.data;
+                        } else {
+                            console.warn(`Failed to fetch sticker data for instId ${id}:`, result.message);
+                            return null;
                         }
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-
-                    if (result.status === "true" || result.status === true) {
-                        return result.data;
-                    } else {
-                        throw new Error(result.message || 'Failed to fetch sticker data');
+                    } catch (err) {
+                        console.error(`Error fetching sticker for instId ${id}:`, err);
+                        if (err?.message?.includes('Authentication failed')) {
+                            throw err;
+                        }
+                        return null;
                     }
                 });
 
                 const results = await Promise.all(promises);
-                setStickersData(results);
+                const validResults = results.filter(result => result !== null);
+                
+                if (validResults.length === 0 && instIds.length > 0) {
+                     throw new Error('No instruments found with the given criteria');
+                }
+                
+                setStickersData(validResults);
 
             } catch (err) {
                 console.error('API Error:', err);
@@ -140,90 +160,108 @@ function ViewSticker() {
         });
     };
 
+    // Style for print
+    useEffect(() => {
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @media print {
+                /* Hide everything by default */
+                body * {
+                    visibility: hidden;
+                }
+                
+                /* Reset positioning and spacing on all elements to prevent sidebar layout shifts */
+                * {
+                    position: static !important;
+                    box-shadow: none !important;
+                }
+                
+                /* Show our print container and its children */
+                .print-container, .print-container * {
+                    visibility: visible;
+                }
+                
+                /* Position the print container absolutely to the page to break out of all wrappers */
+                .print-container {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background-color: white !important;
+                }
+                
+                .noprint { display: none !important; }
+            }
+        `;
+        document.head.appendChild(style);
+        return () => document.head.removeChild(style);
+    }, []);
+
     const StickerCard = ({ stickerData }) => {
         const instrument = stickerData?.instruments?.[0];
         const companyInfo = stickerData?.company_info?.[0];
 
         return (
             <div
-                className="bg-white border-2 border-black p-4"
+                className="page-break-inside-avoid bg-white"
                 style={{
-                    fontFamily: 'Times New Roman, serif',
-                    fontSize: '10px',
-                    lineHeight: '1.3',
-                    width: '100%',
-                    height: '100%'
+                    pageBreakInside: 'avoid',
+                    float: 'left',
+                    marginLeft: '1%',
+                    marginBottom: '1%',
+                    width: '31%',
+                    border: '1px solid black',
+                    padding: '4px',
+                    fontFamily: 'Times New Roman, serif'
                 }}
             >
-                {/* Company Header */}
-                <div className="text-center mb-3">
-                    <div className="flex items-start justify-center mb-2">
-                        <div className="mr-2">
-                            <div className="w-12 h-12 bg-gray-200 border border-gray-400 flex items-center justify-center">
-                                {companyInfo?.logo ? (
-                                    <img
-                                        src={companyInfo.logo}
-                                        alt="Company Logo"
-                                        className="w-full h-full object-contain"
-                                    />
-                                ) : (
-                                    <div className="text-[8px] text-center">
-                                        <div className="font-bold">ktrc</div>
-                                        <div className="text-[6px]">Quality Test</div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="text-left flex-1">
-                            <h1 className="text-sm font-bold leading-tight">
-                                {companyInfo?.name || 'Kailtech Test And Research Centre Pvt. Ltd.'}
-                            </h1>
-                        </div>
-                    </div>
-
-                    <div className="text-[8px] text-center mb-2 leading-tight">
-                        {companyInfo?.address || 'Plot No.141-C, Electronic Complex, Industrial Area, Indore-452010 (MADHYA PRADESH) India'}<br />
-                        {companyInfo?.phone || 'Ph: 91-731-4787555 (30 lines)'}
-                    </div>
-
-                    <div className="border-t-2 border-b-2 border-black py-2 mb-3">
-                        <h2 className="text-sm font-bold">Calibration Status Tag</h2>
-                    </div>
+                <div style={{ float: 'left' }}>
+                    {companyInfo?.logo ? (
+                        <img 
+                            src={companyInfo.logo} 
+                            style={{ width: '55px', filter: 'grayscale(100%)' }} 
+                            alt="Logo" 
+                        />
+                    ) : (
+                        <div style={{ width: '55px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>ktrc</div>
+                    )}
                 </div>
-
-                {/* Instrument Details */}
-                <div className="space-y-1 text-[10px]">
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">Inst. Name:</span>
-                        <span className="ml-1">- {instrument?.name || 'N/A'}</span>
+                
+                <div style={{ margin: 'auto' }}>
+                    <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', lineHeight: '1.2', marginBottom: '2px', paddingLeft: '55px' }}>
+                        {companyInfo?.name || 'Kailtech Test And Research Centre Pvt. Ltd.'}
                     </div>
-
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">Location:</span>
-                        <span className="ml-1">- {instrument?.instlocation || 'N/A'}</span>
+                    <div style={{ textAlign: 'center', fontSize: '8px' }}>
+                        {companyInfo?.address || 'Plot No.141-C, Electronic Complex, Industrial Area, Indore-452010 (MADHYA PRADESH) India'} {companyInfo?.phone || 'Ph: 91-731-4787555 (30 lines)'}
                     </div>
-
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">ID/Sr:</span>
-                        <span className="ml-1">
-                            - {instrument?.idno && instrument?.idno !== 'NA' ? instrument.idno : 'N/A'}/
-                            {instrument?.serialno && instrument?.serialno !== 'NA' ? instrument.serialno : 'N/A'}
-                        </span>
+                    
+                    <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px' }}>
+                        Calibration Status Tag
                     </div>
-
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">BRN No:</span>
-                        <span className="ml-1">- {instrument?.bookingrefno || 'N/A'}</span>
+                    
+                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px', paddingTop: '8px' }}>
+                        <b>Inst. Name: - </b>{instrument?.name || 'N/A'}
                     </div>
-
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">Cal. Date:</span>
-                        <span className="ml-1">- {formatDate(instrument?.calibratedon)}</span>
+                    {instrument?.instlocation && (
+                        <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                            <b>Location: - </b>{instrument.instlocation}
+                        </div>
+                    )}
+                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                        <b>ID/Sr.: - </b>
+                        {(instrument?.idno && instrument?.idno !== 'NA' ? instrument.idno : 'N.A')}/
+                        {(instrument?.serialno && instrument?.serialno !== 'NA' ? instrument.serialno : 'N.A')}
                     </div>
-
-                    <div className="flex items-start">
-                        <span className="font-bold min-w-[70px] text-[9px]">Due Date:</span>
-                        <span className="ml-1">- {formatDate(instrument?.duedate)}</span>
+                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                        <b>BRN No: - </b>{instrument?.bookingrefno || 'N/A'}
+                    </div>
+                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                        <b>Cal. Date: - </b>{formatDate(instrument?.calibratedon)}
+                    </div>
+                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                        <b>Due. Date No: - </b>{formatDate(instrument?.duedate)}
                     </div>
                 </div>
             </div>
@@ -277,30 +315,34 @@ function ViewSticker() {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header Section - Sticky at top */}
-            <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm">
+            <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm noprint">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <h1 className="text-2xl font-semibold text-gray-800">
                         View Stickers ({stickersData.length})
                     </h1>
-                    <button
-                        onClick={handleBack}
-                        className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                        ← Back to Perform Calibration
-                    </button>
+                    <div className="space-x-4">
+                        <button
+                            onClick={() => window.print()}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                        >
+                            Print
+                        </button>
+                        <button
+                            onClick={handleBack}
+                            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                        >
+                            ← Back to Perform Calibration
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Stickers Grid */}
-            <div className="p-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {stickersData.map((stickerData, index) => (
-                            <div key={index} className="w-full h-[400px]">
-                                <StickerCard stickerData={stickerData} />
-                            </div>
-                        ))}
-                    </div>
+            <div className="p-8 print-container">
+                <div className="max-w-[8.71in] mx-auto overflow-hidden">
+                    {stickersData.map((stickerData, index) => (
+                        <StickerCard key={index} stickerData={stickerData} />
+                    ))}
                 </div>
             </div>
         </div>

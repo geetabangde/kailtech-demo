@@ -140,6 +140,32 @@ function Spinner() {
   );
 }
 
+// ── renderDescription helper ─────────────────────────────────────────────
+// Draft  (status != 1): shows literal <br> tag as text + breaks line
+// Approved (status == 1): renders <br> as real line-break, tag hidden
+function renderDescription(text, isApproved) {
+  if (!text) return null;
+  const parts = text.split(/<br\s*\/?>/gi);
+  if (parts.length === 1) return <span>{text}</span>;
+  return (
+    <>
+      {parts.map((part, idx) => (
+        <span key={idx}>
+          {idx > 0 && (
+            <>
+              {!isApproved && (
+                <span>&lt;br&gt;</span>
+              )}
+              <br />
+            </>
+          )}
+          {part}
+        </span>
+      ))}
+    </>
+  );
+}
+
 // ── Invoice Print Content — pure inline styles, PHP layout exact ──────────
 function InvoicePrintContent({
   invoice,
@@ -384,10 +410,13 @@ function InvoicePrintContent({
                         {item.sr_no ?? i + 1}
                       </td>
                       <td style={{ border, padding: cellPad }}>
-                        {/* PHP: Calibration → name, Testing → description */}
-                        {invoice.typeofinvoice === "Calibration"
-                          ? item.name || item.description
-                          : item.description}
+                        {/* Draft: shows literal <br> tag + line break; Approved: silent line break */}
+                        {renderDescription(
+                          invoice.typeofinvoice === "Calibration"
+                            ? item.description
+                            : item.description,
+                          invoice.status == 1
+                        )}
                       </td>
                       <td style={{ border, padding: cellPad, textAlign: "center" }}>
                         {item.qty}

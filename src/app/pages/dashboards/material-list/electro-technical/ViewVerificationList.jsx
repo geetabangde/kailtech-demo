@@ -39,64 +39,57 @@ const ViewVerificationForm = () => {
   const [verification, setVerification] = useState(null);
 
   useEffect(() => {
+    const fetchVerificationData = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`/material/view-verfication-list/${id}`);
+
+        console.log("✅ Verification data loaded:", response.data);
+
+        if (response.data.status) {
+          const data = response.data.data;
+
+          // Map API data to form state
+          setFormData({
+            date: data.instrument?.date || "",
+            department: data.instrument?.department || "",
+            referenceStandard: "",
+            equipmentName: data.instrument?.name || "",
+            make: data.instrument?.make || "",
+            model: data.instrument?.model || "",
+            qfNo: data.header?.qf_no || "",
+            issueNo: data.header?.issue_no || "",
+            issueDate: data.header?.issue_date || "",
+            revisionNo: data.header?.revision_no || "",
+            revisionDate: data.header?.revision_date || "",
+            page: "1 of 1",
+          });
+
+          setAcceptanceCriteria(data.acceptance_criteria || "");
+          setParameters(data.parameters || []);
+          setVerification(data.verification || null);
+          setError(null);
+        } else {
+          setError("Failed to load verification data");
+          toast.error("Failed to load verification data");
+        }
+      } catch (err) {
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to fetch verification data";
+        setError(errorMessage);
+        toast.error(errorMessage);
+        console.error("❌ Error fetching verification data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (id) {
       fetchVerificationData();
     }
   }, [id]);
-
-  const fetchVerificationData = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`/material/view-verfication-list/${id}`);
-
-      console.log("✅ Verification data loaded:", response.data);
-
-      if (response.data.status) {
-        const data = response.data.data;
-
-        // Map API data to form state
-        setFormData({
-          date: data.instrument?.date || "",
-          department: data.instrument?.department || "",
-          referenceStandard: "",
-          equipmentName: data.instrument?.name || "",
-          make: data.instrument?.make || "",
-          model: data.instrument?.model || "",
-          qfNo: data.header?.qf_no || "",
-          issueNo: data.header?.issue_no || "",
-          issueDate: data.header?.issue_date || "",
-          revisionNo: data.header?.revision_no || "",
-          revisionDate: data.header?.revision_date || "",
-          page: "1 of 1",
-        });
-
-        setAcceptanceCriteria(data.acceptance_criteria || "");
-        setParameters(data.parameters || []);
-        setVerification(data.verification || null);
-        setError(null);
-      } else {
-        setError("Failed to load verification data");
-        toast.error("Failed to load verification data");
-      }
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to fetch verification data";
-      setError(errorMessage);
-      toast.error(errorMessage);
-      console.error("❌ Error fetching verification data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
 
   if (loading) {
     return (
@@ -189,7 +182,7 @@ const ViewVerificationForm = () => {
                     </div>
                     <div className="text-xs leading-tight text-gray-700">
                       <div className="font-medium">Quality Audit & Control</div>
-                      <div>Kailash Test And Research Centre Pvt. Ltd.</div>
+                      <div>Kailtech Test And Research Centre Pvt. Ltd.</div>
                     </div>
                   </td>
                   <td className="border-r border-gray-400 p-4 text-center align-middle">
@@ -204,93 +197,48 @@ const ViewVerificationForm = () => {
                           <td className="py-1 font-medium text-gray-700">
                             QF. No.
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.qfNo}
-                              onChange={(e) =>
-                                handleInputChange("qfNo", e.target.value)
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            KTRC{formData.qfNo}
                           </td>
                         </tr>
                         <tr className="border-b border-gray-300">
                           <td className="py-1 font-medium text-gray-700">
                             Issue No.
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.issueNo}
-                              onChange={(e) =>
-                                handleInputChange("issueNo", e.target.value)
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            {formData.issueNo}
                           </td>
                         </tr>
                         <tr className="border-b border-gray-300">
                           <td className="py-1 font-medium text-gray-700">
                             Issue Date
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.issueDate}
-                              onChange={(e) =>
-                                handleInputChange("issueDate", e.target.value)
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            {formData.issueDate}
                           </td>
                         </tr>
                         <tr className="border-b border-gray-300">
                           <td className="py-1 font-medium text-gray-700">
                             Revision No.
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.revisionNo}
-                              onChange={(e) =>
-                                handleInputChange("revisionNo", e.target.value)
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            {formData.revisionNo}
                           </td>
                         </tr>
                         <tr className="border-b border-gray-300">
                           <td className="py-1 font-medium text-gray-700">
                             Revision Date
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.revisionDate}
-                              onChange={(e) =>
-                                handleInputChange(
-                                  "revisionDate",
-                                  e.target.value,
-                                )
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            {formData.revisionDate}
                           </td>
                         </tr>
                         <tr>
                           <td className="py-1 font-medium text-gray-700">
                             Page
                           </td>
-                          <td className="py-1">
-                            <input
-                              type="text"
-                              value={formData.page}
-                              onChange={(e) =>
-                                handleInputChange("page", e.target.value)
-                              }
-                              className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            />
+                          <td className="py-1 px-2 text-xs text-gray-800">
+                            {formData.page}
                           </td>
                         </tr>
                       </tbody>
@@ -309,86 +257,42 @@ const ViewVerificationForm = () => {
                   <td className="w-1/6 border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Date
                   </td>
-                  <td className="w-1/3 border-r border-gray-400 p-3">
-                    <input
-                      type="text"
-                      value={formData.date}
-                      onChange={(e) =>
-                        handleInputChange("date", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    />
+                  <td className="w-1/3 border-r border-gray-400 p-3 text-sm text-gray-800">
+                    {formData.date}
                   </td>
                   <td className="w-1/6 border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Equipment Name
                   </td>
-                  <td className="p-3">
-                    <input
-                      type="text"
-                      value={formData.equipmentName}
-                      onChange={(e) =>
-                        handleInputChange("equipmentName", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    />
+                  <td className="p-3 text-sm text-gray-800">
+                    {formData.equipmentName}
                   </td>
                 </tr>
                 <tr className="border-t border-gray-400">
                   <td className="border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Department
                   </td>
-                  <td className="border-r border-gray-400 p-3">
-                    <input
-                      type="text"
-                      value={formData.department}
-                      onChange={(e) =>
-                        handleInputChange("department", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      placeholder=""
-                    />
+                  <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                    {formData.department}
                   </td>
                   <td className="border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Make
                   </td>
-                  <td className="p-3">
-                    <input
-                      type="text"
-                      value={formData.make}
-                      onChange={(e) =>
-                        handleInputChange("make", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    />
+                  <td className="p-3 text-sm text-gray-800">
+                    {formData.make}
                   </td>
                 </tr>
                 <tr className="border-t border-gray-400">
                   <td className="border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Any Reference Standard
                   </td>
-                  <td className="border-r border-gray-400 p-3">
-                    <input
-                      type="text"
-                      value={formData.referenceStandard}
-                      onChange={(e) =>
-                        handleInputChange("referenceStandard", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      placeholder=""
-                    />
+                  <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                    {formData.referenceStandard}
                   </td>
                   <td className="border-r border-gray-400 bg-gray-50 p-3 font-medium text-gray-700">
                     Model
                   </td>
-                  <td className="p-3">
-                    <input
-                      type="text"
-                      value={formData.model}
-                      onChange={(e) =>
-                        handleInputChange("model", e.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    />
+                  <td className="p-3 text-sm text-gray-800">
+                    {formData.model}
                   </td>
                 </tr>
               </tbody>
@@ -404,10 +308,10 @@ const ViewVerificationForm = () => {
           </div>
 
           {/* Parameters Table with TableConfig */}
-          <div className="relative">
+          <div className="relative border-b border-gray-400">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-100">
+                <tr className="bg-gray-100 border-b border-gray-400">
                   <th className="border-r border-gray-400 p-3 text-left font-bold text-gray-800">
                     S.No.
                   </th>
@@ -431,142 +335,73 @@ const ViewVerificationForm = () => {
               <tbody>
                 {parameters && parameters.length > 0
                   ? parameters.map((param, index) => (
-                      <tr key={index} className="border-t border-gray-400">
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            value={index + 1}
-                            readOnly
-                            className="w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            value={param.parameter || ""}
-                            readOnly
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            value={param.our_requirement || ""}
-                            readOnly
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            value={param.equipment_received || ""}
-                            readOnly
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            value={param.remarks || ""}
-                            readOnly
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            value={param.verifying_engineer || ""}
-                            readOnly
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                      </tr>
-                    ))
+                    <tr key={index} className="border-t border-gray-400">
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800 text-center font-medium bg-gray-50">
+                        {index + 1}.
+                      </td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                        {param.parameter}
+                      </td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                        {param.requirement}
+                      </td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                        {param.received}
+                      </td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800">
+                        {param.remarks}
+                      </td>
+                      <td className="p-3 text-sm text-gray-800">
+                        {param.engineer}
+                      </td>
+                    </tr>
+                  ))
                   : [1, 2, 3, 4, 5].map((index) => (
-                      <tr key={index} className="border-t border-gray-400">
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="border-r border-gray-400 p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    <tr key={index} className="border-t border-gray-400">
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800 text-center font-medium bg-gray-50">
+                        {index}.
+                      </td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800"></td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800"></td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800"></td>
+                      <td className="border-r border-gray-400 p-3 text-sm text-gray-800"></td>
+                      <td className="p-3 text-sm text-gray-800"></td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
 
           {/* Footer Section */}
-          <div className="border-t border-gray-400 p-4">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="mb-2 font-medium text-gray-700">
-                  Verified: {verification?.status || "OK / Not OK"}
-                </div>
-                <div className="h-16 rounded border border-gray-300 p-2"></div>
-              </div>
-              <div>
-                <div className="mb-2 font-medium text-gray-700">DTM</div>
-                <div className="h-16 rounded border border-gray-300 p-2"></div>
-              </div>
-              <div>
-                <div className="mb-2 font-medium text-gray-700">
-                  Name & Signature
-                </div>
-                <div className="h-16 rounded border border-gray-300 p-2"></div>
-              </div>
-            </div>
+          <div className="p-4 m-2">
+            <p className="mb-2">
+              <b>Verified: </b>
+              {verification?.status === "OK" ? (
+                <b>OK / <span className="line-through">Not OK</span></b>
+              ) : verification?.status === "Not OK" ? (
+                <b><span className="line-through">OK</span> / Not OK</b>
+              ) : (
+                <b>OK / Not OK</b>
+              )}
+            </p>
+            <p className="mb-2"><b>DTM</b></p>
+            <p className="mb-2"><b>Name & Signature</b></p>
 
             {verification?.verified_by && (
-              <div className="mt-4 text-sm">
-                <div className="mb-2 font-medium text-gray-700">
+              <div className="mt-2 text-sm">
+                <p className="mb-2">
                   {verification.verified_by}
-                </div>
+                </p>
                 {verification.signature_url && (
                   <img
                     src={verification.signature_url}
                     alt="Signature"
-                    className="mb-2 max-w-xs"
+                    className="mb-2 max-w-sm"
                     onError={(e) => {
                       e.target.style.display = "none";
                     }}
                   />
                 )}
-                <div className="space-y-1 text-xs text-gray-600">
-                  <div>Electronically signed by</div>
-                  <div>{verification.verified_by}</div>
-                  <div>Date: {formData.date}</div>
-                </div>
               </div>
             )}
           </div>

@@ -69,7 +69,18 @@ export default function ViewCMCCalculation() {
         );
 
         if (response.data?.status === true) {
-          const instrumentSuffix = response.data.data?.listInstrument?.suffix || "";
+          let instrumentSuffix = response.data.data?.listInstrument?.suffix || "";
+          
+          // If suffix is custom, fallback to the base uncertainty table type
+          if (instrumentSuffix === "custom" && response.data.data?.listInstrument?.uncertaintytable) {
+            instrumentSuffix = response.data.data.listInstrument.uncertaintytable.toLowerCase();
+          }
+
+          // [PATCH] Force Bevel Protector (instid: 113) to use the VC (Vernier Caliper) template
+          if (String(instId) === "113" || response.data.data?.listInstrument?.instid == 113 || response.data.data?.instrument?.instid == 113) {
+            instrumentSuffix = "vc";
+          }
+          
           setSuffix(instrumentSuffix);
 
           // Fetch Custom Layout
@@ -187,8 +198,8 @@ export default function ViewCMCCalculation() {
           } else if (instrumentSuffix === "mt" || instrumentSuffix === "fg") {
             // For MT and FG, data is inside uncertainty.data array
             apiData = response.data.data?.uncertainty?.data || [];
-          } else if (instrumentSuffix === "it" || instrumentSuffix === "hg" || instrumentSuffix === "avg" || instrumentSuffix === "msr" || instrumentSuffix === "mg" || instrumentSuffix === "exm" || instrumentSuffix === "rtdwi" || instrumentSuffix === "ppg" || instrumentSuffix === "gtm" || instrumentSuffix === "dg") {
-            // For IT, HG, AVG, MSR, MG, EXM, RTDWI, PPG, GTM, and DG, data is direct array
+          } else if (instrumentSuffix === "it" || instrumentSuffix === "hg" || instrumentSuffix === "avg" || instrumentSuffix === "msr" || instrumentSuffix === "mg" || instrumentSuffix === "exm" || instrumentSuffix === "rtdwi" || instrumentSuffix === "ppg" || instrumentSuffix === "gtm" || instrumentSuffix === "dg" || instrumentSuffix === "vc") {
+            // For IT, HG, AVG, MSR, MG, EXM, RTDWI, PPG, GTM, DG, and VC, data is direct array
             apiData = response.data.data?.uncertainty || [];
           } else {
             // For CTG, DPG, and ODFM, data is direct
@@ -219,6 +230,33 @@ export default function ViewCMCCalculation() {
               coverageFactor: item.coverage_factor,
               expandedUnc: item.expanded_uncertainty,
               cmc: item.cmc_uncertainty,
+            }));
+            setData(mappedData);
+          } else if (instrumentSuffix === "vc") {
+            // For Vernier Caliper / Bevel Protector
+            const mappedData = apiData.map((item) => ({
+              srNo: item.sr_no,
+              typeOfMeasurement: item.type_of_measurement || item.matrixtype,
+              values: item.uuc || [item.uuc_0, item.uuc_1, item.uuc_2, item.uuc_3, item.uuc_4],
+              unit: item.unit,
+              calibrationPoint: item.calibration_point,
+              average: item.average_uuc,
+              stdDeviation: item.std_deviation,
+              typeA: item.type_a,
+              uncertaintyMaster: item.uncertainty_master || item.uncertainty_slip_gauge,
+              leastCountUuc: item.least_count_uuc,
+              thermalCoeffMaster: item.thermal_coefficient_master,
+              thermalCoeffUuc: item.thermal_coefficient_uuc,
+              uncTempDevice: item.uncertainty_temperature_device,
+              stdUncTher20: item.uncertainty_thermal_coefficient_20,
+              stdUncDiff: item.uncertainty_temperature_difference,
+              uncParallelism: item.uncertainty_parallelism,
+              uncError: item.uncertainty_master_error,
+              combinedUnc: item.combined_uncertainty,
+              dof: item.degree_of_freedom,
+              coverageFactor: item.coverage_factor,
+              expandedUnc: item.expanded_uncertainty,
+              cmc: item.cmc_taken,
             }));
             setData(mappedData);
           } else if (instrumentSuffix === "exm") {
@@ -1689,6 +1727,84 @@ export default function ViewCMCCalculation() {
     </div>
   );
 
+  const renderVcTable = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[12px] text-gray-700 min-w-max">
+        <thead>
+          <tr className="bg-gray-100 text-center">
+            <th colSpan="12" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type A Factor
+            </th>
+            <th colSpan="9" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type B Factor
+            </th>
+            <th colSpan="5" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Uncertainty Measurement
+            </th>
+          </tr>
+          <tr className="bg-gray-200 text-center text-[12px] font-medium">
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Sr no</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Type Of Measurement</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">1</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">2</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">3</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">4</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">5</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Unit</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Calibration point</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Average</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Std Deviation</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Type A</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty of<br/>master in mm</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Least Count<br/>of UUC</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br/>Coefficient<br/>of Master</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br/>Coefficient<br/>of UUC</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br/>due to<br/>Temperature<br/>Indicating<br/>Device (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to the<br/>thermal<br/>coefficient<br/>of<br/>expansion<br/>master and<br/>Unit Under<br/>Calibration<br/>assuming<br/>20% (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to the<br/>difference<br/>in<br/>temperature<br/>master and<br/>Unit Under<br/>Calibration<br/>assuming<br/>0.5˚C (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br/>Due<br/>Parallelism<br/>in (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to Error<br/>in Master<br/>(Taken Half)<br/>in mm</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Combined<br/>Uncertainty</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Degree of<br/>Freedom</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Coverage<br/>Factor (k)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Expanded<br/>Uncertainty<br/>in Value</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">CMC<br/>taken</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50 text-center text-[12px]">
+              <td className="border border-gray-300 px-1 py-2">{row.srNo}</td>
+              <td className="border border-gray-300 px-1 py-2 text-left">{row.typeOfMeasurement}</td>
+              {row.values.map((v, idx) => (
+                <td key={idx} className="border border-gray-300 px-1 py-2">{v}</td>
+              ))}
+              <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.average}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(6) : row.uncertaintyMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffUuc === 'number' ? row.thermalCoeffUuc.toFixed(6) : row.thermalCoeffUuc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncTempDevice === 'number' ? row.uncTempDevice.toFixed(6) : row.uncTempDevice}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncTher20 === 'number' ? row.stdUncTher20.toFixed(6) : row.stdUncTher20}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncDiff === 'number' ? row.stdUncDiff.toFixed(6) : row.stdUncDiff}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncParallelism === 'number' ? row.uncParallelism.toFixed(6) : row.uncParallelism}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncError === 'number' ? row.uncError.toFixed(6) : row.uncError}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUnc === 'number' ? row.combinedUnc.toFixed(6) : row.combinedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.dof === '-' ? '-' : (typeof row.dof === 'number' ? row.dof.toFixed(2) : row.dof)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? row.coverageFactor.toFixed(2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUnc === 'number' ? row.expandedUnc.toFixed(6) : row.expandedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? row.cmc.toFixed(6) : row.cmc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   const renderExmTable = () => (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[12px] text-gray-700 min-w-max">
@@ -3086,6 +3202,7 @@ export default function ViewCMCCalculation() {
             {suffix === "avg" && renderAvgTable()}
             {suffix === "msr" && renderMsrTable()}
             {suffix === "mg" && renderMgTable()}
+            {suffix === "vc" && renderVcTable()}
             {suffix === "exm" && renderExmTable()}
             {suffix === "rtdwi" && renderRtdwiTable()}
             {suffix === "ppg" && renderPpgTable()}
@@ -3097,7 +3214,7 @@ export default function ViewCMCCalculation() {
             {suffix === "es" && renderEsTable()}
             {suffix === "observationuc" && renderObservationucTable()}
             {suffix === "wbn" && renderWbnTable()}
-            {!["ctg", "dpg", "mm", "odfm", "es", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "rtdwi", "ppg", "gtm", "tm", "dg", "dw", "wb", "observationuc", "wbn"].includes(suffix) && (
+            {!["ctg", "dpg", "mm", "odfm", "es", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "vc", "rtdwi", "ppg", "gtm", "tm", "dg", "dw", "wb", "observationuc", "wbn"].includes(suffix) && (
               <div className="text-center py-8 text-gray-500">
                 No table available for suffix: {suffix}
               </div>

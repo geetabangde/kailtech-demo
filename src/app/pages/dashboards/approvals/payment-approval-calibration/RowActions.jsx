@@ -8,7 +8,7 @@ function usePermissions() {
   return localStorage.getItem("userPermissions")?.split(",").map(Number) || [];
 }
 function useEmployeeId() {
-  return localStorage.getItem("employeeId") ?? "";
+  return localStorage.getItem("userId") ?? "";
 }
 
 export function RowActions({ row, table }) {

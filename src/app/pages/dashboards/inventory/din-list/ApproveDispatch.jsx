@@ -48,8 +48,12 @@ export default function ApproveDispatch() {
                     setItems(reportRes.data.data.items);
                 }
 
-                // Try to map the purpose string back to an ID for logic gates
-                if (depRes.data.status && depRes.data.data?.purposes) {
+                // Use dispatch_purpose_id directly from API response
+                const pid = parseInt(details.dispatch_purpose_id);
+                if (!isNaN(pid)) {
+                    setPurposeId(pid);
+                } else if (depRes.data.status && depRes.data.data?.purposes) {
+                    // Fallback: match by name if id not in response
                     const matchedPurpose = depRes.data.data.purposes.find(p => p.name === details.dispatch_purpose);
                     if (matchedPurpose) {
                         setPurposeId(parseInt(matchedPurpose.id));
@@ -128,7 +132,13 @@ export default function ApproveDispatch() {
     const statusInt = parseInt(dinDetails.status);
 
     // Logic gates matching PHP
-    const isStandardTable = purposeId ? [1, 2, 3, 4, 5, 11].includes(purposeId) : true; // Fallback to standard if purpose not found
+    // [1,2,3,4,5,11] = standard table (no Items Attached column)
+    // All other purpose IDs (e.g. 9 = After Calibration) = extended table with Items Attached
+    // If purposeId is still null for some reason, check dinDetails directly
+    const resolvedPurposeId = purposeId ?? parseInt(dinDetails?.dispatch_purpose_id);
+    const isStandardTable = !isNaN(resolvedPurposeId)
+        ? [1, 2, 3, 4, 5, 11].includes(resolvedPurposeId)
+        : false; // Default to extended table if purpose unknown
 
     let watermarkText = "";
     if (statusInt === 99) watermarkText = "REJECTED";

@@ -395,16 +395,16 @@ export default function ViewDinForm() {
                         <tr key={index}>
                           <td className="border border-gray-300 p-2">{index + 1}</td>
                           {showIdNumber && (
-                            <td className="border border-gray-300 p-2">{item.newidno || item.idno || item.instrument_id_no || "-"}</td>
+                            <td className="border border-gray-300 p-2">{item.id_number || item.id_no || item.newidno || item.idno || item.instrument_id_no || "-"}</td>
                           )}
-                          <td className="border border-gray-300 p-2">{item.serialno || item.serial_no || "-"}</td>
+                          <td className="border border-gray-300 p-2">{item.serial_number || item.serialno || item.serial_no || "-"}</td>
                           <td className="border border-gray-300 p-2">
                             {item.instrument_name || item.name || item.item_name || "-"}
                           </td>
                           <td className="border border-gray-300 p-2">{item.description || "-"}</td>
                           <td className="border border-gray-300 p-2">{item.remark || "-"}</td>
                           <td className="border border-gray-300 p-2">
-                            {item.qty} {showIdNumber ? (item.unit_name || item.unit_description || item.unit || "") : ""}
+                            {item.quantity ?? item.qty} {showIdNumber ? (item.unit_name || item.unit_description || item.unit || "") : ""}
                           </td>
                         </tr>
                       ))
@@ -421,7 +421,7 @@ export default function ViewDinForm() {
                           Total
                         </td>
                         <td className="border border-gray-300 p-2 font-bold">
-                          {items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0)}
+                          {items.reduce((sum, item) => sum + (Number(item.quantity ?? item.qty) || 0), 0)}
                         </td>
                       </tr>
                     )}
@@ -441,7 +441,7 @@ export default function ViewDinForm() {
                   <tbody>
                     {items.length > 0 ? (
                       items.map((item, index) => {
-                        const itemName = [item.instrument_name || item.name || item.item_name, item.newidno || item.idno]
+                        const itemName = [item.instrument_name || item.name || item.item_name, item.id_number || item.id_no || item.newidno || item.idno]
                           .filter(Boolean)
                           .join(" ");
 

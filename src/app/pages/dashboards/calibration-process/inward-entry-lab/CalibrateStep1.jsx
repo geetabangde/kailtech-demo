@@ -5,6 +5,8 @@ import { Page } from "components/shared/Page";
 import { Button } from "components/ui";
 import { toast } from "sonner";
 import { JWT_HOST_API } from "configs/auth.config";
+import { Flatpickr } from "components/shared/form/Flatpickr";
+import "flatpickr/dist/themes/light.css";
 
 const Calibratestep1 = () => {
     const navigate = useNavigate();
@@ -86,14 +88,14 @@ const Calibratestep1 = () => {
     // Configure axios defaults
     useEffect(() => {
         const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-        
+
         if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
-        
+
         axios.defaults.headers.common['Content-Type'] = 'application/json';
         axios.defaults.headers.common['Accept'] = 'application/json';
-        
+
         axios.interceptors.request.use(
             (config) => {
                 return config;
@@ -142,12 +144,35 @@ const Calibratestep1 = () => {
         }
     };
 
+    const formatDateTimeForInput = (dateString) => {
+        if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') return '';
+        try {
+            const normalizedStr = typeof dateString === 'string' && dateString.includes(' ') && !dateString.includes('T')
+                ? dateString.replace(' ', 'T')
+                : dateString;
+            const date = new Date(normalizedStr);
+            if (isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        } catch {
+            return '';
+        }
+    };
+
     const calculateDueDate = (startDateStr, frequency) => {
         if (!startDateStr || !frequency || frequency === 'NA') return '';
         try {
-            const startDate = new Date(startDateStr);
+            const dateOnlyStr = startDateStr.includes('T')
+                ? startDateStr.split('T')[0]
+                : (startDateStr.includes(' ') ? startDateStr.split(' ')[0] : startDateStr);
+            const startDate = new Date(dateOnlyStr);
             if (isNaN(startDate.getTime())) return '';
-            
+
             const freq = frequency.toLowerCase().trim();
             const match = freq.match(/^(\d+)\s*(year|years|month|months|day|days)/);
             if (match) {
@@ -188,7 +213,7 @@ const Calibratestep1 = () => {
     // Validation function for temperature, humidity, and other fields
     const validateRange = (value, min, max, fieldName) => {
         if (!value && fieldName !== 'conditionOfUIC') return `${fieldName} is required`;
-        
+
         if (fieldName === 'temperature' || fieldName === 'humidity') {
             const numValue = parseFloat(value);
             if (isNaN(numValue)) return `Invalid ${fieldName.toLowerCase()}`;
@@ -198,7 +223,10 @@ const Calibratestep1 = () => {
         }
 
         if (fieldName === 'calibratedStart') {
-            const date = new Date(value);
+            const normalizedStr = typeof value === 'string' && value.includes(' ') && !value.includes('T')
+                ? value.replace(' ', 'T')
+                : value;
+            const date = new Date(normalizedStr);
             if (isNaN(date.getTime())) return 'Invalid calibration start date';
         }
 
@@ -221,21 +249,21 @@ const Calibratestep1 = () => {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 const apiUrl = `${JWT_HOST_API}/calibrationprocess/get-firststep-required-details`;
-                
+
                 const params = {
                     inward_id: id,
                     instid: itemId,
                     caliblocation: caliblocation,
                     calibacc: calibacc
                 };
-                
+
                 const response = await axios.get(apiUrl, { params });
-                
+
                 if (response.data.status === "true" && response.data.data) {
                     const { inward, instrument_entry, instrument_master } = response.data.data;
-                    
+
                     // Set range values from API response
                     setRangeValues({
                         temprangemin: response.data.data.temprangemin,
@@ -255,10 +283,10 @@ const Calibratestep1 = () => {
                     setCalibrationValidity(validity);
 
                     const defaultStartDate = instrument_entry?.startdate && instrument_entry.startdate !== '0000-00-00 00:00:00' && instrument_entry.startdate !== '0000-00-00'
-                        ? formatDateForInput(instrument_entry.startdate)
+                        ? formatDateTimeForInput(instrument_entry.startdate)
                         : (instrument_entry?.calibratedon && instrument_entry.calibratedon !== '0000-00-00 00:00:00' && instrument_entry.calibratedon !== '0000-00-00'
-                            ? formatDateForInput(instrument_entry.calibratedon)
-                            : formatDateForInput(new Date()));
+                            ? formatDateTimeForInput(instrument_entry.calibratedon)
+                            : formatDateTimeForInput(new Date()));
 
                     let defaultDueDate = instrument_entry?.duedate && instrument_entry.duedate !== '0000-00-00'
                         ? formatDateForInput(instrument_entry.duedate)
@@ -283,13 +311,13 @@ const Calibratestep1 = () => {
                         suggestedDueDate: defaultDueDate,
                         sampleReceivedDate: sampleRecDate
                     });
-                    
+
                     // Map API data to form fields
                     const mappedData = {
                         equipmentName: instrument_master?.name || instrument_entry?.name || 'N/A',
                         brnNo: inward?.bookingrefno || inward?.labreferenceno || '',
-                        receiveDate: inward?.sample_received_on ? 
-                            formatDate(inward.sample_received_on) : 
+                        receiveDate: inward?.sample_received_on ?
+                            formatDate(inward.sample_received_on) :
                             (inward?.inwarddate ? formatDate(inward.inwarddate) : ''),
                         sampleReceivedDate: sampleRecDate,
                         make: instrument_entry?.make || 'N/A',
@@ -335,7 +363,7 @@ const Calibratestep1 = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        
+
         // Update form data
         if (name === 'calibratedStart') {
             const calculatedDue = calculateDueDate(value, calibrationValidity);
@@ -394,41 +422,41 @@ const Calibratestep1 = () => {
 
     // Check if form is valid for submission
     const isFormValid = () => {
-        const hasRequiredFields = formData.suggestedDueDate && 
-                                formData.temperature && 
-                                formData.humidity && 
-                                formData.calibratedStart &&
-                                formData.sampleReceivedDate;
-        const hasNoValidationErrors = !validationErrors.temperature && 
-                                    !validationErrors.humidity && 
-                                    !validationErrors.calibratedStart && 
-                                    !validationErrors.suggestedDueDate &&
-                                    !validationErrors.sampleReceivedDate;
+        const hasRequiredFields = formData.suggestedDueDate &&
+            formData.temperature &&
+            formData.humidity &&
+            formData.calibratedStart &&
+            formData.sampleReceivedDate;
+        const hasNoValidationErrors = !validationErrors.temperature &&
+            !validationErrors.humidity &&
+            !validationErrors.calibratedStart &&
+            !validationErrors.suggestedDueDate &&
+            !validationErrors.sampleReceivedDate;
         const isTemperatureInRange = rangeValues.temprangemin === null || rangeValues.temprangemax === null || (
-            formData.temperature && 
-            parseFloat(formData.temperature) >= rangeValues.temprangemin && 
+            formData.temperature &&
+            parseFloat(formData.temperature) >= rangeValues.temprangemin &&
             parseFloat(formData.temperature) <= rangeValues.temprangemax
         );
         const isHumidityInRange = rangeValues.humirangemin === null || rangeValues.humirangemax === null || (
-            formData.humidity && 
-            parseFloat(formData.humidity) >= rangeValues.humirangemin && 
+            formData.humidity &&
+            parseFloat(formData.humidity) >= rangeValues.humirangemin &&
             parseFloat(formData.humidity) <= rangeValues.humirangemax
         );
-        
+
         return hasRequiredFields && hasNoValidationErrors && isTemperatureInRange && isHumidityInRange;
     };
 
     // Handle form submission matching PHP logic
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Final validation before submission
         const tempError = validateRange(formData.temperature, rangeValues.temprangemin, rangeValues.temprangemax, 'Temperature');
         const humiError = validateRange(formData.humidity, rangeValues.humirangemin, rangeValues.humirangemax, 'Humidity');
         const calibratedStartError = validateRange(formData.calibratedStart, null, null, 'Calibrated Start');
         const dueDateError = validateRange(formData.suggestedDueDate, null, null, 'Suggested Due Date');
         const sampleDateError = validateRange(formData.sampleReceivedDate, null, null, 'Sample Received Date');
-        
+
         if (tempError || humiError || calibratedStartError || dueDateError || sampleDateError) {
             setValidationErrors({
                 temperature: tempError,
@@ -444,24 +472,31 @@ const Calibratestep1 = () => {
 
         try {
             const apiUrl = `${JWT_HOST_API}/calibrationprocess/add_step_one`;
-            
+
             // Format calibrated date to match PHP backend logic
             let formattedCalibratedOn = '';
             if (formData.calibratedStart) {
-                const parts = formData.calibratedStart.split('-');
-                if (parts.length === 3) {
-                    const [year, month, day] = parts;
-                    const now = new Date();
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    
-                    // In PHP: if lengthOfItemDocuments > 0 expects d/m/Y, else d/m/Y H:i:s
-                    if (lengthOfItemDocuments > 0) {
-                        formattedCalibratedOn = `${day}/${month}/${year}`;
-                    } else {
-                        formattedCalibratedOn = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                try {
+                    const normalizedDateStr = typeof formData.calibratedStart === 'string' && formData.calibratedStart.includes(' ') && !formData.calibratedStart.includes('T')
+                        ? formData.calibratedStart.replace(' ', 'T')
+                        : formData.calibratedStart;
+                    const d = new Date(normalizedDateStr);
+                    if (!isNaN(d.getTime())) {
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        const hours = String(d.getHours()).padStart(2, '0');
+                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                        const seconds = String(d.getSeconds()).padStart(2, '0');
+
+                        if (lengthOfItemDocuments > 0) {
+                            formattedCalibratedOn = `${day}/${month}/${year}`;
+                        } else {
+                            formattedCalibratedOn = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                        }
                     }
+                } catch {
+                    formattedCalibratedOn = formData.calibratedStart;
                 }
             }
 
@@ -490,7 +525,7 @@ const Calibratestep1 = () => {
             };
 
             const response = await axios.post(apiUrl, payload);
-            
+
             if (response.data.status === "true" || response.data.status === true) {
                 const updatedCondition = response.data.data?.instrument_entry?.conditiononrecieve || formData.conditionOfUIC;
                 setFormData(prev => ({
@@ -585,6 +620,30 @@ const Calibratestep1 = () => {
 
     return (
         <div className={`min-h-screen ${theme === 'dark' ? 'dark' : ''}`}>
+            <style>{`
+                .flatpickr-day.selected,
+                .flatpickr-day.startRange,
+                .flatpickr-day.endRange,
+                .flatpickr-day.selected:hover,
+                .flatpickr-day.selected:focus,
+                .flatpickr-day.selected.prevMonthDay,
+                .flatpickr-day.selected.nextMonthDay {
+                    background: #2563eb !important;
+                    border-color: #2563eb !important;
+                    color: #ffffff !important;
+                }
+                .flatpickr-day.today {
+                    border-color: #3b82f6 !important;
+                }
+                .flatpickr-day.today:hover {
+                    background: #dbeafe !important;
+                    color: #1e40af !important;
+                }
+                .flatpickr-months .flatpickr-prev-month:hover svg,
+                .flatpickr-months .flatpickr-next-month:hover svg {
+                    fill: #2563eb !important;
+                }
+            `}</style>
             <Page title="Fill Dates" className="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
                 <div className="max-w-7xl mx-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-4">
@@ -677,20 +736,34 @@ const Calibratestep1 = () => {
                                                 Calibrated Start <span className="text-red-500">*</span>:
                                             </label>
                                             <div className="flex-1">
-                                                <input
-                                                    type="date"
+                                                <Flatpickr
                                                     name="calibratedStart"
                                                     value={formData.calibratedStart}
-                                                    onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.calibratedStart ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
-                                                    required
-                                                    placeholder={
-                                                        originalValues.calibratedStart 
-                                                            ? `Current: ${originalValues.calibratedStart}` 
-                                                            : `Enter calibration start date`
-                                                    }
+                                                    onChange={(_, dateStr) => {
+                                                        const calculatedDue = calculateDueDate(dateStr, calibrationValidity);
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            calibratedStart: dateStr,
+                                                            ...(calculatedDue ? { suggestedDueDate: calculatedDue } : {})
+                                                        }));
+                                                        const error = validateRange(dateStr, null, null, 'Calibrated Start');
+                                                        setValidationErrors(prev => ({
+                                                            ...prev,
+                                                            calibratedStart: error,
+                                                            ...(calculatedDue ? { suggestedDueDate: '' } : {})
+                                                        }));
+                                                    }}
+                                                    options={{
+                                                        enableTime: true,
+                                                        time_24hr: true,
+                                                        enableSeconds: true,
+                                                        dateFormat: "Y-m-d H:i:S",
+                                                        altInput: true,
+                                                        altFormat: "d/m/Y H:i:S",
+                                                        altInputClass: `w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.calibratedStart ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`,
+                                                        allowInput: true
+                                                    }}
+                                                    className="hidden"
                                                 />
                                                 {validationErrors.calibratedStart && (
                                                     <div className="text-red-500 dark:text-red-400 text-xs mt-1">
@@ -707,20 +780,28 @@ const Calibratestep1 = () => {
                                                 Suggested Due Date <span className="text-red-500">*</span>:
                                             </label>
                                             <div className="flex-1">
-                                                <input
-                                                    type="date"
+                                                <Flatpickr
                                                     name="suggestedDueDate"
                                                     value={formData.suggestedDueDate}
-                                                    onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.suggestedDueDate ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
-                                                    required
-                                                    placeholder={
-                                                        originalValues.suggestedDueDate 
-                                                            ? `Current: ${originalValues.suggestedDueDate}` 
-                                                            : `Enter suggested due date`
-                                                    }
+                                                    onChange={(_, dateStr) => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            suggestedDueDate: dateStr
+                                                        }));
+                                                        const error = validateRange(dateStr, null, null, 'Suggested Due Date');
+                                                        setValidationErrors(prev => ({
+                                                            ...prev,
+                                                            suggestedDueDate: error
+                                                        }));
+                                                    }}
+                                                    options={{
+                                                        dateFormat: "Y-m-d",
+                                                        altInput: true,
+                                                        altFormat: "d/m/Y",
+                                                        altInputClass: `w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.suggestedDueDate ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`,
+                                                        allowInput: true
+                                                    }}
+                                                    className="hidden"
                                                 />
                                                 {validationErrors.suggestedDueDate && (
                                                     <div className="text-red-500 dark:text-red-400 text-xs mt-1">
@@ -737,20 +818,28 @@ const Calibratestep1 = () => {
                                                 Sample Received Date <span className="text-red-500">*</span>:
                                             </label>
                                             <div className="flex-1">
-                                                <input
-                                                    type="date"
+                                                <Flatpickr
                                                     name="sampleReceivedDate"
                                                     value={formData.sampleReceivedDate}
-                                                    onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.sampleReceivedDate ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
-                                                    required
-                                                    placeholder={
-                                                        originalValues.sampleReceivedDate 
-                                                            ? `Current: ${originalValues.sampleReceivedDate}` 
-                                                            : `Enter sample received date`
-                                                    }
+                                                    onChange={(_, dateStr) => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            sampleReceivedDate: dateStr
+                                                        }));
+                                                        const error = validateRange(dateStr, null, null, 'Sample Received Date');
+                                                        setValidationErrors(prev => ({
+                                                            ...prev,
+                                                            sampleReceivedDate: error
+                                                        }));
+                                                    }}
+                                                    options={{
+                                                        dateFormat: "Y-m-d",
+                                                        altInput: true,
+                                                        altFormat: "d/m/Y",
+                                                        altInputClass: `w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.sampleReceivedDate ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`,
+                                                        allowInput: true
+                                                    }}
+                                                    className="hidden"
                                                 />
                                                 {validationErrors.sampleReceivedDate && (
                                                     <div className="text-red-500 dark:text-red-400 text-xs mt-1">
@@ -856,13 +945,12 @@ const Calibratestep1 = () => {
                                                     name="temperature"
                                                     value={formData.temperature}
                                                     onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.temperature ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.temperature ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
                                                     required
                                                     placeholder={
-                                                        originalValues.temperature 
-                                                            ? `Current: ${originalValues.temperature}°C` 
+                                                        originalValues.temperature
+                                                            ? `Current: ${originalValues.temperature}°C`
                                                             : `Enter temperature`
                                                     }
                                                 />
@@ -891,13 +979,12 @@ const Calibratestep1 = () => {
                                                     name="humidity"
                                                     value={formData.humidity}
                                                     onChange={handleChange}
-                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${
-                                                        validationErrors.humidity ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                                                    }`}
+                                                    className={`w-full px-3 py-2 border rounded bg-blue-50 dark:bg-blue-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${validationErrors.humidity ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
                                                     required
                                                     placeholder={
-                                                        originalValues.humidity 
-                                                            ? `Current: ${originalValues.humidity}%RH` 
+                                                        originalValues.humidity
+                                                            ? `Current: ${originalValues.humidity}%RH`
                                                             : `Enter humidity`
                                                     }
                                                 />
@@ -921,11 +1008,10 @@ const Calibratestep1 = () => {
                                 <Button
                                     type="submit"
                                     disabled={!isFormValid()}
-                                    className={`px-8 py-2 rounded font-medium transition-colors ${
-                                        isFormValid()
-                                            ? 'bg-secondary hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'
-                                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                    }`}
+                                    className={`px-8 py-2 rounded font-medium transition-colors ${isFormValid()
+                                        ? 'bg-secondary hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'
+                                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                        }`}
                                 >
                                     Submit
                                 </Button>

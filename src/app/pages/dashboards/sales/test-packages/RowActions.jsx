@@ -60,17 +60,91 @@ export function RowActions({ row, table }) {
   const handleClone = useCallback(async () => {
     setCloneLoading(true);
     try {
-      // Existing record ka data fetch karo
+      // 1. Fetch original package data
       const res = await axios.get(`/sales/get-test-package-byid/${id}`);
       const d = res.data.data ?? res.data.package ?? res.data ?? null;
       if (!d) {
         toast.error("Failed to fetch package data");
         return;
       }
-      // Clone page pe navigate karo — id pass karo taaki data load ho sake
-      navigate(`/dashboards/sales/test-packages/clone/${id}`);
-    } catch {
-      toast.error("Failed to load package for cloning");
+      
+      // 2. Fetch quantities
+      let quantities = [];
+      try {
+        const qRes = await axios.get(`/sales/get-quantity?package=${id}`);
+        quantities = qRes.data.data ?? [];
+      } catch (e) {
+        console.error("Failed to fetch quantities for cloning", e);
+      }
+      
+      // 3. Fetch parameters
+      let paramsArray = [];
+      try {
+        const pRes = await axios.get(`sales/package-parameters/${id}`);
+        paramsArray = pRes.data?.data?.parameters || pRes.data?.parameters || [];
+      } catch (e) {
+        console.error("Failed to fetch parameters for cloning", e);
+      }
+      
+      // 4. Create new package
+      const payload = {
+        package: `Copy Of ${d.package}`,
+        type: Number(d.type ?? 0),
+        special: Number(d.special ?? 0),
+        nabl: Number(d.nabl ?? 1),
+        description: d.description ?? "",
+        product: Number(d.product ?? ""),
+        category: Number(d.category ?? 0),
+        standard: Number(d.standard ?? ""),
+        rate: Number(d.rate ?? ""),
+        currency: Number(d.currency ?? ""),
+        days: Number(d.days ?? "")
+      };
+      const addRes = await axios.post("/sales/add-test-package", payload);
+      
+      let newId = addRes.data?.id ?? addRes.data?.data?.id ?? addRes.data?.insertId;
+
+      if (!newId) {
+        // Fallback: Fetch list to find the newly created one
+        const listRes = await axios.get("/sales/get-test-packagelist");
+        const list = listRes.data.data ?? [];
+        // The list is usually sorted by id desc, find the first match
+        const created = list.find(item => item.package === `Copy Of ${d.package}`);
+        if (created) {
+          newId = created.id;
+        }
+      }
+
+      if (!newId) {
+        toast.error("Failed to clone: Could not retrieve new package ID");
+        return;
+      }
+
+      // 5. Add quantities
+      for (const q of quantities) {
+        await axios.post("/sales/add-quantity", {
+          name: q.name,
+          quantity: Number(q.quantity),
+          unit: Number(q.unit),
+          package: Number(newId)
+        });
+      }
+      
+      // 6. Add parameters
+      for (const p of paramsArray) {
+        await axios.post("sales/add-package-parameters", {
+          package: Number(newId),
+          parameter: Number(p.parameter ?? p.parameter_id),
+          priority: Number(p.priority),
+          visible: Number(p.visible ?? p.visible_id)
+        });
+      }
+      
+      toast.success("Test Price Cloned Successfully!");
+      navigate(`/dashboards/sales/test-packages/edit/${newId}`);
+    } catch (err) {
+      toast.error("Failed to clone package");
+      console.error(err);
     } finally {
       setCloneLoading(false);
     }

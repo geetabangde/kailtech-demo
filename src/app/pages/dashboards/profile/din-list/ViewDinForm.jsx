@@ -341,17 +341,17 @@ export default function ViewDinForm() {
                     {items.map((item, index) => (
                       <tr key={index}>
                         <td className="border border-gray-300 p-2">{index + 1}</td>
-                        <td className="border border-gray-300 p-2">{item.serialno || "-"}</td>
-                        <td className="border border-gray-300 p-2">{item.item_name}</td>
-                        <td className="border border-gray-300 p-2">{item.description}</td>
-                        <td className="border border-gray-300 p-2">{item.remark}</td>
-                        <td className="border border-gray-300 p-2">{item.qty}</td>
+                        <td className="border border-gray-300 p-2">{item.serial_number || item.serialno || item.serial_no || "-"}</td>
+                        <td className="border border-gray-300 p-2">{item.instrument_name || item.name || item.item_name || "-"}</td>
+                        <td className="border border-gray-300 p-2">{item.description || "-"}</td>
+                        <td className="border border-gray-300 p-2">{item.remark || "-"}</td>
+                        <td className="border border-gray-300 p-2">{item.quantity ?? item.qty}</td>
                       </tr>
                     ))}
                     <tr>
                       <td colSpan={5} className="border border-gray-300 p-2 font-bold text-right">Total</td>
                       <td className="border border-gray-300 p-2 font-bold">
-                        {items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0)}
+                        {items.reduce((sum, item) => sum + (Number(item.quantity ?? item.qty) || 0), 0)}
                       </td>
                     </tr>
                   </tbody>

@@ -15,9 +15,9 @@ const disabledClass =
 
 const variants = {
   basic:
-    "border-gray-400/70 bg-origin-border before:bg-center before:bg-no-repeat before:[background-size:100%_100%] before:[background-image:var(--tw-thumb)] checked:border-this checked:bg-this indeterminate:border-this indeterminate:bg-this hover:border-this focus:border-this dark:border-dark-400 dark:checked:border-this-light dark:checked:bg-this-light dark:indeterminate:border-this-light dark:indeterminate:bg-this-light dark:hover:border-this-light dark:focus:border-this-light",
+    "border-gray-400/70 bg-origin-border before:bg-center before:bg-no-repeat before:[background-size:100%_100%] before:[background-image:var(--tw-thumb)] checked:border-primary-600 checked:bg-primary-600 indeterminate:border-primary-600 indeterminate:bg-primary-600 hover:border-primary-600 focus:border-primary-600 dark:border-dark-400 dark:checked:border-primary-500 dark:checked:bg-primary-500 dark:indeterminate:border-primary-500 dark:indeterminate:bg-primary-500 dark:hover:border-primary-500 dark:focus:border-primary-500",
   outlined:
-    "border-gray-400/70 before:bg-this before:[mask-image:var(--tw-thumb)] checked:border-this hover:border-this focus:border-this dark:border-dark-400 dark:hover:border-this-light dark:focus:border-this-light dark:before:bg-this-light dark:checked:border-this-light",
+    "border-gray-400/70 before:bg-primary-600 before:[mask-image:var(--tw-thumb)] checked:border-primary-600 hover:border-primary-600 focus:border-primary-600 dark:border-dark-400 dark:hover:border-primary-500 dark:focus:border-primary-500 dark:before:bg-primary-500 dark:checked:border-primary-500",
 };
 
 const Checkbox = forwardRef((props, ref) => {

@@ -48,11 +48,13 @@ export default function MyDepartmentStock() {
   // Modal state
   const [editModal, setEditModal] = useState({ show: false, id: null });
 
-  // PHP: "ajax": "ownstockdata.php" → GET /profile/get-department-stock
+  // PHP: "ajax": "ownstockdata.php" → GET /profile/department-stock-report
   const fetchStock = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get("profile/department-stock-report");
+      const response = await axios.get("profile/department-stock-report", {
+        params: { length: 10000 },
+      });
 
       if (response.data.status && Array.isArray(response.data.data)) {
         setOrders(response.data.data);
@@ -104,6 +106,11 @@ export default function MyDepartmentStock() {
   const table = useReactTable({
     data: orders,
     columns: columns,
+    initialState: {
+      pagination: {
+        pageSize: 25,
+      },
+    },
     state: {
       globalFilter,
       sorting,

@@ -1,4 +1,4 @@
-import  { useState } from 'react';
+import { useState } from 'react';
 // import clsx from "clsx";
 // import PropTypes from "prop-types";
 
@@ -19,10 +19,10 @@ import { useNavigate } from 'react-router';
 
 // Import the Product Verification Sheet component
 const ProductVerificationSheet = ({ onBackClick }) => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [entriesPerPage, setEntriesPerPage] = useState(25);
-  
+
   // Sample data - replace with your actual data
   const verificationData = [
     { id: 1, date: '07/06/2024' },
@@ -34,7 +34,7 @@ const ProductVerificationSheet = ({ onBackClick }) => {
     { id: 7, date: '07/06/2024' },
   ];
 
-  const filteredData = verificationData.filter(item => 
+  const filteredData = verificationData.filter(item =>
     item.date.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.id.toString().includes(searchTerm)
   );
@@ -44,12 +44,12 @@ const ProductVerificationSheet = ({ onBackClick }) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold text-gray-800">Product Verification Sheet</h1>
-        <Button 
+        <Button
           className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium"
           onClick={() =>
-              navigate("/dashboards/material-list/electro-technical")}
+            navigate("/dashboards/material-list/electro-technical")}
         >
-           Back To Instrument List
+          Back To Instrument List
         </Button>
       </div>
 
@@ -112,7 +112,7 @@ const ProductVerificationSheet = ({ onBackClick }) => {
                   {item.date}
                 </td>
                 <td className="border-b border-gray-200 px-4 py-3 text-sm">
-                  <Button 
+                  <Button
                     className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-3 py-1 rounded text-xs"
                     onClick={() => onBackClick()}
                   >
@@ -142,32 +142,32 @@ const ProductVerificationSheet = ({ onBackClick }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             size="sm"
             disabled={true}
             className="text-gray-400 cursor-not-allowed"
           >
             First
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             size="sm"
             disabled={true}
             className="text-gray-400 cursor-not-allowed"
           >
             Previous
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             size="sm"
             disabled={true}
             className="text-gray-400 cursor-not-allowed"
           >
             Next
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             size="sm"
             disabled={true}
             className="text-gray-400 cursor-not-allowed"
@@ -222,7 +222,7 @@ const VerificationForm = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold text-gray-800">Verification Form</h1>
-        <Button 
+        <Button
           className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium"
           onClick={handleShowVerificationList}
         >
@@ -232,7 +232,7 @@ const VerificationForm = () => {
 
       {/* Search and Actions Section */}
       <div className="flex justify-between items-center mb-4">
-        <CollapsibleSearch 
+        <CollapsibleSearch
           placeholder="Search verification forms..."
           onSearch={(searchTerm) => console.log('Search:', searchTerm)}
         />
@@ -259,15 +259,15 @@ const VerificationForm = () => {
                 <td className="border-r border-gray-400 p-4 w-1/4 align-top">
                   {/* Logo Section */}
                   <div className="mb-4">
-                    <img 
-                      src="/images/logo.png" 
-                      alt="KTRC Logo" 
+                    <img
+                      src="/images/logo.png"
+                      alt="KTRC Logo"
                       className="w-32 h-20 object-contain"
                     />
                   </div>
                   <div className="text-xs text-gray-700 leading-tight">
                     <div className="font-medium">Quality Audit & Control</div>
-                    <div>Kailash Test And Research Centre Pvt. Ltd.</div>
+                    <div>Kailtech Test And Research Centre Pvt. Ltd.</div>
                   </div>
                 </td>
                 <td className="border-r border-gray-400 p-4 text-center align-middle">
@@ -466,39 +466,39 @@ const VerificationForm = () => {
               {[1, 2, 3, 4, 5].map((index) => (
                 <tr key={index} className="border-t border-gray-400">
                   <td className="border-r border-gray-400 p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                   <td className="border-r border-gray-400 p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                   <td className="border-r border-gray-400 p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                   <td className="border-r border-gray-400 p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                   <td className="border-r border-gray-400 p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                   <td className="p-3">
-                    <input 
-                      type="text" 
-                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded" 
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 px-2 py-1 text-sm rounded"
                     />
                   </td>
                 </tr>
@@ -523,7 +523,7 @@ const VerificationForm = () => {
               <div className="border border-gray-300 rounded p-2 h-16"></div>
             </div>
           </div>
-          
+
           <div className="mt-4 text-sm">
             <div className="font-medium text-gray-700 mb-2">Dharmendra Sharma</div>
             <div className="text-xs text-gray-600 space-y-1">

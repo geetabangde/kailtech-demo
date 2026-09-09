@@ -166,7 +166,7 @@ export default function ValidityDetailsTable() {
     }
   };
 
-  // FIX 2: API सारा data एक बार देती है — कोई pagination params नहीं
+
   const fetchMatrixData = useCallback(async (fid, cid) => {
     try {
       setMatrixLoading(true);

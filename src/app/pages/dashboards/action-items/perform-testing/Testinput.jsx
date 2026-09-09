@@ -145,7 +145,7 @@ function ResultsTable({ results = [], decimal }) {
                 ? r.method?.name ?? "—"
                 : r.method ?? "—";
             const spec = r.specification ?? "—";
-            const compliance = r.compliance;
+            const rawStatus = String(r.compliance ?? r.status ?? "").toLowerCase().trim();
 
             return (
               <tr
@@ -165,18 +165,20 @@ function ResultsTable({ results = [], decimal }) {
                   {resultVal}
                 </td>
                 <td className="border-r border-gray-300 px-3 py-2 text-center last:border-r-0 dark:border-gray-700">
-                  {compliance === "pass" && (
+                  {rawStatus === "pass" && (
                     <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/30 dark:text-green-400">
                       Pass
                     </span>
                   )}
-                  {compliance === "fail" && (
+                  {rawStatus === "fail" && (
                     <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/30 dark:text-red-400">
                       Fail
                     </span>
                   )}
-                  {!compliance && (
-                    <span className="text-xs text-gray-400">—</span>
+                  {rawStatus !== "pass" && rawStatus !== "fail" && (
+                    <span className="text-xs text-gray-400">
+                      {r.status || "—"}
+                    </span>
                   )}
                 </td>
                 <td className="border-r border-gray-300 px-3 py-2 text-gray-600 last:border-r-0 dark:border-gray-700 dark:text-gray-400">

@@ -276,13 +276,9 @@ export function RowActions({ row, table }) {
   };
 
   const handleUploadSuccess = () => {
-    // Refresh the table data if needed
-    if (table.options.meta?.refreshData) {
-      table.options.meta.refreshData();
-    }
+    window.location.reload();
   };
 
-  // ✅ Updated delete handler with API integration
   const handleDeleteRows = useCallback(async () => {
     if (!cid) {
       toast.error('Certificate ID is missing');

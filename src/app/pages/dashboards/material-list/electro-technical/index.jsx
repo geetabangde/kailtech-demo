@@ -11,7 +11,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import clsx from "clsx";
-import { Fragment, useRef, useState, useEffect } from "react";
+import { Fragment, useRef, useState, useEffect, useCallback } from "react";
 import axios from "utils/axios";
 import { useSearchParams, useParams } from "react-router-dom"; // ✅ Changed to react-router-dom
 
@@ -95,6 +95,14 @@ export default function OrdersDatatableV2() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true); // ✅ Added loading state
 
+  // ✅ Added dropdown options state
+  const [categoryOptions, setCategoryOptions] = useState([{ value: "", label: "All Categories" }]);
+  const [departmentOptions, setDepartmentOptions] = useState([{ value: "", label: "All Departments" }]);
+
+  // ✅ Added Server-Side states
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState(labId || "");
+
   const [tableSettings, setTableSettings] = useState({
     enableSorting: true,
     enableColumnFilters: true,
@@ -103,6 +111,7 @@ export default function OrdersDatatableV2() {
   });
 
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState([]); // ✅ Added column filters state
   const [sorting, setSorting] = useState([]);
 
   // ✅ Added pagination state for dynamic page size
@@ -124,33 +133,68 @@ export default function OrdersDatatableV2() {
   const cardRef = useRef();
   const { width: cardWidth } = useBoxSize({ ref: cardRef });
 
-  // ✅ Fetch instruments when query params change
+  // ✅ Fetch options for dropdowns
   useEffect(() => {
-    if (labId) {
-      fetchInstruments(labId);
-    } else {
-      setLoading(false);
-      setOrders([]);
-      console.warn('No labId found in query parameters');
-    }
-  }, [labId]);
+    // 1. Fetch Categories
+    axios.get("/inventory/category-list")
+      .then((res) => {
+        if (res.data?.data) {
+          const formatted = res.data.data.map(cat => ({
+            value: cat.id,
+            label: cat.name
+          }));
+          setCategoryOptions([{ value: "", label: "All Categories" }, ...formatted]);
+        }
+      })
+      .catch(err => console.error("Error fetching categories:", err));
 
-  // ✅ API call function
-  const fetchInstruments = async (labId) => {
+    // 2. Fetch Departments (Labs)
+    axios.get("/master/list-lab")
+      .then((res) => {
+        if (res.data?.data) {
+          const employeeId = Number(localStorage.getItem("userId") || 0);
+          
+          const filteredLabs = res.data.data.filter((lab) => {
+            if (!lab.users) return false;
+            if (Array.isArray(lab.users)) {
+              return lab.users.includes(employeeId) || lab.users.map(String).includes(String(employeeId));
+            }
+            if (typeof lab.users === "string") {
+              return lab.users.split(",").map(s => s.trim()).includes(String(employeeId));
+            }
+            return false;
+          });
+
+          const formatted = filteredLabs.map(lab => ({
+            value: lab.id,
+            label: lab.name
+          }));
+          setDepartmentOptions([{ value: "", label: "All Departments" }, ...formatted]);
+        }
+      })
+      .catch(err => console.error("Error fetching departments:", err));
+  }, []);
+
+  // ✅ API call function with useCallback
+  const fetchInstruments = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Fetching instruments for labId:', labId); // Debug
 
       const response = await axios.get(
-        `/material/mm-instrument-list?labs_id=${labId}`
+        `/material/mm-instrument-list`, {
+          params: {
+            labs_id: selectedDepartment,
+            category: selectedCategory,
+            // Asking for all records so the frontend can search them
+            length: -1, 
+            start: 0,
+            draw: 1
+          }
+        }
       );
 
       if (Array.isArray(response.data.data)) {
-        // ✅ Sort by ID descending so newest comes first
-        const sortedData = [...response.data.data].sort((a, b) => {
-          return (Number(b.id) || 0) - (Number(a.id) || 0);
-        });
-        setOrders(sortedData);
+        setOrders(response.data.data);
       } else {
         console.warn("Unexpected response structure:", response.data);
         setOrders([]);
@@ -161,8 +205,15 @@ export default function OrdersDatatableV2() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDepartment, selectedCategory]);
 
+  // ✅ Fetch instruments when lab or category changes
+  useEffect(() => {
+    if (labId && selectedDepartment !== labId && !selectedDepartment) {
+      setSelectedDepartment(labId);
+    }
+    fetchInstruments();
+  }, [fetchInstruments, labId, selectedDepartment]);
 
   const handleAddNewInstrument = () => {
     if (!labSlug || !labId) {
@@ -175,16 +226,18 @@ export default function OrdersDatatableV2() {
     navigate(`/dashboards/material-list/${labSlug}/AddNewInstrument?labId=${labId}`);
   };
 
+
   const table = useReactTable({
     data: orders,
     columns: columns,
     state: {
       globalFilter,
+      columnFilters, // ✅ Added to table state
       sorting,
       columnVisibility,
       columnPinning,
       tableSettings,
-      pagination, // ✅ Added pagination state
+      pagination,
     },
     meta: {
       setTableSettings,
@@ -208,6 +261,7 @@ export default function OrdersDatatableV2() {
     enableColumnFilters: tableSettings.enableColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters, // ✅ Added column filter handler
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
@@ -219,7 +273,7 @@ export default function OrdersDatatableV2() {
     getRowCanExpand: () => true,
 
     getPaginationRowModel: getPaginationRowModel(),
-    onPaginationChange: setPagination, // ✅ Added pagination handler
+    onPaginationChange: setPagination, 
     onColumnVisibilityChange: setColumnVisibility,
     onColumnPinningChange: setColumnPinning,
 
@@ -253,19 +307,14 @@ export default function OrdersDatatableV2() {
         </div>
         {/* Right Side Actions */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* ✅ Category Filter */}
+          {/* ✅ Category Filter (API Driven) */}
           <Select
             styles={customSelectStyles}
-            options={[
-              { value: "", label: "All Categories" },
-              ...Array.from(table.getColumn("category")?.getFacetedUniqueValues()?.keys() || [])
-                .filter(Boolean)
-                .sort()
-                .map((category) => ({ value: category, label: category })),
-            ]}
-            value={table.getColumn("category")?.getFilterValue() ? { value: table.getColumn("category")?.getFilterValue(), label: table.getColumn("category")?.getFilterValue() } : { value: "", label: "All Categories" }}
+            options={categoryOptions}
+            value={categoryOptions.find(c => c.value === selectedCategory) || { value: "", label: "All Categories" }}
             onChange={(selectedOption) => {
-              table.getColumn("category")?.setFilterValue(selectedOption?.value || undefined);
+              setSelectedCategory(selectedOption?.value || "");
+              setPagination(prev => ({ ...prev, pageIndex: 0 })); // Reset to first page
             }}
             placeholder="All Categories"
             isClearable
@@ -273,19 +322,14 @@ export default function OrdersDatatableV2() {
             menuPosition="fixed"
           />
 
-          {/* ✅ Department Filter (from `location` column) */}
+          {/* ✅ Department Filter (API Driven) */}
           <Select
             styles={customSelectStyles}
-            options={[
-              { value: "", label: "All Departments" },
-              ...Array.from(table.getColumn("location")?.getFacetedUniqueValues()?.keys() || [])
-                .filter(Boolean)
-                .sort()
-                .map((dept) => ({ value: dept, label: dept })),
-            ]}
-            value={table.getColumn("location")?.getFilterValue() ? { value: table.getColumn("location")?.getFilterValue(), label: table.getColumn("location")?.getFilterValue() } : { value: "", label: "All Departments" }}
+            options={departmentOptions}
+            value={departmentOptions.find(d => d.value === selectedDepartment) || { value: "", label: "All Departments" }}
             onChange={(selectedOption) => {
-              table.getColumn("location")?.setFilterValue(selectedOption?.value || undefined);
+              setSelectedDepartment(selectedOption?.value || "");
+              setPagination(prev => ({ ...prev, pageIndex: 0 })); // Reset to first page
             }}
             placeholder="All Departments"
             isClearable

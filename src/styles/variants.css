@@ -63,3 +63,14 @@
   --color-this: var(--color-error);
   --color-this-darker: var(--color-error-darker);
 }
+
+/* Fix for Tailwind rgb opacity bug with hex variables */
+.checked\:bg-this:checked { background-color: var(--this) !important; }
+.checked\:border-this:checked { border-color: var(--this) !important; }
+.dark .dark\:checked\:bg-this-light:checked { background-color: var(--this-light) !important; }
+.dark .dark\:checked\:border-this-light:checked { border-color: var(--this-light) !important; }
+.indeterminate\:bg-this:indeterminate { background-color: var(--this) !important; }
+.indeterminate\:border-this:indeterminate { border-color: var(--this) !important; }
+.dark .dark\:indeterminate\:bg-this-light:indeterminate { background-color: var(--this-light) !important; }
+.dark .dark\:indeterminate\:border-this-light:indeterminate { border-color: var(--this-light) !important; }
+

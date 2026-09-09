@@ -22,6 +22,26 @@ export const columns = [
     header: "Name",
     cell: (info) => info.getValue(),
   }),
+  // ✅ Alloted Users
+  columnHelper.accessor("user_names", {
+    id: "user_names",
+    header: "Alloted Users",
+    cell: (info) => (
+      <div className="max-w-[250px] whitespace-normal break-words text-[11px] leading-tight pr-2">
+        {info.getValue() || "-"}
+      </div>
+    ),
+  }),
+  // ✅ Alloted Masters
+  columnHelper.accessor("master_names", {
+    id: "master_names",
+    header: "Alloted Masters",
+    cell: (info) => (
+      <div className="max-w-[400px] whitespace-normal break-words text-[11px] leading-tight pr-2">
+        {info.getValue() || "-"}
+      </div>
+    ),
+  }),
   // ✅ Actions
   columnHelper.display({
     id: "actions",

@@ -14,9 +14,9 @@ const disabledClass =
 
 const variants = {
   basic:
-    "bg-gray-300 before:bg-gray-50 checked:bg-this checked:before:bg-white dark:bg-surface-1 dark:before:bg-dark-50 dark:checked:bg-this-light dark:checked:before:bg-white focus-visible:ring-3 focus-visible:ring-this/50 dark:focus-visible:ring-this-light/50",
+    "bg-gray-300 before:bg-gray-50 checked:bg-primary-600 checked:before:bg-white dark:bg-surface-1 dark:before:bg-dark-50 dark:checked:bg-primary-500 dark:checked:before:bg-white focus-visible:ring-3 focus-visible:ring-this/50 dark:focus-visible:ring-this-light/50",
   outlined:
-    "is-outline border-gray-400/70 border before:bg-gray-300 checked:border-this checked:before:bg-this dark:border-dark-400 dark:before:bg-dark-300 dark:checked:border-this-light dark:checked:before:bg-this-light focus-visible:ring-3 focus-visible:ring-this/50 dark:focus-visible:ring-this-light/50",
+    "is-outline border-gray-400/70 border before:bg-gray-300 checked:border-primary-600 checked:before:bg-primary-600 dark:border-dark-400 dark:before:bg-dark-300 dark:checked:border-primary-500 dark:checked:before:bg-primary-500 focus-visible:ring-3 focus-visible:ring-this/50 dark:focus-visible:ring-this-light/50",
 };
 
 const Switch = forwardRef((props, ref) => {

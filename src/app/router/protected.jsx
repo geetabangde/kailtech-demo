@@ -14,6 +14,7 @@ import AuthGuard from "middleware/AuthGuard";
 
 import { useLabsContext } from "app/contexts/labs/context";
 
+
 function DashboardPermissionGuard() {
   const outlet = useOutlet();
   const { pathname, search } = useLocation();
@@ -29,12 +30,33 @@ function DashboardPermissionGuard() {
     pathname.startsWith("/dashboards/approvals/approve-signature") ||
     pathname.startsWith("/dashboards/approvals/ApproveSignatureReport");
 
-  if (
-    pathname.startsWith("/dashboards") &&
-    !isApprovalRoute &&
-    !canAccessDashboardsRoute({ pathname, search, permissions })
-  ) {
-    throw new Response("Unauthorized", { status: 401 });
+  const isCalibrationViewRoute =
+    pathname.includes("/view-rawdata/") ||
+    pathname.includes("/view-cmc-calculation/") ||
+    pathname.includes("/view-certificate/") ||
+    pathname.includes("/view-certificate-with-lh/") ||
+    pathname.includes("/view-traceability/") ||
+    pathname.includes("/view-sticker/");
+
+  if (pathname.startsWith("/dashboards")) {
+    if (isApprovalRoute) {
+      // Allowed for approval signature links
+    } else if (isCalibrationViewRoute) {
+      // Restrict calibration views only to users with calibration or approval permissions
+      const CALIBRATION_PERMISSIONS = [
+        368, 97, 369, 370, 112, 110, 109, 481, // Calibration process (Inward, Dispatch, ULR, LRN/BRN, Lead)
+        87, 204, 380, 83,                      // Calibration operations
+        392, 393, 403,                         // Approvals
+      ];
+      const hasCalibrationAccess = CALIBRATION_PERMISSIONS.some((id) =>
+        permissions.includes(id)
+      );
+      if (!hasCalibrationAccess) {
+        return <Navigate to="/dashboards" replace />;
+      }
+    } else if (!canAccessDashboardsRoute({ pathname, search, permissions })) {
+      return <Navigate to="/dashboards" replace />;
+    }
   }
 
   // Check dynamic lab permissions
@@ -45,7 +67,7 @@ function DashboardPermissionGuard() {
       const matchedLab = labs.find((lab) => lab.slug === labSlug);
 
       if (!matchedLab || !matchedLab.users?.includes(employeeId)) {
-        throw new Response("Unauthorized", { status: 401 });
+        return <Navigate to="/dashboards" replace />;
       }
     }
   }

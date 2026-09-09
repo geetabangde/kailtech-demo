@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import axios from 'utils/axios';
 import Select from 'react-select';
 import { JWT_HOST_API, IMAGE_HOST_API } from "configs/auth.config";
+import { Flatpickr } from "components/shared/form/Flatpickr";
+import "flatpickr/dist/themes/light.css";
 
 const CalibrateStep3 = () => {
   const navigate = useNavigate();
@@ -83,6 +85,28 @@ const CalibrateStep3 = () => {
     }
   };
 
+  // Helper function to safely format datetime for input
+  const formatDateTimeForInput = (dateString) => {
+    if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') return '';
+    try {
+      const normalizedStr = typeof dateString === 'string' && dateString.includes(' ') && !dateString.includes('T')
+        ? dateString.replace(' ', 'T')
+        : dateString;
+      const date = new Date(normalizedStr);
+      if (isNaN(date.getTime())) return '';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch {
+      console.warn('Invalid date format:', dateString);
+      return '';
+    }
+  };
+
   const [unitsList, setUnitsList] = useState([]);
   const [diagram, setDiagram] = useState('');
   const [roomTemperature, setRoomTemperature] = useState('');
@@ -91,7 +115,10 @@ const CalibrateStep3 = () => {
   const calculateDueDate = (startDateStr, frequency) => {
     if (!startDateStr || !frequency || frequency === 'NA') return '';
     try {
-      const startDate = new Date(startDateStr);
+      const dateOnlyStr = startDateStr.includes('T')
+        ? startDateStr.split('T')[0]
+        : (startDateStr.includes(' ') ? startDateStr.split(' ')[0] : startDateStr);
+      const startDate = new Date(dateOnlyStr);
       if (isNaN(startDate.getTime())) return '';
       const freq = frequency.toLowerCase().trim();
       const match = freq.match(/^(\d+)\s*(year|years|month|months|day|days)/);
@@ -168,7 +195,7 @@ const CalibrateStep3 = () => {
           setDiagram(data.instrument.diagram);
         }
 
-        const initialEndDate = formatDateForInput(data.instrument?.enddate) || formatDateForInput(new Date().toISOString());
+        const initialEndDate = formatDateTimeForInput(data.instrument?.enddate) || formatDateTimeForInput(new Date());
         let initialDueDate = formatDateForInput(data.instrument?.duedate);
         if (!initialDueDate && initialEndDate && data.instrument?.calibrationvalidity) {
           initialDueDate = calculateDueDate(initialEndDate, data.instrument.calibrationvalidity);
@@ -235,9 +262,10 @@ const CalibrateStep3 = () => {
   }, [formData.tempend, inwardEntry?.temperature, observationTemplate]);
 
   const safeGetValue = (item) => {
-    if (!item) return '';
+    if (item === undefined || item === null || item === '') return '';
     if (typeof item === 'object' && item !== null) {
-      return item.value !== null && item.value !== undefined ? item.value : (item.val ?? item.reading ?? '');
+      const val = item.value !== null && item.value !== undefined ? item.value : (item.val ?? item.reading ?? '');
+      return (val !== undefined && val !== null) ? val.toString() : '';
     }
     return item.toString();
   };
@@ -929,6 +957,43 @@ const CalibrateStep3 = () => {
           }
         }
       }
+      else if (selectedTableData.id === 'observationcustom') {
+        const layout = getCustomLayoutIndices(instrument);
+        if (layout) {
+          const requiredCols = [];
+          if (layout.paramIdx !== -1) requiredCols.push(layout.paramIdx);
+          if (layout.specIdx !== -1) requiredCols.push(layout.specIdx);
+          if (layout.setpointIdx !== -1) requiredCols.push(layout.setpointIdx);
+          layout.masterObsIndices.forEach(idx => requiredCols.push(idx));
+          layout.uucObsIndices.forEach(idx => requiredCols.push(idx));
+
+          const obsCols = [...layout.masterObsIndices, ...layout.uucObsIndices];
+          const leastCount = instrument?.leastcount ? parseFloat(instrument.leastcount) : undefined;
+
+          requiredCols.forEach(col => {
+            const key = `${rowIndex}-${col}`;
+            const value = tableInputValues[key] ?? (row[col]?.toString() || '');
+            if (!value.trim()) {
+              newErrors[key] = 'This field is required';
+            } else if (obsCols.includes(col) && (value.trim() === '0' || parseFloat(value) === 0)) {
+              newErrors[key] = 'Observation value cannot be zero';
+            } else if (leastCount && (obsCols.includes(col) || col === layout.setpointIdx)) {
+              const numValue = parseFloat(value);
+              if (!isNaN(numValue)) {
+                if (numValue < leastCount) {
+                  newErrors[key] = `Please enter a value with in leastcount ${leastCount}`;
+                } else {
+                  const factor = 1000000;
+                  const remainder = Math.round(numValue * factor) % Math.round(leastCount * factor);
+                  if (remainder !== 0) {
+                    newErrors[key] = `Please Enter Value divisible by ${leastCount}`;
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
     });
 
     setObservationErrors(newErrors);
@@ -970,8 +1035,8 @@ const CalibrateStep3 = () => {
 
         const isSuccess = response.data.status === true || response.data.staus === true || response.data.success === true;
 
-        if (isSuccess && (response.data.data || response.data.calibration_points)) {
-          const observationData = response.data.data;
+        if (isSuccess && (response.data.data || response.data.calibration_points || observationTemplate === 'observationbiomedical')) {
+          const observationData = observationTemplate === 'observationbiomedical' ? response.data : (response.data.data || response.data);
           console.log('📊 Observation Data:', observationData);
 
           if (observationTemplate === 'observationmt' && observationData.thermal_coeff) {
@@ -1192,15 +1257,14 @@ const CalibrateStep3 = () => {
               console.log('✅ EXM calibration_points found:', observationData.calibration_points);
               setObservations(observationData.calibration_points);
 
-              // Handle thermal coefficients - different from HG
-              if (observationData.thermal_coefficients) {
-                setThermalCoeff({
-                  uuc: observationData.thermal_coefficients.uuc || '',
-                  master: observationData.thermal_coefficients.master || '',
-                  thickness_of_graduation: '' // EXM doesn't use this field
-                });
-                console.log('✅ EXM Thermal coefficients set:', observationData.thermal_coefficients);
-              }
+              // Handle thermal coefficients and additional measurements
+              const addl = response.data.additional_measurements || observationData?.additional_measurements || {};
+              setThermalCoeff({
+                uuc: observationData.thermal_coefficients?.uuc || '',
+                master: observationData.thermal_coefficients?.master || '',
+                thickness_of_graduation: '', // EXM doesn't use this field
+                parallinternal: addl.parallelism_spindle_anvil?.value ?? addl.parallinternal?.value ?? ''
+              });
             } else {
               console.log('❌ No EXM calibration_points found');
               setObservations([]);
@@ -1493,6 +1557,22 @@ const CalibrateStep3 = () => {
             });
             setLeastCountData(leastCountMap);
             setObservations(points);
+          } else if (observationTemplate === 'observationts') {
+            console.log('Setting TS observations:', observationData);
+            let tsData = Array.isArray(observationData) ? observationData : (observationData.data || []);
+            // Map readings to observations for createObservationRows compatibility
+            tsData = tsData.map(point => {
+              const observations = point.observations || [];
+              if (point.readings && Array.isArray(point.readings)) {
+                point.readings.forEach(r => {
+                  if (r.values && Array.isArray(r.values)) {
+                    observations.push(...r.values);
+                  }
+                });
+              }
+              return { ...point, observations };
+            });
+            setObservations(tsData);
           } else if (observationTemplate === 'observationcustom') {
             console.log('Setting Custom observations:', observationData);
             if (observationData.instrument_settings) {
@@ -1500,6 +1580,27 @@ const CalibrateStep3 = () => {
             }
             const points = observationData.calibration_points || observationData.points || observationData.data || (Array.isArray(observationData) ? observationData : []);
             setObservations(Array.isArray(points) ? points : []);
+          } else if (observationTemplate === 'observationbiomedical') {
+            console.log('Setting biomedical observations:', observationData);
+            const formatPoint = (p, mode, isSafety) => ({
+              ...p,
+              id: p.id || p.calibration_point_id,
+              mode,
+              is_electrical_safety: isSafety
+            });
+
+            const measure = Array.isArray(observationData.performance_test?.measure) ? observationData.performance_test.measure : [];
+            const source = Array.isArray(observationData.performance_test?.source) ? observationData.performance_test.source : [];
+            const safetyMeasure = Array.isArray(observationData.electrical_safety?.measure) ? observationData.electrical_safety.measure : [];
+            const safetySource = Array.isArray(observationData.electrical_safety?.source) ? observationData.electrical_safety.source : [];
+
+            const allPoints = [
+              ...measure.map(p => formatPoint(p, 'Measure', false)),
+              ...source.map(p => formatPoint(p, 'Source', false)),
+              ...safetyMeasure.map(p => formatPoint(p, 'Measure', true)),
+              ...safetySource.map(p => formatPoint(p, 'Source', true))
+            ];
+            setObservations(allPoints);
           } else {
             setObservations([]);
           }
@@ -2168,31 +2269,64 @@ const CalibrateStep3 = () => {
       const layout = getCustomLayoutIndices(instrument);
       if (layout) {
         if (layout.masterObsIndices.length > 0) {
-          const masterVals = layout.masterObsIndices.map(idx => parseFloat(rowData[idx])).filter(v => !isNaN(v));
-          if (masterVals.length > 0) {
-            result.averagemaster = (masterVals.reduce((a, b) => a + b, 0) / masterVals.length).toFixed(4);
+          const validMasterVals = layout.masterObsIndices
+            .map(idx => (rowData[idx] !== undefined && rowData[idx] !== null && rowData[idx].toString().trim() !== '') ? parseFloat(rowData[idx]) : NaN)
+            .filter(v => !isNaN(v));
+          if (validMasterVals.length > 0 && validMasterVals.length === layout.masterObsIndices.length) {
+            result.averagemaster = (validMasterVals.reduce((a, b) => a + b, 0) / validMasterVals.length).toFixed(4);
+          } else {
+            result.averagemaster = '';
           }
         }
         if (layout.uucObsIndices.length > 0) {
-          const uucVals = layout.uucObsIndices.map(idx => parseFloat(rowData[idx])).filter(v => !isNaN(v));
-          if (uucVals.length > 0) {
-            result.averageuuc = (uucVals.reduce((a, b) => a + b, 0) / uucVals.length).toFixed(4);
+          const validUucVals = layout.uucObsIndices
+            .map(idx => (rowData[idx] !== undefined && rowData[idx] !== null && rowData[idx].toString().trim() !== '') ? parseFloat(rowData[idx]) : NaN)
+            .filter(v => !isNaN(v));
+          if (validUucVals.length > 0 && validUucVals.length === layout.uucObsIndices.length) {
+            result.averageuuc = (validUucVals.reduce((a, b) => a + b, 0) / validUucVals.length).toFixed(4);
+          } else {
+            result.averageuuc = '';
           }
         }
-        const masterVal = parseFloat(
-          result.averagemaster ||
-          (layout.masterObsIndices.length > 0 ? rowData[layout.masterObsIndices[0]] : null) ||
-          (layout.setpointIdx !== -1 ? rowData[layout.setpointIdx] : 0) ||
-          0
-        );
-        const uucVal = parseFloat(
-          result.averageuuc ||
-          (layout.uucObsIndices.length > 0 ? rowData[layout.uucObsIndices[0]] : null) ||
-          (layout.setpointIdx !== -1 ? rowData[layout.setpointIdx] : 0) ||
-          0
-        );
-        if (!isNaN(masterVal) && !isNaN(uucVal) && (result.averagemaster || result.averageuuc || layout.masterObsIndices.length > 0 || layout.uucObsIndices.length > 0)) {
+
+        let masterVal = null;
+        if (result.averagemaster !== '' && result.averagemaster !== undefined) {
+          masterVal = parseFloat(result.averagemaster);
+        } else if (layout.masterObsIndices.length === 1) {
+          const raw = rowData[layout.masterObsIndices[0]];
+          if (raw !== undefined && raw !== null && raw.toString().trim() !== '') {
+            const p = parseFloat(raw);
+            if (!isNaN(p)) masterVal = p;
+          }
+        } else if (layout.setpointIdx !== -1 && instrument?.setpoint !== "UUC") {
+          const raw = rowData[layout.setpointIdx];
+          if (raw !== undefined && raw !== null && raw.toString().trim() !== '') {
+            const p = parseFloat(raw);
+            if (!isNaN(p)) masterVal = p;
+          }
+        }
+
+        let uucVal = null;
+        if (result.averageuuc !== '' && result.averageuuc !== undefined) {
+          uucVal = parseFloat(result.averageuuc);
+        } else if (layout.uucObsIndices.length === 1) {
+          const raw = rowData[layout.uucObsIndices[0]];
+          if (raw !== undefined && raw !== null && raw.toString().trim() !== '') {
+            const p = parseFloat(raw);
+            if (!isNaN(p)) uucVal = p;
+          }
+        } else if (layout.setpointIdx !== -1 && instrument?.setpoint === "UUC") {
+          const raw = rowData[layout.setpointIdx];
+          if (raw !== undefined && raw !== null && raw.toString().trim() !== '') {
+            const p = parseFloat(raw);
+            if (!isNaN(p)) uucVal = p;
+          }
+        }
+
+        if (masterVal !== null && uucVal !== null && !isNaN(masterVal) && !isNaN(uucVal)) {
           result.error = (uucVal - masterVal).toFixed(4);
+        } else {
+          result.error = '';
         }
       }
     }
@@ -2244,20 +2378,12 @@ const CalibrateStep3 = () => {
           if (layout.setpointIdx !== -1) row[layout.setpointIdx] = extractPointValue(point, 'setpoint');
 
           layout.masterObsIndices.forEach((idx, i) => {
-            let val = extractPointValue(point, 'master', i);
-            if (!val && layout.uucObsIndices.length === 0) {
-              val = extractPointValue(point, 'uuc', i);
-            }
-            row[idx] = val;
+            row[idx] = extractPointValue(point, 'master', i);
           });
           if (layout.avgMasterIdx !== -1) row[layout.avgMasterIdx] = extractPointValue(point, 'averagemaster');
 
           layout.uucObsIndices.forEach((idx, i) => {
-            let val = extractPointValue(point, 'uuc', i);
-            if (!val && layout.masterObsIndices.length === 0) {
-              val = extractPointValue(point, 'master', i);
-            }
-            row[idx] = val;
+            row[idx] = extractPointValue(point, 'uuc', i);
           });
           if (layout.avgUucIdx !== -1) row[layout.avgUucIdx] = extractPointValue(point, 'averageuuc');
 
@@ -2268,7 +2394,7 @@ const CalibrateStep3 = () => {
           calibrationPoints.push((point.point_id ?? point.id ?? point.pointid)?.toString() || '');
           types.push('uuc');
           repeatables.push('0');
-          values.push(extractPointValue(point, 'setpoint') || '0');
+          values.push(extractPointValue(point, 'setpoint') || '');
         });
       }
     } else if (template === 'observationwbn') {
@@ -3561,6 +3687,15 @@ const CalibrateStep3 = () => {
       modes: createObservationRows(observations, 'observationcustom').modes
     },
     {
+      id: 'observationbiomedical',
+      name: 'Observation Biomedical',
+      category: 'Biomedical',
+      structure: { singleHeaders: [], subHeaders: {}, remainingHeaders: [] },
+      staticRows: [],
+      hiddenInputs: {},
+      calibration_points: observations
+    },
+    {
       id: 'observationwbn',
       name: 'Observation WBN (Weighing, Rep, Ecc)',
       category: 'Weighing Balance',
@@ -4139,6 +4274,64 @@ const CalibrateStep3 = () => {
         }
       }
 
+      // ✅ Real-time validation for observationcustom
+      if (selectedTableData.id === 'observationcustom') {
+        const layout = getCustomLayoutIndices(instrument);
+        if (layout) {
+          const isCheckCol = (
+            colIndex === layout.paramIdx ||
+            colIndex === layout.specIdx ||
+            colIndex === layout.setpointIdx ||
+            layout.masterObsIndices.includes(colIndex) ||
+            layout.uucObsIndices.includes(colIndex)
+          );
+
+          const isObsCol = layout.masterObsIndices.includes(colIndex) || layout.uucObsIndices.includes(colIndex);
+
+          if (isCheckCol) {
+            if (!value.trim()) {
+              setObservationErrors(prevErrors => ({
+                ...prevErrors,
+                [key]: 'This field is required'
+              }));
+            } else if (isObsCol && (value.trim() === '0' || parseFloat(value) === 0)) {
+              setObservationErrors(prevErrors => ({
+                ...prevErrors,
+                [key]: 'Observation value cannot be zero'
+              }));
+            } else {
+              setObservationErrors(prevErrors => {
+                const newErrors = { ...prevErrors };
+                delete newErrors[key];
+                return newErrors;
+              });
+
+              const leastCount = instrument?.leastcount ? parseFloat(instrument.leastcount) : undefined;
+              if (leastCount && (isObsCol || colIndex === layout.setpointIdx)) {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  if (numValue < leastCount) {
+                    setObservationErrors(prevErrors => ({
+                      ...prevErrors,
+                      [key]: `Please enter a value with in leastcount ${leastCount}`
+                    }));
+                  } else {
+                    const factor = 1000000;
+                    const remainder = Math.round(numValue * factor) % Math.round(leastCount * factor);
+                    if (remainder !== 0) {
+                      setObservationErrors(prevErrors => ({
+                        ...prevErrors,
+                        [key]: `Please Enter Value divisible by ${leastCount}`
+                      }));
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
 
       if (!selectedTableData.staticRows?.[rowIndex]) return newValues;
       const rowData = selectedTableData.staticRows[rowIndex].map((cell, idx) => {
@@ -4306,6 +4499,14 @@ const CalibrateStep3 = () => {
       else if (selectedTableData.id === 'observationexm') {
         newValues[`${rowIndex}-7`] = calculated.average;
         newValues[`${rowIndex}-8`] = calculated.error;
+      }
+      else if (selectedTableData.id === 'observationcustom') {
+        const layout = getCustomLayoutIndices(instrument);
+        if (layout) {
+          if (layout.avgMasterIdx !== -1) newValues[`${rowIndex}-${layout.avgMasterIdx}`] = calculated.averagemaster || '';
+          if (layout.avgUucIdx !== -1) newValues[`${rowIndex}-${layout.avgUucIdx}`] = calculated.averageuuc || '';
+          if (layout.errorIdx !== -1) newValues[`${rowIndex}-${layout.errorIdx}`] = calculated.error || '';
+        }
       }
       else if (selectedTableData.id === 'observationutm') {
         const rowMeta = selectedTableData.rowMeta?.[rowIndex];
@@ -4493,8 +4694,8 @@ const CalibrateStep3 = () => {
           });
         }
 
-        // Also save calculated averages/errors if master or uuc observations changed
-        if (layout.masterObsIndices.includes(colIndex) || layout.uucObsIndices.includes(colIndex)) {
+        // Also save calculated averages/errors if master, uuc, or setpoint observations changed
+        if (layout.masterObsIndices.includes(colIndex) || layout.uucObsIndices.includes(colIndex) || colIndex === layout.setpointIdx) {
           if (layout.avgMasterIdx !== -1 && calculated.averagemaster) {
             payloads.push({
               inwardid: inwardId,
@@ -6674,14 +6875,14 @@ const CalibrateStep3 = () => {
             console.log('✅ Refetched EXM calibration_points:', observationData.calibration_points.length, 'points');
             setObservations(observationData.calibration_points);
 
-            // Handle thermal coefficients
-            if (observationData.thermal_coefficients) {
-              setThermalCoeff({
-                uuc: observationData.thermal_coefficients.uuc || '',
-                master: observationData.thermal_coefficients.master || '',
-                thickness_of_graduation: ''
-              });
-            }
+            // Handle thermal coefficients and additional measurements
+            const addl = response.data.additional_measurements || observationData?.additional_measurements || {};
+            setThermalCoeff({
+              uuc: observationData.thermal_coefficients?.uuc || '',
+              master: observationData.thermal_coefficients?.master || '',
+              thickness_of_graduation: '', // EXM doesn't use this field
+              parallinternal: addl.parallelism_spindle_anvil?.value ?? addl.parallinternal?.value ?? ''
+            });
           } else {
             console.log('❌ No EXM calibration_points found after refetch');
             setObservations([]);
@@ -6802,6 +7003,28 @@ const CalibrateStep3 = () => {
           }
           const points = observationData.calibration_points || observationData.points || observationData.data || (Array.isArray(observationData) ? observationData : []);
           setObservations(Array.isArray(points) ? points : []);
+        }
+        else if (observationTemplate === 'observationts') {
+          console.log('🔄 Refetching TS observations:', observationData);
+          let tsData = Array.isArray(observationData) ? observationData : (observationData.data || []);
+          // Same mapping as the initial fetchObservations load
+          tsData = tsData.map(point => {
+            const observations = point.observations ? [...point.observations] : [];
+            if (point.readings && Array.isArray(point.readings)) {
+              point.readings.forEach(r => {
+                if (r.values && Array.isArray(r.values)) {
+                  observations.push(...r.values);
+                }
+              });
+            }
+            return { ...point, observations };
+          });
+          if (tsData.length > 0) {
+            setObservations(tsData);
+          } else {
+            console.log('⚠️ TS: No data after refetch — keeping existing observations to prevent table disappearing');
+            // Don't call setObservations([]) — keep existing data so the table stays visible
+          }
         }
         else {
           setObservations([]);
@@ -7644,7 +7867,7 @@ const CalibrateStep3 = () => {
       <div className="mb-6">
         <h3 className="text-md font-medium text-gray-800 dark:text-white mb-2">Thermal Coefficient</h3>
         <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded border border-gray-200 dark:border-gray-600">
-          <div className={`grid ${selectedTableData.id === 'observationmt' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
+          <div className={`grid ${selectedTableData.id === 'observationmt' || selectedTableData.id === 'observationexm' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                 UUC Thermal Coefficient:
@@ -7684,6 +7907,22 @@ const CalibrateStep3 = () => {
                   onBlur={(e) => handleThermalCoeffBlur('thicknessofgraduation', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
                   placeholder="Enter thickness"
+                />
+              </div>
+            )}
+            {/* Additional field for EXM */}
+            {selectedTableData.id === 'observationexm' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  Parallelism Of Spindle & Anvil (µm):
+                </label>
+                <input
+                  type="text"
+                  value={thermalCoeff.parallinternal || ''}
+                  onChange={(e) => setThermalCoeff((prev) => ({ ...prev, parallinternal: e.target.value }))}
+                  onBlur={(e) => handleThermalCoeffBlur('parallinternal', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                  placeholder="Enter parallelism value"
                 />
               </div>
             )}
@@ -7759,15 +7998,22 @@ const CalibrateStep3 = () => {
                         // colIndex 0 = Sr No, colIndex 1 = Unit (handled above)
                         // colIndex 3 = Calculated master/uuc (read only in PHP)
                         // colIndex 4 = Master/uuc original (read only in PHP)
+                        // colIndex 8 = Obs 4 (editable only on last row)
+                        // colIndex 9 = Obs 5 (editable only on last row)
                         // colIndex 10 = Average (read only in PHP)
                         // colIndex 11 = Error (read only in PHP)
-                        const isDisabled = [0, 3, 4, 10, 11].includes(colIndex);
+                        const isLastRowInGroup = relativeRowIndex === modeGroup.calibration_points.length - 1;
+                        const isObs45Disabled = !isLastRowInGroup && (colIndex === 8 || colIndex === 9);
+                        const isDisabled = [0, 3, 4, 10, 11].includes(colIndex) || isObs45Disabled;
 
                         return (
                           <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm border-r border-gray-200 dark:border-gray-600 align-middle">
                             <input
                               type="text"
-                              className={`w-full min-w-[50px] px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''} ${observationErrors[key] ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'}`}
+                              className={`w-full min-w-[50px] px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent ${isObs45Disabled
+                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed select-none'
+                                : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white border-gray-200 dark:border-gray-600'
+                                } ${isDisabled && !isObs45Disabled ? 'cursor-not-allowed' : ''} ${observationErrors[key] ? 'border-red-500' : ''}`}
                               value={currentValue}
                               onChange={(e) => {
                                 if (isDisabled) return;
@@ -7937,8 +8183,15 @@ const CalibrateStep3 = () => {
     );
   };
 
-  const handleBiomedicalInputChange = (pointId, type, index, value) => {
+  const handleBiomedicalInputChange = (pointId, type, index, value, masterCount = 1, uucCount = 5) => {
     const key = `${pointId}-${type}${type === 'master' || type === 'uuc' ? `-${index}` : ''}`;
+
+    // Find the point to get mode and set_point
+    const point = (selectedTableData?.calibration_points ?? []).find(p => p.id === pointId);
+    const isMasterReadOnly = point?.mode === 'Measure';
+    const isUucReadOnly = point?.mode === 'Source';
+    const setPointValue = parseFloat(point?.set_point ?? point?.point) || 0;
+
     setTableInputValues(prev => {
       const newValues = { ...prev, [key]: value };
 
@@ -7947,30 +8200,60 @@ const CalibrateStep3 = () => {
       let masterSum = 0;
       let masterCountNum = 0;
 
-      for (let i = 0; i < 5; i++) {
-        const uVal = parseFloat(newValues[`${pointId}-uuc-${i}`]);
-        if (!isNaN(uVal)) {
+      // Calculate UUC average
+      for (let i = 0; i < uucCount; i++) {
+        let uVal;
+        let uucVal;
+        if (isUucReadOnly) {
+          // Source mode: UUC is read-only, use set point
+          uVal = setPointValue;
+          uucVal = setPointValue.toString();
+        } else {
+          // Measure mode: UUC is editable
+          uucVal = newValues[`${pointId}-uuc-${i}`] ?? point?.uuc_readings?.[i]?.value ?? '';
+          uVal = parseFloat(uucVal);
+        }
+
+        // Only count non-empty, non-NaN values
+        if (uucVal !== '' && !isNaN(uVal)) {
           uucSum += uVal;
           uucCountNum++;
         }
+      }
 
-        const mVal = parseFloat(newValues[`${pointId}-master-${i}`]);
-        if (!isNaN(mVal)) {
+      // Calculate Master average
+      for (let i = 0; i < masterCount; i++) {
+        let mVal;
+        let masterVal;
+        if (isMasterReadOnly) {
+          // Measure mode: Master is read-only, use set point
+          mVal = setPointValue;
+          masterVal = setPointValue.toString();
+        } else {
+          // Source mode: Master is editable
+          masterVal = newValues[`${pointId}-master-${i}`] ?? point?.master_readings?.[i]?.value ?? '';
+          mVal = parseFloat(masterVal);
+        }
+
+        // Only count non-empty, non-NaN values
+        if (masterVal !== '' && !isNaN(mVal)) {
           masterSum += mVal;
           masterCountNum++;
         }
       }
 
+      // Calculate averages - matching PHP logic
       const avgUuc = uucCountNum > 0 ? (uucSum / uucCountNum).toFixed(3) : '';
       const avgMaster = masterCountNum > 0 ? (masterSum / masterCountNum).toFixed(3) : '';
 
       newValues[`${pointId}-averageuuc`] = avgUuc;
       newValues[`${pointId}-averagemaster`] = avgMaster;
 
-      const finalUuc = avgUuc !== '' ? parseFloat(avgUuc) : parseFloat(newValues[`${pointId}-uuc-0`]) || 0;
-      const finalMaster = avgMaster !== '' ? parseFloat(avgMaster) : parseFloat(newValues[`${pointId}-master-0`]) || 0;
+      // Calculate deviation = Average UUC - Average Master (matching PHP: substractminus)
+      const finalUuc = avgUuc !== '' ? parseFloat(avgUuc) : 0;
+      const finalMaster = avgMaster !== '' ? parseFloat(avgMaster) : 0;
 
-      if (finalUuc !== 0 || finalMaster !== 0) {
+      if (avgUuc !== '' || avgMaster !== '') {
         newValues[`${pointId}-error`] = (finalUuc - finalMaster).toFixed(3);
       }
 
@@ -7988,29 +8271,36 @@ const CalibrateStep3 = () => {
       calibrationpoint: pointId,
       type: type,
       repeatable: (type === 'master' || type === 'uuc') ? index.toString() : '0',
-      value: value,
+      value: value || '0',
     };
 
     try {
       const token = localStorage.getItem('authToken');
-      await axios.post(
+      const response = await axios.post(
         `${JWT_HOST_API}/calibrationprocess/set-observations`,
         payload,
         { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
       );
 
       if (type === 'uuc' || type === 'master') {
-        const avgKey = type === 'uuc' ? 'averageuuc' : 'averagemaster';
+        const avgKeyFrontend = type === 'uuc' ? 'averageuuc' : 'averagemaster';
+
         await axios.post(`${JWT_HOST_API}/calibrationprocess/set-observations`, {
-          inwardid: inwardId, instid: instId, calibrationpoint: pointId, type: avgKey, repeatable: '0', value: tableInputValues[`${pointId}-${avgKey}`] || ''
+          inwardid: inwardId, instid: instId, calibrationpoint: pointId, type: avgKeyFrontend, repeatable: '0', value: tableInputValues[`${pointId}-${avgKeyFrontend}`] || '0'
         }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
 
         await axios.post(`${JWT_HOST_API}/calibrationprocess/set-observations`, {
-          inwardid: inwardId, instid: instId, calibrationpoint: pointId, type: 'error', repeatable: '0', value: tableInputValues[`${pointId}-error`] || ''
+          inwardid: inwardId, instid: instId, calibrationpoint: pointId, type: 'error', repeatable: '0', value: tableInputValues[`${pointId}-error`] || '0'
         }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
       }
-    } catch (err) {
-      console.error('Error saving biomedical observation:', err);
+
+      if (response.data.status || response.data.staus || response.data.success) {
+        toast.success('Observation saved successfully');
+      } else {
+        toast.error('Failed to save observation');
+      }
+    } catch (error) {
+      console.error('Error saving observation:', error);
       toast.error('Failed to save observation');
     }
   };
@@ -8039,12 +8329,7 @@ const CalibrateStep3 = () => {
                   {uucCount > 1 && <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Average On UUC</th>}
                   {showDevAndUnc && <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Deviation</th>}
                   <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Tolerance</th>
-                  {showDevAndUnc && (
-                    <>
-                      <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">(±) Expanded Uncertainty</th>
-                      <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Remarks</th>
-                    </>
-                  )}
+
                 </tr>
               </thead>
               <tbody>
@@ -8052,52 +8337,73 @@ const CalibrateStep3 = () => {
                   const pointId = point.id;
                   return (
                     <tr key={`bio-${pointId}`} className="dark:bg-gray-800">
-                      <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                        <input type="text" className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')} readOnly />
+                      <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white min-w-[180px]">
+                        <input type="text" title={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')} className="w-full min-w-[160px] px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')} readOnly />
                       </td>
                       {showDevAndUnc && (
                         <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={point.point || ''} readOnly /> {point.unit || ''}
+                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={point.set_point ?? point.point ?? ''} readOnly /> {point.set_point_unit ?? point.unit ?? ''}
                         </td>
                       )}
-                      {Array.from({ length: masterCount }).map((_, i) => (
-                        <td key={`master-${i}`} className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-master-${i}`] ?? ''} onChange={(e) => handleBiomedicalInputChange(pointId, 'master', i, e.target.value)} onBlur={() => handleBiomedicalInputBlur(pointId, 'master', i)} />
-                        </td>
-                      ))}
+                      {Array.from({ length: masterCount }).map((_, i) => {
+                        const isMasterReadOnly = point.mode === 'Measure';
+                        const displayValue = isMasterReadOnly
+                          ? (point.set_point ?? point.point ?? '')
+                          : (tableInputValues[`${pointId}-master-${i}`] ?? (point.master_readings?.[i]?.value ?? ''));
+
+                        return (
+                          <td key={`master-${i}`} className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
+                            <input
+                              type="text"
+                              className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isMasterReadOnly ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'}`}
+                              value={displayValue}
+                              readOnly={isMasterReadOnly}
+                              onChange={!isMasterReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'master', i, e.target.value, masterCount, uucCount) : undefined}
+                              onBlur={!isMasterReadOnly ? () => handleBiomedicalInputBlur(pointId, 'master', i) : undefined}
+                            />
+                            <span className="ml-1 text-xs text-gray-500">{point.master_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+                          </td>
+                        );
+                      })}
                       {masterCount > 1 && (
                         <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-averagemaster`] ?? ''} readOnly />
+                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-averagemaster`] ?? (point.average_master ?? '')} readOnly />
                         </td>
                       )}
-                      {Array.from({ length: uucCount }).map((_, i) => (
-                        <td key={`uuc-${i}`} className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-uuc-${i}`] ?? ''} onChange={(e) => handleBiomedicalInputChange(pointId, 'uuc', i, e.target.value)} onBlur={() => handleBiomedicalInputBlur(pointId, 'uuc', i)} />
-                        </td>
-                      ))}
+                      {Array.from({ length: uucCount }).map((_, i) => {
+                        const isUucReadOnly = point.mode === 'Source';
+                        const displayValue = isUucReadOnly
+                          ? (point.set_point ?? point.point ?? '')
+                          : (tableInputValues[`${pointId}-uuc-${i}`] ?? (point.uuc_readings?.[i]?.value ?? ''));
+
+                        return (
+                          <td key={`uuc-${i}`} className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
+                            <input
+                              type="text"
+                              className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isUucReadOnly ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'}`}
+                              value={displayValue}
+                              readOnly={isUucReadOnly}
+                              onChange={!isUucReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'uuc', i, e.target.value, masterCount, uucCount) : undefined}
+                              onBlur={!isUucReadOnly ? () => handleBiomedicalInputBlur(pointId, 'uuc', i) : undefined}
+                            />
+                            <span className="ml-1 text-xs text-gray-500">{point.uuc_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+                          </td>
+                        );
+                      })}
                       {uucCount > 1 && (
                         <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-averageuuc`] ?? ''} readOnly />
+                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-averageuuc`] ?? (point.average_uuc ?? '')} readOnly />
                         </td>
                       )}
                       {showDevAndUnc && (
                         <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-error`] ?? ''} readOnly />
+                          <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-error`] ?? (point.deviation ?? '')} readOnly />
                         </td>
                       )}
                       <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                        <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-specification`] ?? (point.tolerance || '')} onChange={(e) => handleBiomedicalInputChange(pointId, 'specification', 0, e.target.value)} onBlur={() => handleBiomedicalInputBlur(pointId, 'specification', 0)} />
+                        <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-specification`] ?? (point.tolerance || '')} onChange={(e) => handleBiomedicalInputChange(pointId, 'specification', 0, e.target.value, masterCount, uucCount)} onBlur={() => handleBiomedicalInputBlur(pointId, 'specification', 0)} />
                       </td>
-                      {showDevAndUnc && (
-                        <>
-                          <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                            <input type="text" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-expandeduncertainty`] ?? ''} onChange={(e) => handleBiomedicalInputChange(pointId, 'expandeduncertainty', 0, e.target.value)} onBlur={() => handleBiomedicalInputBlur(pointId, 'expandeduncertainty', 0)} /> %
-                          </td>
-                          <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                            <input type="text" className="w-32 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-remark`] ?? ''} onChange={(e) => handleBiomedicalInputChange(pointId, 'remark', 0, e.target.value)} onBlur={() => handleBiomedicalInputBlur(pointId, 'remark', 0)} />
-                          </td>
-                        </>
-                      )}
+
                     </tr>
                   );
                 })}
@@ -8439,55 +8745,55 @@ const CalibrateStep3 = () => {
             calibrationPoints.push(calibPointId);
             types.push('parameter');
             repeatables.push('0');
-            values.push(rowData[layout.paramIdx] || '');
+            values.push(rowData[layout.paramIdx] ?? '');
           }
           if (layout.specIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('specification');
             repeatables.push('0');
-            values.push(rowData[layout.specIdx] || '');
+            values.push(rowData[layout.specIdx] ?? '');
           }
           if (layout.setpointIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('setpoint');
             repeatables.push('0');
-            values.push(rowData[layout.setpointIdx] || '0');
+            values.push(rowData[layout.setpointIdx] ?? '');
           }
           layout.masterObsIndices.forEach((colIdx, i) => {
             calibrationPoints.push(calibPointId);
             types.push('master');
             repeatables.push(i.toString());
-            values.push(rowData[colIdx] || '0');
+            values.push(rowData[colIdx] ?? '');
           });
           if (layout.avgMasterIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('averagemaster');
             repeatables.push('0');
-            values.push(calculated.averagemaster || '0');
+            values.push(calculated.averagemaster ?? '');
           }
           layout.uucObsIndices.forEach((colIdx, i) => {
             calibrationPoints.push(calibPointId);
             types.push('uuc');
             repeatables.push(i.toString());
-            values.push(rowData[colIdx] || '0');
+            values.push(rowData[colIdx] ?? '');
           });
           if (layout.avgUucIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('averageuuc');
             repeatables.push('0');
-            values.push(calculated.averageuuc || '0');
+            values.push(calculated.averageuuc ?? '');
           }
           if (layout.errorIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('error');
             repeatables.push('0');
-            values.push(calculated.error || '0');
+            values.push(calculated.error ?? '');
           }
           if (layout.remarkIdx !== -1) {
             calibrationPoints.push(calibPointId);
             types.push('remark');
             repeatables.push('0');
-            values.push(rowData[layout.remarkIdx] || '');
+            values.push(rowData[layout.remarkIdx] ?? '');
           }
         }
       }
@@ -9444,6 +9750,30 @@ const CalibrateStep3 = () => {
 
   return (
     <Page title="CalibrateStep3">
+      <style>{`
+        .flatpickr-day.selected,
+        .flatpickr-day.startRange,
+        .flatpickr-day.endRange,
+        .flatpickr-day.selected:hover,
+        .flatpickr-day.selected:focus,
+        .flatpickr-day.selected.prevMonthDay,
+        .flatpickr-day.selected.nextMonthDay {
+          background: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff !important;
+        }
+        .flatpickr-day.today {
+          border-color: #3b82f6 !important;
+        }
+        .flatpickr-day.today:hover {
+          background: #dbeafe !important;
+          color: #1e40af !important;
+        }
+        .flatpickr-months .flatpickr-prev-month:hover svg,
+        .flatpickr-months .flatpickr-next-month:hover svg {
+          fill: #2563eb !important;
+        }
+      `}</style>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-4">
@@ -9859,13 +10189,16 @@ const CalibrateStep3 = () => {
                                           const key = `${actualRowIndex}-${colIndex}`;
                                           const currentValue = tableInputValues[key] ?? (cell?.toString() || '');
 
+                                          const isLastRowInUnitType = rowIndex === unitTypeRows.length - 1;
+                                          const isObs45Disabled = !isLastRowInUnitType && (colIndex === 8 || colIndex === 9);
                                           const isDisabled =
                                             colIndex === 0 || // SR No
                                             colIndex === 1 || // Mode
                                             colIndex === 3 || // Calculated master (read-only)
                                             colIndex === 4 || // Master value (read-only)
                                             colIndex === 10 || // Average
-                                            colIndex === 11; // Error
+                                            colIndex === 11 || // Error
+                                            isObs45Disabled;
 
                                           return (
                                             <td
@@ -9874,8 +10207,10 @@ const CalibrateStep3 = () => {
                                             >
                                               <input
                                                 type="text"
-                                                className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''
-                                                  } ${observationErrors[key] ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'}`}
+                                                className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent ${isObs45Disabled
+                                                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed select-none'
+                                                  : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white border-gray-200 dark:border-gray-600'
+                                                  } ${isDisabled && !isObs45Disabled ? 'cursor-not-allowed' : ''} ${observationErrors[key] ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'}`}
                                                 value={currentValue}
                                                 onChange={(e) => {
                                                   if (isDisabled) return;
@@ -10027,7 +10362,6 @@ const CalibrateStep3 = () => {
                                       );
                                     }
 
-
                                     if ((selectedTableData.id === 'observationrtdwi' || selectedTableData.id === 'observationth') && (cell === '-' || cell === 'UUC' || cell === 'Master')) {
                                       return (
                                         <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 text-center font-medium">
@@ -10037,6 +10371,22 @@ const CalibrateStep3 = () => {
                                     }
 
                                     let isDisabled = colIndex === 0;
+                                    const totalRowsCount = selectedTableData.staticRows?.length || 1;
+                                    const isLastRow = rowIndex === totalRowsCount - 1;
+                                    const isLastTwoRows = rowIndex >= totalRowsCount - 2;
+
+                                    let isObs45Disabled = false;
+                                    if (['observationctg', 'observationmsr', 'observationit', 'observationexm', 'observationvc', 'observationfg', 'observationhg', 'observationmt'].includes(selectedTableData.id)) {
+                                      isObs45Disabled = !isLastRow && (colIndex === 5 || colIndex === 6);
+                                    } else if (selectedTableData.id === 'observationodfm') {
+                                      isObs45Disabled = !isLastRow && (colIndex === 6 || colIndex === 7);
+                                    } else if (['observationmm', 'observationuc', 'observationes'].includes(selectedTableData.id)) {
+                                      isObs45Disabled = !isLastRow && (colIndex === 8 || colIndex === 9);
+                                    } else if (selectedTableData.id === 'observationgtm') {
+                                      isObs45Disabled = !isLastTwoRows && (colIndex === 9 || colIndex === 10);
+                                    } else if (['observationrtdwi', 'observationth'].includes(selectedTableData.id)) {
+                                      isObs45Disabled = !isLastTwoRows && (colIndex === 8 || colIndex === 9);
+                                    }
 
                                     if (selectedTableData.id === 'observationrtdwi') {
                                       const rowType = row[2];
@@ -10057,17 +10407,14 @@ const CalibrateStep3 = () => {
                                       const rowType = row[2];
                                       isDisabled = isDisabled || [2].includes(colIndex) || cell === '-';
                                       if (rowType === 'UUC') {
-                                        // UUC row: SR No, Value Of, Sensitivity Coefficient, Average (Ω), Average (°C), Deviation disabled
                                         isDisabled = isDisabled || [0, 1, 2, 4, 5, 11, 12, 13].includes(colIndex);
                                       }
                                       if (rowType === 'Master') {
-                                        // Master row: SR No, Set Point, Value Of, Range, Deviation disabled
                                         isDisabled = isDisabled || [0, 1, 2, 3, 11, 13].includes(colIndex);
                                       }
-                                    }// In the table rendering section, add DG disabled fields logic:
+                                    }
 
                                     else if (selectedTableData.id === 'observationdg') {
-                                      // Sr No, and all calculated fields (cols 6-10) are disabled
                                       isDisabled = isDisabled || [0, 1, 6, 7, 8, 9, 10].includes(colIndex);
                                     }
                                     else if (selectedTableData.id === 'observationdpg') {
@@ -10088,7 +10435,7 @@ const CalibrateStep3 = () => {
                                       isDisabled = isDisabled || [5, 6, 7].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationit') {
                                       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
-                                    } else if (selectedTableData.id === 'observationexm') {
+                                    } else if (selectedTableData.id === 'observationexm' || selectedTableData.id === 'observationvc') {
                                       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationfg') {
                                       isDisabled = isDisabled || [7, 8].includes(colIndex);
@@ -10097,6 +10444,12 @@ const CalibrateStep3 = () => {
                                     } else if (selectedTableData.id === 'observationmt') {
                                       const repeatableCycle = parseInt(selectedTableData.hiddenInputs?.repeatables?.[rowIndex], 10) || 5;
                                       isDisabled = isDisabled || [1, 7, 8].includes(colIndex) || (colIndex >= 2 && colIndex <= 6 && colIndex >= 2 + repeatableCycle);
+                                    } else if (selectedTableData.id === 'observationmm') {
+                                      isDisabled = isDisabled || [0, 1, 3, 4, 10, 11].includes(colIndex);
+                                    } else if (selectedTableData.id === 'observationuc') {
+                                      isDisabled = isDisabled || [0, 3, 4, 10, 11].includes(colIndex);
+                                    } else if (selectedTableData.id === 'observationes') {
+                                      isDisabled = isDisabled || [0, 1, 10, 11, 12].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationdw') {
                                       isDisabled = isDisabled || [0, 1, 2, 8, 9].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationts') {
@@ -10121,6 +10474,10 @@ const CalibrateStep3 = () => {
                                       }
                                     }
 
+                                    if (isObs45Disabled) {
+                                      isDisabled = true;
+                                    }
+
                                     let rowSpanVal = undefined;
                                     if (selectedTableData.id === 'observationdw') {
                                       const isSpanCol = [0, 2, 3, 9].includes(colIndex);
@@ -10141,13 +10498,21 @@ const CalibrateStep3 = () => {
                                       >
                                         <input
                                           type="text"
-                                          className={`w-full min-w-[50px] px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''
-                                            } ${observationErrors[key] ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'}`}
+                                          className={`w-full min-w-[50px] px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent ${isObs45Disabled
+                                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed select-none'
+                                            : 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white border-gray-200 dark:border-gray-600'
+                                            } ${isDisabled && !isObs45Disabled ? 'cursor-not-allowed' : ''} ${observationErrors[key] ? 'border-red-500' : ''}`}
                                           value={currentValue}
                                           onChange={(e) => {
                                             if (isDisabled) return;
                                             handleInputChange(rowIndex, colIndex, e.target.value);
-                                            if (observationErrors[key]) {
+                                            if (
+                                              observationErrors[key] &&
+                                              selectedTableData.id !== 'observationmm' &&
+                                              selectedTableData.id !== 'observationctg' &&
+                                              selectedTableData.id !== 'observationexm' &&
+                                              selectedTableData.id !== 'observationcustom'
+                                            ) {
                                               setObservationErrors(prev => {
                                                 const newErrors = { ...prev };
                                                 delete newErrors[key];
@@ -10366,12 +10731,28 @@ const CalibrateStep3 = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Calibration End Date/Done date:
                   </label>
-                  <input
-                    type="date"
+                  <Flatpickr
                     name="enddate"
-                    value={formatDateForInput(formData.enddate)}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                    value={formData.enddate}
+                    onChange={(_, dateStr) => {
+                      const calculatedDue = calculateDueDate(dateStr, instrument?.calibrationvalidity);
+                      setFormData(prev => ({
+                        ...prev,
+                        enddate: dateStr,
+                        ...(calculatedDue ? { duedate: calculatedDue } : {})
+                      }));
+                    }}
+                    options={{
+                      enableTime: true,
+                      time_24hr: true,
+                      enableSeconds: true,
+                      dateFormat: "Y-m-d H:i:S",
+                      altInput: true,
+                      altFormat: "d/m/Y H:i:S",
+                      altInputClass: "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white",
+                      allowInput: true
+                    }}
+                    className="hidden"
                   />
                 </div>
 
@@ -10379,12 +10760,23 @@ const CalibrateStep3 = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Suggested Due Date:
                   </label>
-                  <input
-                    type="date"
+                  <Flatpickr
                     name="duedate"
-                    value={formatDateForInput(formData.duedate)}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                    value={formData.duedate}
+                    onChange={(_, dateStr) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        duedate: dateStr
+                      }));
+                    }}
+                    options={{
+                      dateFormat: "Y-m-d",
+                      altInput: true,
+                      altFormat: "d/m/Y",
+                      altInputClass: "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white",
+                      allowInput: true
+                    }}
+                    className="hidden"
                   />
                 </div>
               </div>

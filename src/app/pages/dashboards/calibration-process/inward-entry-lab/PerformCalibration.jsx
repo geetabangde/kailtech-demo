@@ -1453,7 +1453,7 @@ const PerformCalibration = () => {
                                                     <span className="font-medium">{item.name}</span>
                                                 </td>
                                                 <td className="p-3 border border-gray-200">
-                                                    {item.type_of_instrument || item.name}
+                                                    {item.instrument_name || item.type_of_instrument || item.name}
                                                 </td>
                                                 <td className="p-3 text-center border border-gray-200">
                                                     <span className="font-medium">{item.idno}</span>

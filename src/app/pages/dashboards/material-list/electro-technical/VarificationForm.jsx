@@ -267,7 +267,7 @@
 //                   </div>
 //                   <div className="text-xs text-gray-700 leading-tight">
 //                     <div className="font-medium">Quality Audit & Control</div>
-//                     <div>Kailash Test And Research Centre Pvt. Ltd.</div>
+//                     <div>Kailtech Test And Research Centre Pvt. Ltd.</div>
 //                   </div>
 //                 </td>
 //                 <td className="border-r border-gray-400 p-4 text-center align-middle">

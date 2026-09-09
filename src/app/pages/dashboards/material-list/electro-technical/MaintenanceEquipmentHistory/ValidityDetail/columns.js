@@ -90,11 +90,33 @@ export const columns = [
     size: 100,
   }),
 
-  columnHelper.accessor("accuracymeasrement", {
+  // Accuracy (Combined formula matching PHP: %range of range + %measrement of measurment + absolute)
+  columnHelper.display({
     id: "accuracy",
     header: "Accuracy",
-    cell: (info) => info.getValue() || "0",
-    size: 120,
+    cell: ({ row }) => {
+      const data = row.original;
+      const parts = [];
+
+      const hasValue = (val) => {
+        if (val === null || val === undefined || val === "") return false;
+        const num = parseFloat(val);
+        return !isNaN(num) ? num !== 0 : String(val).trim() !== "" && String(val).trim() !== "0";
+      };
+
+      if (hasValue(data.accuracyrange)) {
+        parts.push(`%${data.accuracyrange} of range`);
+      }
+      if (hasValue(data.accuracymeasrement)) {
+        parts.push(`%${data.accuracymeasrement} of measurment`);
+      }
+      if (hasValue(data.accuracyabsolute)) {
+        parts.push(`${data.accuracyabsolute}`);
+      }
+
+      return parts.length > 0 ? parts.join(" + ") : "-";
+    },
+    size: 180,
   }),
 
   columnHelper.display({

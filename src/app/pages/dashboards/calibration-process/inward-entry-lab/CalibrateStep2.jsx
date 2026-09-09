@@ -129,6 +129,12 @@ const Calibratestep2 = () => {
         })
     };
 
+    const renderFieldError = (key) => {
+        if (!fieldErrors || !fieldErrors[key]) return null;
+        const msg = Array.isArray(fieldErrors[key]) ? fieldErrors[key][0] : fieldErrors[key];
+        return <p className="text-red-500 text-xs mt-1">{typeof msg === 'string' ? msg : (msg?.message || String(msg || ''))}</p>;
+    };
+
     useEffect(() => {
         // Check system theme
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -308,8 +314,9 @@ const Calibratestep2 = () => {
                 }
             } catch (err) {
                 console.error('Error fetching calibration details:', err);
-                setError('Network error occurred while fetching data');
-                toast.error('Network error occurred while fetching data');
+                const errorMsg = err.response?.data?.message || err.message || 'Network error occurred while fetching data';
+                setError(errorMsg);
+                toast.error(errorMsg);
             } finally {
                 setLoading(false);
             }
@@ -705,13 +712,40 @@ const Calibratestep2 = () => {
 
                 if (response.data.errors) {
                     if (Array.isArray(response.data.errors)) {
-                        newGeneralErrors.push(...response.data.errors);
+                        response.data.errors.forEach((err, idx) => {
+                            if (typeof err === 'string' && err.trim().length > 0) {
+                                newGeneralErrors.push(err);
+                                if (calibPointsState[idx]) {
+                                    const pId = calibPointsState[idx].calibpointid;
+                                    newFieldErrors[`mastercalibid${pId}`] = [err];
+                                }
+                            } else if (Array.isArray(err) && err.length > 0) {
+                                err.forEach(subErr => {
+                                    if (typeof subErr === 'string' && subErr.trim().length > 0) {
+                                        newGeneralErrors.push(subErr);
+                                        if (calibPointsState[idx]) {
+                                            const pId = calibPointsState[idx].calibpointid;
+                                            newFieldErrors[`mastercalibid${pId}`] = [subErr];
+                                        }
+                                    }
+                                });
+                            } else if (err && typeof err === 'object' && !Array.isArray(err)) {
+                                Object.entries(err).forEach(([k, val]) => {
+                                    if (Array.isArray(val)) {
+                                        newGeneralErrors.push(...val);
+                                        newFieldErrors[k] = val;
+                                    } else if (typeof val === 'string') {
+                                        newGeneralErrors.push(val);
+                                        newFieldErrors[k] = [val];
+                                    }
+                                });
+                            }
+                        });
                     } else if (typeof response.data.errors === "object") {
                         newFieldErrors = response.data.errors;
-                        // ADD THIS: flatten field errors into general errors too
                         Object.values(response.data.errors).forEach((errArr) => {
-                            if (Array.isArray(errArr))
-                                newGeneralErrors.push(...errArr);
+                            if (Array.isArray(errArr)) newGeneralErrors.push(...errArr);
+                            else if (typeof errArr === 'string') newGeneralErrors.push(errArr);
                         });
                     }
                 }
@@ -719,7 +753,7 @@ const Calibratestep2 = () => {
                 setGeneralErrors(newGeneralErrors);
                 setFieldErrors(newFieldErrors);
 
-                toast.error('Please fix the errors and try again');
+                toast.error('Please fix the master range errors and try again');
             }
         } catch (err) {
             console.error("Error submitting step2 data:", err);
@@ -727,22 +761,51 @@ const Calibratestep2 = () => {
             let newGeneralErrors = [];
             let newFieldErrors = {};
 
-            // WITH THIS:
             const errData =
                 err.response?.data ||
                 err.data ||
                 (typeof err === "object" && err?.message ? err : null);
+
             if (errData) {
                 if (errData.message) {
                     newGeneralErrors.push(errData.message);
                 }
                 if (errData.errors) {
                     if (Array.isArray(errData.errors)) {
-                        newGeneralErrors.push(...errData.errors);
+                        errData.errors.forEach((e, idx) => {
+                            if (typeof e === 'string' && e.trim().length > 0) {
+                                newGeneralErrors.push(e);
+                                if (calibPointsState[idx]) {
+                                    const pId = calibPointsState[idx].calibpointid;
+                                    newFieldErrors[`mastercalibid${pId}`] = [e];
+                                }
+                            } else if (Array.isArray(e) && e.length > 0) {
+                                e.forEach(subErr => {
+                                    if (typeof subErr === 'string' && subErr.trim().length > 0) {
+                                        newGeneralErrors.push(subErr);
+                                        if (calibPointsState[idx]) {
+                                            const pId = calibPointsState[idx].calibpointid;
+                                            newFieldErrors[`mastercalibid${pId}`] = [subErr];
+                                        }
+                                    }
+                                });
+                            } else if (e && typeof e === 'object' && !Array.isArray(e)) {
+                                Object.entries(e).forEach(([k, val]) => {
+                                    if (Array.isArray(val)) {
+                                        newGeneralErrors.push(...val);
+                                        newFieldErrors[k] = val;
+                                    } else if (typeof val === 'string') {
+                                        newGeneralErrors.push(val);
+                                        newFieldErrors[k] = [val];
+                                    }
+                                });
+                            }
+                        });
                     } else if (typeof errData.errors === "object") {
                         newFieldErrors = errData.errors;
                         Object.values(errData.errors).forEach((errArr) => {
                             if (Array.isArray(errArr)) newGeneralErrors.push(...errArr);
+                            else if (typeof errArr === 'string') newGeneralErrors.push(errArr);
                         });
                     }
                 }
@@ -757,7 +820,6 @@ const Calibratestep2 = () => {
                     "Network Error: Please check your connection",
                 );
             } else {
-                // Try to extract from err directly
                 if (
                     err?.response?.data?.errors &&
                     Array.isArray(err.response.data.errors)
@@ -772,7 +834,7 @@ const Calibratestep2 = () => {
 
             setGeneralErrors(newGeneralErrors);
             setFieldErrors(newFieldErrors);
-            toast.error("Error occurred while submitting");
+            toast.error("Validation error: Some points are outside master range");
         } finally {
             setIsSubmitting(false);
         }
@@ -1168,9 +1230,7 @@ const Calibratestep2 = () => {
                                                             styles={customSelectStyles}
                                                             menuPortalTarget={document.body}
                                                         />
-                                                        {fieldErrors[`unit${point.calibpointid}`] && (
-                                                            <p className="text-red-500 text-xs mt-1">{fieldErrors[`unit${point.calibpointid}`][0]}</p>
-                                                        )}
+                                                        {renderFieldError(`unit${point.calibpointid}`)}
                                                     </td>
 
                                                     {/* Mode Column */}
@@ -1186,9 +1246,7 @@ const Calibratestep2 = () => {
                                                             styles={customSelectStyles}
                                                             menuPortalTarget={document.body}
                                                         />
-                                                        {fieldErrors[`mastermode${point.calibpointid}`] && (
-                                                            <p className="text-red-500 text-xs mt-1">{fieldErrors[`mastermode${point.calibpointid}`][0]}</p>
-                                                        )}
+                                                        {renderFieldError(`mastermode${point.calibpointid}`)}
 
                                                         {instrumentInfo?.supportmaster === "Yes" && (
                                                             <div className="mt-2">
@@ -1203,9 +1261,7 @@ const Calibratestep2 = () => {
                                                                     styles={customSelectStyles}
                                                                     menuPortalTarget={document.body}
                                                                 />
-                                                                {fieldErrors[`supportmastermode${point.calibpointid}`] && (
-                                                                    <p className="text-red-500 text-xs mt-1">{fieldErrors[`supportmastermode${point.calibpointid}`][0]}</p>
-                                                                )}
+                                                                {renderFieldError(`supportmastermode${point.calibpointid}`)}
                                                             </div>
                                                         )}
                                                     </td>
@@ -1224,9 +1280,7 @@ const Calibratestep2 = () => {
                                                             styles={customSelectStyles}
                                                             menuPortalTarget={document.body}
                                                         />
-                                                        {fieldErrors[`mastercalibid${point.calibpointid}`] && (
-                                                            <p className="text-red-500 text-xs mt-1">{fieldErrors[`mastercalibid${point.calibpointid}`][0]}</p>
-                                                        )}
+                                                        {renderFieldError(`mastercalibid${point.calibpointid}`)}
 
                                                         {/* Third Select: Matrix / Scope - Shown if scopematrixvalidation is Yes */}
                                                         {instrumentInfo?.scopematrixvalidation === "Yes" && getMatrixOptionsForPoint(point.id).length > 0 && (
@@ -1243,9 +1297,7 @@ const Calibratestep2 = () => {
                                                                     styles={customSelectStyles}
                                                                     menuPortalTarget={document.body}
                                                                 />
-                                                                {fieldErrors[`scopematrix${point.calibpointid}`] && (
-                                                                    <p className="text-red-500 text-xs mt-1">{fieldErrors[`scopematrix${point.calibpointid}`][0]}</p>
-                                                                )}
+                                                                {renderFieldError(`scopematrix${point.calibpointid}`)}
                                                             </div>
                                                         )}
 
@@ -1263,9 +1315,7 @@ const Calibratestep2 = () => {
                                                                     styles={customSelectStyles}
                                                                     menuPortalTarget={document.body}
                                                                 />
-                                                                {fieldErrors[`supportmastercalibid${point.calibpointid}`] && (
-                                                                    <p className="text-red-500 text-xs mt-1">{fieldErrors[`supportmastercalibid${point.calibpointid}`][0]}</p>
-                                                                )}
+                                                                {renderFieldError(`supportmastercalibid${point.calibpointid}`)}
                                                             </div>
                                                         )}
                                                     </td>
@@ -1282,9 +1332,7 @@ const Calibratestep2 = () => {
                                                                 step="1"
                                                                 placeholder="3"
                                                             />
-                                                            {fieldErrors[`repeatable${point.calibpointid}`] && (
-                                                                <p className="text-red-500 text-xs mt-1">{fieldErrors[`repeatable${point.calibpointid}`][0]}</p>
-                                                            )}
+                                                            {renderFieldError(`repeatable${point.calibpointid}`)}
                                                         </td>
                                                     )}
                                                 </tr>
@@ -1304,15 +1352,21 @@ const Calibratestep2 = () => {
                                         <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Please fix the following errors:</h3>
                                     </div>
                                     <ul className="list-disc list-inside text-sm text-red-700 dark:text-red-300 space-y-1">
-                                        {generalErrors.map((error, index) => (
-                                            <li key={index}>
-                                                {error === 'Validation failed' ? null : (
+                                        {generalErrors.map((error, index) => {
+                                            const errorMsg = typeof error === 'string'
+                                                ? error
+                                                : (error?.message || error?.error || (typeof error === 'object' ? Object.values(error).flat().join(', ') : String(error || '')));
+
+                                            if (!errorMsg || errorMsg.toLowerCase() === 'validation failed') return null;
+
+                                            return (
+                                                <li key={index}>
                                                     <span>
-                                                        <strong>⚠</strong> {error.replace('is not valid with provided masterss', 'has no valid master selected')}
+                                                        <strong>⚠</strong> {typeof errorMsg === 'string' ? errorMsg.replace('is not valid with provided masterss', 'has no valid master selected') : String(errorMsg)}
                                                     </span>
-                                                )}
-                                            </li>
-                                        ))}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             )}
