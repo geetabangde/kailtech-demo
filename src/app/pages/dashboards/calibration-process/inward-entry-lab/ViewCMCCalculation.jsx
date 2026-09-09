@@ -19,6 +19,23 @@ const safeGetArrayValue = (val) => {
   return [val];
 };
 
+// Format number with scientific notation for very small values
+const formatUncertaintyValue = (value, decimals = 6) => {
+  if (typeof value !== 'number' || isNaN(value)) return value;
+
+  // Use scientific notation for very small numbers (less than 0.0001)
+  if (Math.abs(value) < 0.0001 && value !== 0) {
+    // Get exponent and mantissa
+    const exponent = Math.floor(Math.log10(Math.abs(value)));
+    const mantissa = value / Math.pow(10, exponent);
+    // Format as E notation: e.g., 9.9231E-5
+    return mantissa.toFixed(4) + 'E' + (exponent >= 0 ? '+' : '') + exponent;
+  }
+
+  // For normal values, use fixed decimal places
+  return value.toFixed(decimals);
+};
+
 const SUFFIX_NAMES = {
   ctg: "Coating Thickness Gauge",
   dpg: "Digital Pressure Gauge",
@@ -1489,8 +1506,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster1 === 'number' ? row.uncertaintyMaster1.toFixed(6) : row.uncertaintyMaster1}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Value === 'number' ? row.uncertaintyMaster2Value.toFixed(6) : row.uncertaintyMaster2Value}</td>
               <td className="border border-gray-300 px-1 py-2">{row.sensitivityCoefficient}</td>
@@ -1499,11 +1516,11 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{typeof row.uniformityBath === 'number' ? row.uniformityBath.toFixed(6) : row.uniformityBath}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.driftMaster === 'number' ? row.driftMaster.toFixed(6) : row.driftMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUncertainty === 'number' ? row.combinedUncertainty.toFixed(6) : row.combinedUncertainty}</td>
-              <td className="border border-gray-300 px-1 py-2">{row.degreeOfFreedom === '-' ? '-' : (typeof row.degreeOfFreedom === 'number' ? row.degreeOfFreedom.toFixed(2) : row.degreeOfFreedom)}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? row.coverageFactor.toFixed(2) : row.coverageFactor}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncertaintyValue === 'number' ? row.expandedUncertaintyValue.toFixed(6) : row.expandedUncertaintyValue}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.cmcTaken === 'number' ? row.cmcTaken.toFixed(6) : row.cmcTaken}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUncertainty === 'number' ? formatUncertaintyValue(row.combinedUncertainty, 6) : row.combinedUncertainty}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.degreeOfFreedom === '-' ? '-' : (typeof row.degreeOfFreedom === 'number' ? formatUncertaintyValue(row.degreeOfFreedom, 2) : row.degreeOfFreedom)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? formatUncertaintyValue(row.coverageFactor, 2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncertaintyValue === 'number' ? formatUncertaintyValue(row.expandedUncertaintyValue, 6) : row.expandedUncertaintyValue}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmcTaken === 'number' ? formatUncertaintyValue(row.cmcTaken, 6) : row.cmcTaken}</td>
             </tr>
           ))}
         </tbody>
@@ -1567,8 +1584,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintySlipGauge === 'number' ? row.uncertaintySlipGauge.toFixed(6) : row.uncertaintySlipGauge}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyDialGauge === 'number' ? row.uncertaintyDialGauge.toFixed(6) : row.uncertaintyDialGauge}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.flatnessComparatorStand === 'number' ? row.flatnessComparatorStand.toFixed(6) : row.flatnessComparatorStand}</td>
@@ -1650,8 +1667,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? row.average.toFixed(3) : row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintySlipGauge === 'number' ? row.uncertaintySlipGauge.toFixed(6) : row.uncertaintySlipGauge}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
@@ -1782,8 +1799,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(6) : row.uncertaintyMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
@@ -1860,22 +1877,22 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintySlipGauge === 'number' ? row.uncertaintySlipGauge.toFixed(6) : row.uncertaintySlipGauge}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintySlipGauge === 'number' ? formatUncertaintyValue(row.uncertaintySlipGauge, 6) : row.uncertaintySlipGauge}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffUuc === 'number' ? row.thermalCoeffUuc.toFixed(6) : row.thermalCoeffUuc}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncTempDevice === 'number' ? row.uncTempDevice.toFixed(6) : row.uncTempDevice}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncTher20 === 'number' ? row.stdUncTher20.toFixed(6) : row.stdUncTher20}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncDiff === 'number' ? row.stdUncDiff.toFixed(6) : row.stdUncDiff}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncParallelism === 'number' ? row.uncParallelism.toFixed(6) : row.uncParallelism}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncError === 'number' ? row.uncError.toFixed(6) : row.uncError}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUnc === 'number' ? row.combinedUnc.toFixed(6) : row.combinedUnc}</td>
-              <td className="border border-gray-300 px-1 py-2">{row.dof === '-' ? '-' : (typeof row.dof === 'number' ? row.dof.toFixed(2) : row.dof)}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? row.coverageFactor.toFixed(2) : row.coverageFactor}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUnc === 'number' ? row.expandedUnc.toFixed(6) : row.expandedUnc}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? row.cmc.toFixed(6) : row.cmc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? formatUncertaintyValue(row.thermalCoeffMaster, 6) : row.thermalCoeffMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffUuc === 'number' ? formatUncertaintyValue(row.thermalCoeffUuc, 6) : row.thermalCoeffUuc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncTempDevice === 'number' ? formatUncertaintyValue(row.uncTempDevice, 6) : row.uncTempDevice}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncTher20 === 'number' ? formatUncertaintyValue(row.stdUncTher20, 6) : row.stdUncTher20}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncDiff === 'number' ? formatUncertaintyValue(row.stdUncDiff, 6) : row.stdUncDiff}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncParallelism === 'number' ? formatUncertaintyValue(row.uncParallelism, 6) : row.uncParallelism}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncError === 'number' ? formatUncertaintyValue(row.uncError, 6) : row.uncError}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUnc === 'number' ? formatUncertaintyValue(row.combinedUnc, 6) : row.combinedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.dof === '-' ? '-' : (typeof row.dof === 'number' ? formatUncertaintyValue(row.dof, 2) : row.dof)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? formatUncertaintyValue(row.coverageFactor, 2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUnc === 'number' ? formatUncertaintyValue(row.expandedUnc, 6) : row.expandedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? formatUncertaintyValue(row.cmc, 6) : row.cmc}</td>
             </tr>
           ))}
         </tbody>
@@ -1934,22 +1951,22 @@ export default function ViewCMCCalculation() {
               ))}
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? row.average.toFixed(3) : row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster1 === 'number' ? row.uncertaintyMaster1.toFixed(6) : row.uncertaintyMaster1}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Value === 'number' ? row.uncertaintyMaster2Value.toFixed(6) : row.uncertaintyMaster2Value}</td>
-              <td className="border border-gray-300 px-1 py-2">{row.sensitivityCoefficient}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Celsius === 'number' ? row.uncertaintyMaster2Celsius.toFixed(6) : row.uncertaintyMaster2Celsius}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stabilityBath === 'number' ? row.stabilityBath.toFixed(6) : row.stabilityBath}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.uniformityBath === 'number' ? row.uniformityBath.toFixed(6) : row.uniformityBath}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.driftMaster === 'number' ? row.driftMaster.toFixed(6) : row.driftMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? formatUncertaintyValue(row.average, 3) : row.average}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster1 === 'number' ? formatUncertaintyValue(row.uncertaintyMaster1, 6) : row.uncertaintyMaster1}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Value === 'number' ? formatUncertaintyValue(row.uncertaintyMaster2Value, 6) : row.uncertaintyMaster2Value}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.sensitivityCoefficient === 'number' ? formatUncertaintyValue(row.sensitivityCoefficient, 6) : row.sensitivityCoefficient}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Celsius === 'number' ? formatUncertaintyValue(row.uncertaintyMaster2Celsius, 6) : row.uncertaintyMaster2Celsius}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stabilityBath === 'number' ? formatUncertaintyValue(row.stabilityBath, 6) : row.stabilityBath}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uniformityBath === 'number' ? formatUncertaintyValue(row.uniformityBath, 6) : row.uniformityBath}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.driftMaster === 'number' ? formatUncertaintyValue(row.driftMaster, 6) : row.driftMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUncertainty === 'number' ? row.combinedUncertainty.toFixed(6) : row.combinedUncertainty}</td>
-              <td className="border border-gray-300 px-1 py-2">{row.degreeOfFreedom === '-' ? '-' : (typeof row.degreeOfFreedom === 'number' ? row.degreeOfFreedom.toFixed(2) : row.degreeOfFreedom)}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? row.coverageFactor.toFixed(2) : row.coverageFactor}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncertaintyValue === 'number' ? row.expandedUncertaintyValue.toFixed(6) : row.expandedUncertaintyValue}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.cmcTaken === 'number' ? row.cmcTaken.toFixed(6) : row.cmcTaken}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUncertainty === 'number' ? formatUncertaintyValue(row.combinedUncertainty, 6) : row.combinedUncertainty}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.degreeOfFreedom === '-' ? '-' : (typeof row.degreeOfFreedom === 'number' ? formatUncertaintyValue(row.degreeOfFreedom, 2) : row.degreeOfFreedom)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? formatUncertaintyValue(row.coverageFactor, 2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncertaintyValue === 'number' ? formatUncertaintyValue(row.expandedUncertaintyValue, 6) : row.expandedUncertaintyValue}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmcTaken === 'number' ? formatUncertaintyValue(row.cmcTaken, 6) : row.cmcTaken}</td>
             </tr>
           ))}
         </tbody>
@@ -2010,8 +2027,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? row.average.toFixed(6) : row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.accuracyCalibrator === 'number' ? row.accuracyCalibrator.toFixed(6) : row.accuracyCalibrator}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(6) : row.uncertaintyMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCount}</td>
@@ -2137,8 +2154,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyOfMaster === 'number' ? row.uncertaintyOfMaster.toFixed(6) : row.uncertaintyOfMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
@@ -2216,10 +2233,10 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
               <td className="border border-gray-300 px-1 py-2">
-                {typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}
+                {typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}
               </td>
               <td className="border border-gray-300 px-1 py-2">
-                {typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}
+                {typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}
               </td>
               <td className="border border-gray-300 px-1 py-2">
                 {typeof row.uncertaintyOfMaster === 'number' ? row.uncertaintyOfMaster.toFixed(6) : row.uncertaintyOfMaster}
@@ -2324,8 +2341,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyOfMaster === 'number' ? row.uncertaintyOfMaster.toFixed(6) : row.uncertaintyOfMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.flatnessSurfacePlate === 'number' ? row.flatnessSurfacePlate.toFixed(6) : row.flatnessSurfacePlate}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
@@ -2514,8 +2531,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.accuracyOfCalibrator === 'number' ? row.accuracyOfCalibrator.toFixed(6) : row.accuracyOfCalibrator}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyOfMaster === 'number' ? row.uncertaintyOfMaster.toFixed(6) : row.uncertaintyOfMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.leastCountOfUuc}</td>
@@ -2587,8 +2604,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster1 === 'number' ? row.uncertaintyMaster1.toFixed(3) : row.uncertaintyMaster1}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyMaster2Value === 'number' ? row.uncertaintyMaster2Value.toFixed(3) : row.uncertaintyMaster2Value}</td>
               <td className="border border-gray-300 px-1 py-2">{row.sensitivityCoefficient}</td>
@@ -2662,8 +2679,8 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-1 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-1 py-2">{row.average}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
-              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyOfMaster === 'number' ? row.uncertaintyOfMaster.toFixed(6) : row.uncertaintyOfMaster}</td>
               <td className="border border-gray-300 px-1 py-2">{row.thicknessOfGraduation}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
@@ -2979,9 +2996,9 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-2 py-2">{row.unit}</td>
               <td className="border border-gray-300 px-2 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.average === 'number' ? row.average.toFixed(6) : row.average}</td>
-              <td className="border border-gray-300 px-2 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-2 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
 
-              <td className="border border-gray-300 px-2 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-2 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.accuracyCalibrator === 'number' ? row.accuracyCalibrator.toFixed(6) : row.accuracyCalibrator}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(6) : row.uncertaintyMaster}</td>
               <td className="border border-gray-300 px-2 py-2">{row.leastCount}</td>
@@ -3132,9 +3149,9 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-2 py-2">{row.unitDesc}</td>
               <td className="border border-gray-300 px-2 py-2">{row.calibrationPoint}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.average === 'number' ? row.average.toFixed(6) : row.average}</td>
-              <td className="border border-gray-300 px-2 py-2">{typeof row.stdDeviation === 'number' ? row.stdDeviation.toFixed(6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-2 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
 
-              <td className="border border-gray-300 px-2 py-2">{typeof row.typeA === 'number' ? row.typeA.toFixed(6) : row.typeA}</td>
+              <td className="border border-gray-300 px-2 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.accuracyCalibrator === 'number' ? row.accuracyCalibrator.toFixed(6) : row.accuracyCalibrator}</td>
               <td className="border border-gray-300 px-2 py-2">{typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(6) : row.uncertaintyMaster}</td>
               <td className="border border-gray-300 px-2 py-2">{row.leastCount}</td>
