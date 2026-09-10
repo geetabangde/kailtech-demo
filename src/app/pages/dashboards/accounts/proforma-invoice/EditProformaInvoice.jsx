@@ -262,8 +262,16 @@ export default function EditProformaInvoice() {
     if (!isEdit) return;
     const load = async () => {
       try {
-        const res = await axios.get(`/accounts/get-proforma-invoicebyid/${id}`);
-        const d = res.data.data ?? {};
+        // PHP: editproformainvoice.php → get-proforma-invoicebyid (header)
+        // PHP: getProformaInvoiceItemtoedit.php → separate item fetch
+        // React: fetch both in parallel — header API + view API (which returns items)
+        const [headerRes, viewRes] = await Promise.all([
+          axios.get(`/accounts/get-proforma-invoicebyid/${id}`),
+          axios.get(`/accounts/view-proforma-invoice/${id}`).catch(() => ({ data: {} })),
+        ]);
+
+        const d = headerRes.data.data ?? {};
+
         setForm({
           customerid: d.customerid ?? "",
           addressid: d.addressid ?? "",
@@ -291,8 +299,42 @@ export default function EditProformaInvoice() {
           igstper: d.igstper ?? 18,
           statecode: String(d.statecode ?? ""),
         });
-        if (d.items)
-          setItems(d.items.map((i, idx) => ({ ...i, _key: `edit-${idx}` })));
+
+        // ── Load items: try header API first, fall back to view API ──────
+        // PHP: getProformaInvoiceItemtoedit.php equivalent
+        const viewData = viewRes.data?.data;
+        let rawItems = d.items; // from get-proforma-invoicebyid
+
+        if (!rawItems || rawItems.length === 0) {
+          // fall back to view-proforma-invoice which reliably returns items
+          if (viewData?.invoice) {
+            rawItems = viewData.items ?? [];
+          } else {
+            rawItems = viewData?.items ?? [];
+          }
+        }
+
+        const typeofinv = d.typeofinvoice ?? viewData?.invoice?.typeofinvoice ?? "Calibration";
+        const isCalib = String(typeofinv).trim().toLowerCase() === "calibration";
+
+        if (rawItems && rawItems.length > 0) {
+          setItems(rawItems.map((i, idx) => ({
+            ...i,
+            _key: `edit-${idx}`,
+            name: i.name ?? i.instrumentname ?? i.description ?? "",
+            description: i.description ?? i.name ?? i.instrumentname ?? "",
+            qty: Number(i.qty) || 1,
+            rate: Number(i.rate) || 0,
+            amount: Number(i.amount) || 0,
+            accreditation: i.accreditation ?? "",
+            location: i.location ?? "Lab",
+            instid: Number(i.instid ?? i.instrumentid ?? i.productid) || 0,
+            // Calibration uses proformainvitem id to update existing items.
+            // Testing backend deletes all items and re-inserts, so quoteitemid must be 0!
+            quoteitemid: isCalib ? (Number(i.id) || Number(i.quoteitemid) || 0) : 0,
+          })));
+        }
+
         if (d.customerid) await loadCustomerData(d.customerid);
         setInvoiceId(id);
         setStep(2);
@@ -538,6 +580,9 @@ export default function EditProformaInvoice() {
     }
     setSavingItems(true);
     try {
+      const isCalib =
+        String(form.typeofinvoice || "").trim().toLowerCase() === "calibration";
+
       const payload = {
         // --- Header fields ---
         id: Number(invoiceId),
@@ -576,15 +621,19 @@ export default function EditProformaInvoice() {
         total: totals.total,
 
         // --- Items ---
-        name: items.map((i) => i.name),
-        instid: items.map((i) => i.instid ?? 0),
+        name: items.map((i) => i.name ?? i.description ?? ""),
+        instid: items.map((i) => Number(i.instid) || 0),
         accreditation: items.map((i) => i.accreditation ?? ""),
-        description: items.map((i) => i.description ?? ""),
-        qty: items.map((i) => i.qty),
-        rate: items.map((i) => i.rate),
-        amount: items.map((i) => i.amount),
+        description: items.map((i) => i.description ?? i.name ?? ""),
+        qty: items.map((i) => Number(i.qty) || 1),
+        rate: items.map((i) => Number(i.rate) || 0),
+        amount: items.map((i) => Number(i.amount) || 0),
         location: items.map((i) => i.location || "NA"),
-        quoteitemid: items.map((i) => i.id || i.quoteitemid || 0),
+        // Calibration: keep DB item ID so backend can UPDATE the row
+        // Testing: backend deletes all items and re-inserts, so quoteitemid MUST be 0
+        quoteitemid: items.map((i) =>
+          isCalib ? Number(i.id) || Number(i.quoteitemid) || 0 : 0,
+        ),
       };
 
       const res = await axios.post(`/accounts/update-proforma-invoice/${invoiceId}`, payload);
@@ -972,7 +1021,7 @@ export default function EditProformaInvoice() {
                         <td className="px-3 py-2">
                           <input
                             type="text"
-                            value={item.name}
+                            value={item.name ?? ""}
                             onChange={(e) =>
                               handleItemChange(
                                 item._key,
@@ -988,7 +1037,7 @@ export default function EditProformaInvoice() {
                         </td>
                         <td className="px-3 py-2">
                           <textarea
-                            value={item.description}
+                            value={item.description ?? ""}
                             onChange={(e) =>
                               handleItemChange(
                                 item._key,
@@ -1003,7 +1052,7 @@ export default function EditProformaInvoice() {
                         <td className="px-3 py-2">
                           <input
                             type="number"
-                            value={item.qty}
+                            value={item.qty ?? 1}
                             onChange={(e) =>
                               handleItemChange(item._key, "qty", e.target.value)
                             }
@@ -1014,7 +1063,7 @@ export default function EditProformaInvoice() {
                         <td className="px-3 py-2">
                           <input
                             type="number"
-                            value={item.rate}
+                            value={item.rate ?? 0}
                             onChange={(e) =>
                               handleItemChange(
                                 item._key,

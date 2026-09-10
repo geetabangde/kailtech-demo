@@ -67,6 +67,7 @@ export default function CalibrationReport() {
   const [rawdata, setRawdata] = useState({});
 
   const [dynamicObservations, setDynamicObservations] = useState([]);
+  const [biomedicalRawData, setBiomedicalRawData] = useState(null);
   const [observationTemplate, setObservationTemplate] = useState('');
   const [tableStructure, setTableStructure] = useState(null);
   const [diagram, setDiagram] = useState('');
@@ -378,6 +379,19 @@ export default function CalibrationReport() {
   };
 
   const observationTables = [
+    {
+      id: 'observationbiomedical',
+      name: 'Biomedical Observation',
+      category: 'Biomedical',
+      structure: {
+        singleHeaders: ['Sr. No.', 'Parameter', 'Mode', 'Set Point'],
+        subHeaders: {
+          'Reading on UUC': ['1', '2', '3', '4', '5'],
+          'Reading on Master': ['1', '2', '3', '4', '5'],
+        },
+        remainingHeaders: ['Average UUC', 'Average Master', 'Deviation', 'Tolerance', 'Expanded Uncertainty', 'Remark'],
+      },
+    },
     {
       id: 'observationcustom',
       name: 'Observation Custom',
@@ -860,7 +874,27 @@ export default function CalibrationReport() {
 
     const rows = [];
 
-    if (template === 'observationcustom') {
+    if (template === 'observationbiomedical') {
+      dataArray.forEach((point, index) => {
+        const uucReadings = safeGetArray(point?.uuc_readings, 5);
+        const masterReadings = safeGetArray(point?.master_readings, 5);
+
+        rows.push([
+          (index + 1).toString(),
+          safeGetValue(point?.parameter),
+          safeGetValue(point?.mode),
+          `${safeGetValue(point?.set_point)}${point?.set_point_unit ? ` ${point.set_point_unit}` : ''}`,
+          ...Array.from({ length: 5 }, (_, readingIndex) => safeGetValue(uucReadings[readingIndex])),
+          ...Array.from({ length: 5 }, (_, readingIndex) => safeGetValue(masterReadings[readingIndex])),
+          safeGetValue(point?.average_uuc),
+          safeGetValue(point?.average_master),
+          safeGetValue(point?.deviation),
+          safeGetValue(point?.tolerance),
+          safeGetValue(point?.expanded_uncertainty),
+          safeGetValue(point?.remark),
+        ]);
+      });
+    } else if (template === 'observationcustom') {
       const instrumentSettings = currentRawdata?.listInstrument || observationData?.instrument_settings || observationData?.[0]?.instrument_settings;
       const layout = getCustomLayoutIndices(instrumentSettings);
       if (layout) {
@@ -1672,6 +1706,137 @@ export default function CalibrationReport() {
     );
   };
 
+  const renderBiomedicalTables = () => {
+    const config = biomedicalRawData?.config || {};
+    const isEnabled = (value) => String(value || '').toLowerCase() === 'yes';
+    const showElectricalSafety = isEnabled(config.show_electrical_safety);
+    const visualTests = isEnabled(config.show_visual_test) ? biomedicalRawData?.visual_test || [] : [];
+    const basicSafety = isEnabled(config.show_basic_safety) ? biomedicalRawData?.basic_safety || [] : [];
+    const groups = [
+      ['Performance Test', 'Measure'],
+      ['Performance Test', 'Source'],
+      ['Electrical Safety', 'Measure'],
+      ['Electrical Safety', 'Source'],
+    ];
+
+    return (
+      <div className="space-y-6">
+        {visualTests.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full border border-gray-300 text-sm">
+              <thead>
+                <tr className="bg-gray-100"><th colSpan="2" className="border border-gray-300 px-3 py-2 text-left">1. VISUAL INSPECTION</th></tr>
+                <tr className="bg-gray-50"><th className="border border-gray-300 px-3 py-2 text-left">Description</th><th className="border border-gray-300 px-3 py-2 text-left">Remark</th></tr>
+              </thead>
+              <tbody>
+                {visualTests.filter((item) => String(item?.value ?? item?.remark ?? '').toLowerCase() !== 'na').map((item, index) => (
+                  <tr key={item?.id ?? index}><td className="border border-gray-300 px-3 py-2">{safeGetValue(item?.description)}</td><td className="border border-gray-300 px-3 py-2">{safeGetValue(item?.value ?? item?.remark)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {basicSafety.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full border border-gray-300 text-sm">
+              <thead>
+                <tr className="bg-gray-100"><th colSpan="2" className="border border-gray-300 px-3 py-2 text-left">2. BASIC SAFETY TEST</th></tr>
+                <tr className="bg-gray-50"><th className="border border-gray-300 px-3 py-2 text-left">Description</th><th className="border border-gray-300 px-3 py-2 text-left">Observed Value</th></tr>
+              </thead>
+              <tbody>
+                {basicSafety.filter((item) => String(item?.value ?? '').toLowerCase() !== 'na').map((item, index) => (
+                  <tr key={item?.id ?? index}><td className="border border-gray-300 px-3 py-2">{safeGetValue(item?.description)}</td><td className="border border-gray-300 px-3 py-2">{safeGetValue(item?.value)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {groups.map(([section, mode]) => {
+          const points = dynamicObservations.filter(
+            (point) => point.biomedical_section === section && point.mode === mode
+          );
+          if (points.length === 0) return null;
+
+          const isMeasure = mode === 'Measure';
+          const isElectricalGroup = section === 'Electrical Safety';
+          const showSetPointAndDeviation = !isElectricalGroup || !showElectricalSafety;
+          const showUncertaintyAndRemark = isElectricalGroup && mode === 'Source' && !showElectricalSafety;
+          const masterCount = isMeasure ? 1 : 5;
+          const uucCount = isMeasure ? 5 : 1;
+          const readingValues = (readings, count) => Array.from(
+            { length: count },
+            (_, index) => safeGetValue(readings?.[index])
+          );
+
+          return (
+            <div key={`${section}-${mode}`} className="overflow-x-auto">
+              <h4 className="font-semibold text-md mb-2">
+                {isElectricalGroup ? '3. ELECTRICAL SAFETY TEST' : '4. PERFORMANCE TESTING'} ({mode})
+              </h4>
+              <table className="w-full border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Parameter</th>
+                    {showSetPointAndDeviation && <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Set Point</th>}
+                    {isMeasure ? (
+                      <>
+                        <th colSpan={masterCount} className="border border-gray-300 px-3 py-2 text-center">Reading on Master</th>
+                        <th colSpan={uucCount} className="border border-gray-300 px-3 py-2 text-center">Reading on UUC</th>
+                        <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Average on UUC</th>
+                      </>
+                    ) : (
+                      <>
+                        <th colSpan={uucCount} className="border border-gray-300 px-3 py-2 text-center">Reading on UUC</th>
+                        <th colSpan={masterCount} className="border border-gray-300 px-3 py-2 text-center">Reading on Master</th>
+                        <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Average on Master</th>
+                      </>
+                    )}
+                    {showSetPointAndDeviation && <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Deviation</th>}
+                    <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Tolerance</th>
+                    {showUncertaintyAndRemark && <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Expanded Uncertainty</th>}
+                    {showUncertaintyAndRemark && <th rowSpan="2" className="border border-gray-300 px-3 py-2 text-left">Remark</th>}
+                  </tr>
+                  <tr className="bg-gray-50">
+                    {Array.from({ length: isMeasure ? masterCount : uucCount }, (_, index) => (
+                      <th key={`first-${index}`} className="border border-gray-300 px-3 py-2 text-center">{index + 1}</th>
+                    ))}
+                    {Array.from({ length: isMeasure ? uucCount : masterCount }, (_, index) => (
+                      <th key={`second-${index}`} className="border border-gray-300 px-3 py-2 text-center">{index + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {points.map((point, index) => {
+                    const firstReadings = isMeasure
+                      ? readingValues(point.master_readings, masterCount)
+                      : readingValues(point.uuc_readings, uucCount);
+                    const secondReadings = isMeasure
+                      ? readingValues(point.uuc_readings, uucCount)
+                      : readingValues(point.master_readings, masterCount);
+
+                    return (
+                      <tr key={point.calibration_point_id ?? index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.parameter)}</td>
+                        {showSetPointAndDeviation && <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.set_point)} {point.set_point_unit || ''}</td>}
+                        {firstReadings.map((value, readingIndex) => <td key={`first-${readingIndex}`} className="border border-gray-300 px-3 py-2">{value}</td>)}
+                        {secondReadings.map((value, readingIndex) => <td key={`second-${readingIndex}`} className="border border-gray-300 px-3 py-2">{value}</td>)}
+                        <td className="border border-gray-300 px-3 py-2">{safeGetValue(isMeasure ? point.average_uuc : point.average_master)}</td>
+                        {showSetPointAndDeviation && <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.deviation)}</td>}
+                        <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.tolerance)}</td>
+                        {showUncertaintyAndRemark && <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.expanded_uncertainty)}</td>}
+                        {showUncertaintyAndRemark && <td className="border border-gray-300 px-3 py-2">{safeGetValue(point.remark)}</td>}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const generateTableStructure = useCallback((selectedTableData, unitInfo) => {
     const structure = selectedTableData.structure;
     const headers = [];
@@ -1740,8 +1905,11 @@ export default function CalibrationReport() {
 
       const isSuccess = response.data.status === true || response.data.staus === true || response.data.success === true;
 
-      if (isSuccess && response.data.data) {
-        const observationData = response.data.data;
+      if (isSuccess && (response.data.data || observationTemplate === 'observationbiomedical')) {
+        const observationData = observationTemplate === 'observationbiomedical'
+          ? response.data
+          : response.data.data;
+        setBiomedicalRawData(observationTemplate === 'observationbiomedical' ? observationData : null);
         console.log('📊 Dynamic Observation Data:', observationData);
 
         // Set thermal coefficients if available - SAME AS CALIBRATE STEP 3
@@ -1821,7 +1989,20 @@ export default function CalibrationReport() {
         // Process observations based on template type - ENHANCED WITH MM SUPPORT AND ADDED IT, MT, MG, FG, HG, EXM, PPG, AVG, RTDWI, MSR, GTM, AND NOW DG
         let processedObservations = [];
 
-        if (observationTemplate === 'observationvc') {
+        if (observationTemplate === 'observationbiomedical') {
+          const formatPoints = (points, mode, section) => (
+            Array.isArray(points)
+              ? points.map((point) => ({ ...point, mode, biomedical_section: section }))
+              : []
+          );
+
+          processedObservations = [
+            ...formatPoints(observationData.performance_test?.measure, 'Measure', 'Performance Test'),
+            ...formatPoints(observationData.performance_test?.source, 'Source', 'Performance Test'),
+            ...formatPoints(observationData.electrical_safety?.measure, 'Measure', 'Electrical Safety'),
+            ...formatPoints(observationData.electrical_safety?.source, 'Source', 'Electrical Safety'),
+          ];
+        } else if (observationTemplate === 'observationvc') {
           const therm = observationData.thermal_coeff || observationData.thermal_coefficients;
           if (therm) {
             setThermalCoeff({
@@ -2832,6 +3013,13 @@ export default function CalibrationReport() {
   const maxObservations = getMaxObservations();
   const selectedTableData = observationTables.find(table => table.id === observationTemplate);
   const observationRows = selectedTableData ? createObservationRows(dynamicObservations, observationTemplate, rawdata) : { rows: [], matrixGroups: [], unitTypes: [], modes: [] };
+  const isBiomedicalEnabled = (value) => String(value || '').toLowerCase() === 'yes';
+  const biomedicalConfig = biomedicalRawData?.config || {};
+  const hasBiomedicalContent = observationTemplate === 'observationbiomedical' && (
+    (isBiomedicalEnabled(biomedicalConfig.show_visual_test) && biomedicalRawData?.visual_test?.length > 0) ||
+    (isBiomedicalEnabled(biomedicalConfig.show_basic_safety) && biomedicalRawData?.basic_safety?.length > 0) ||
+    observationRows.rows.length > 0
+  );
 
   return (
     <>
@@ -2980,7 +3168,7 @@ export default function CalibrationReport() {
           </div>
 
           {/* ENHANCED Dynamic Observation Results Table */}
-          {observationTemplate && tableStructure && observationRows.rows.length > 0 && (
+          {observationTemplate && tableStructure && (observationRows.rows.length > 0 || hasBiomedicalContent) && (
             <>
               <h3 className="font-semibold mb-2 text-base">Calibration Results - {selectedTableData?.name}</h3>
               {/* Thermal Coefficients Table matching PHP raw data observation tables */}
@@ -3077,6 +3265,8 @@ export default function CalibrationReport() {
                 renderObservationTMTable()
               ) : observationTemplate === 'observationuc' ? (
                 renderObservationUCTables()
+              ) : observationTemplate === 'observationbiomedical' ? (
+                renderBiomedicalTables()
               ) : observationTemplate === 'observationmm' && observationRows.unitTypes && observationRows.unitTypes.length > 0 ? (
                 observationRows.unitTypes.map((unitTypeGroup, groupIndex) => {
                   if (!unitTypeGroup || !unitTypeGroup.calibration_points) return null;

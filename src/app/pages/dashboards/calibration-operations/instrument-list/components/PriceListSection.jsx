@@ -243,7 +243,7 @@ function PriceListSection({
                     label="Tolerance (±)"
                     name="tolerance"
                     value={matrix.tolerance}
-                    type="number"
+                    type="text"
                     onChange={(e) => handleMatrixChange(priceIndex, matrixIndex, e)}
                   />
 
