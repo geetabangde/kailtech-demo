@@ -1561,22 +1561,27 @@ const CalibrateStep3 = () => {
             console.log('Setting TS observations:', observationData);
             let tsData = Array.isArray(observationData) ? observationData : (observationData.data || []);
             // Map readings to observations for createObservationRows compatibility
-            tsData = tsData.map(point => {
+            tsData = tsData.map((point, pointIdx) => {
               const observations = point.observations || [];
               const averages = [];
               if (point.readings && Array.isArray(point.readings)) {
+                console.log(`  Point ${pointIdx}: Processing ${point.readings.length} readings`);
                 point.readings.forEach((r, idx) => {
+                  console.log(`    Reading ${idx}: average = ${r.average}, has values = ${!!r.values}`);
                   if (r.values && Array.isArray(r.values)) {
                     observations.push(...r.values);
                   }
                   // Extract average for each row
                   if (r.average !== undefined && r.average !== null) {
                     averages.push({ repeatable: idx.toString(), value: r.average });
+                    console.log(`      ✅ Added average: repeatable="${idx}", value="${r.average}"`);
                   }
                 });
               }
+              console.log(`  Point ${pointIdx}: Final averages array =`, averages);
               return { ...point, observations, averages };
             });
+            console.log('Final tsData:', tsData);
             setObservations(tsData);
           } else if (observationTemplate === 'observationcustom') {
             console.log('Setting Custom observations:', observationData);
@@ -3342,12 +3347,9 @@ const CalibrateStep3 = () => {
         }
       });
     } else if (template === 'observationts') {
-      dataArray.forEach((point, pIndex) => {
+      dataArray.forEach((point) => {
         if (!point) return;
-        const srNo = point.sr_no?.toString() || (pIndex + 1).toString();
         const calibPointId = point.point_id?.toString() || point.id?.toString() || point.calibration_point_id?.toString() || "1";
-
-        console.log('📊 TS: Processing point', pIndex, '- has averages?', !!point.averages, point.averages);
 
         for (let rc = 0; rc < 5; rc++) {
           const rowValues = [];
@@ -3365,16 +3367,14 @@ const CalibrateStep3 = () => {
           if (point.averages && Array.isArray(point.averages)) {
             const avg = point.averages.find(a => a != null && String(a.repeatable) === `${rc}`);
             if (avg) avgValue = avg.value;
-            console.log('  Row', rc, ': Found average?', !!avg, 'Value:', avgValue);
           }
 
           const row = [
-            rc === 0 ? srNo : '-', // Sr no
+            (rc + 1).toString(), // Row number (1, 2, 3, 4, 5)
             ...rowValues, // 8 inputs
             safeGetValue(avgValue) // 1 average
           ];
 
-          console.log('  Row', rc, '- Final row length:', row.length, 'Average at [9]:', row[9]);
           rows.push(row);
           calibrationPoints.push(calibPointId);
           types.push('uuc'); // Placeholder, handled in submit
