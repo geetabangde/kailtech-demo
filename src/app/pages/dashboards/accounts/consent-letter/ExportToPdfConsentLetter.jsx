@@ -3,9 +3,15 @@ import dayjs from "dayjs";
 export default function ExportToPdfConsentLetter({ data, companyInfo, logoBase64, sigBase64, sealBase64, withLH = true }) {
     if (!data) return null;
 
-    const formattedDate = data.consentletterdate
-        ? dayjs(data.consentletterdate).format("DD.MM.YYYY")
-        : "";
+    const formattedDate = (() => {
+        const raw = data.consentletterdate || data.datedon || data.date || data.created_at;
+        if (!raw) return "";
+        if (typeof raw === "string" && (/^\d{2}[/.-]\d{2}[/.-]\d{4}$/.test(raw.trim()))) {
+            return raw.trim();
+        }
+        const parsed = dayjs(raw);
+        return parsed.isValid() ? parsed.format("DD/MM/YYYY") : raw;
+    })();
 
     const isDraft = data.status === 0 || data.status === "0";
 

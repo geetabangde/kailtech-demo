@@ -117,8 +117,8 @@ const ULRList = () => {
   };
 
   const handleSearch = async () => {
-    if (!startDate || !endDate || !selectedCustomerId) {
-      alert('Please fill in all fields (Start Date, End Date, and Customer) before searching.');
+    if (!startDate || !endDate) {
+      alert('Please fill in both Start Date and End Date before searching.');
       return;
     }
 
@@ -134,8 +134,8 @@ const ULRList = () => {
     try {
       console.log('Searching with:', { startDate, endDate, selectedCustomerId });
 
-      // FIXED: Pass all three parameters in correct order
-      const ulrData = await fetchULRData(startDate, endDate, selectedCustomerId);
+      // FIXED: Pass all three parameters in correct order (customerid can be empty string)
+      const ulrData = await fetchULRData(startDate, endDate, selectedCustomerId || '');
 
       const formattedData = ulrData.map(item => ({
         id: item.id,

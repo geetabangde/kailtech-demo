@@ -23,6 +23,7 @@
 //   POST /accounts/create-testing-invoice  (with foc: "Yes", invoiceno: "FOC")
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Select from "react-select";
 import { useNavigate } from "react-router";
 import axios from "utils/axios";
 import { toast } from "sonner";
@@ -85,8 +86,6 @@ const inputCls =
   "dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400";
 const roInputCls =
   "dark:bg-dark-800 dark:border-dark-500 dark:text-dark-300 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none cursor-default";
-const selectCls =
-  "dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
 const labelCls =
   "dark:text-dark-400 mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500";
 
@@ -161,11 +160,10 @@ function CustomerSearch({ customers, value, onChange }) {
                   setQuery("");
                   setOpen(false);
                 }}
-                className={`dark:hover:bg-dark-700 cursor-pointer px-3 py-2 text-sm hover:bg-blue-50 ${
-                  String(c.id) === String(value)
-                    ? "dark:bg-dark-700 bg-blue-50 font-semibold text-blue-700 dark:text-blue-400"
-                    : "dark:text-dark-200 text-gray-700"
-                }`}
+                className={`dark:hover:bg-dark-700 cursor-pointer px-3 py-2 text-sm hover:bg-blue-50 ${String(c.id) === String(value)
+                  ? "dark:bg-dark-700 bg-blue-50 font-semibold text-blue-700 dark:text-blue-400"
+                  : "dark:text-dark-200 text-gray-700"
+                  }`}
               >
                 {c.name}
               </div>
@@ -720,23 +718,31 @@ export default function AddFocTestingInvoice() {
               {loadingPo ? (
                 <Spinner text="Loading POs..." />
               ) : (
-                <select
-                  value={selectedPo}
-                  onChange={(e) => setSelectedPo(e.target.value)}
-                  className={selectCls}
-                  disabled={!customerid || ponumbers.length === 0}
-                >
-                  <option value="">Select PO</option>
-                  {ponumbers.map((p, i) => {
+                <Select
+                  options={ponumbers.map((p) => {
                     const val =
-                      typeof p === "string" ? p : (p.ponumber ?? p.value ?? "");
-                    return (
-                      <option key={i} value={val}>
-                        {val}
-                      </option>
-                    );
+                      typeof p === "string" ? p : p.ponumber ?? p.value ?? "";
+
+                    return {
+                      value: val,
+                      label: val,
+                    };
                   })}
-                </select>
+                  value={
+                    ponumbers
+                      .map((p) => {
+                        const val =
+                          typeof p === "string" ? p : p.ponumber ?? p.value ?? "";
+
+                        return { value: val, label: val };
+                      })
+                      .find((option) => option.value === selectedPo) || null
+                  }
+                  onChange={(option) => setSelectedPo(option?.value || "")}
+                  isDisabled={!customerid || ponumbers.length === 0}
+                  isSearchable
+                  placeholder="Select PO"
+                />
               )}
             </div>
 
@@ -814,11 +820,10 @@ export default function AddFocTestingInvoice() {
                 </div>
                 <div className="flex gap-2">
                   <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                      isSgst
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                    }`}
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${isSgst
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      }`}
                   >
                     {isSgst ? "CGST + SGST (State 23)" : "IGST (Inter-state)"}
                   </span>

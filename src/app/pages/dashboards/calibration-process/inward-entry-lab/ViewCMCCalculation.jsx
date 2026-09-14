@@ -59,13 +59,16 @@ const SUFFIX_NAMES = {
   gtm: "Glass Thermometer",
   dg: "Digital Dial Gauge",
   dw: "Dead Weight Tester",
-  wb: "Water Bath",
+  wb: "Weighing Balance",
   tm: "Tachometer",
   utm: "Universal Testing Machine",
   wbn: "Weighing Balance",
   observationuc: "Universal Calibrator",
   biomedical: "Biomedical",
-  cent: "Centrifuge"
+  cent: "Centrifuge",
+  th: "Thermo-Hygrometer",
+  ts: "Test Sieve",
+  sw: "Stop Watch"
 };
 
 export default function ViewCMCCalculation() {
@@ -88,10 +91,18 @@ export default function ViewCMCCalculation() {
         );
 
         if (response.data?.status === true) {
-          let instrumentSuffix = response.data.data?.listInstrument?.suffix || "";
-          
-          // If suffix is custom, fallback to the base uncertainty table type
-          if (instrumentSuffix === "custom" && response.data.data?.listInstrument?.uncertaintytable) {
+          let instrumentSuffix = (
+            response.data.data?.listInstrument?.suffix ||
+            response.data.data?.listInstrument?.uncertaintytable ||
+            response.data.data?.instrument?.suffix ||
+            ""
+          ).toLowerCase();
+
+          // If suffix is custom, numeric/date, or empty, fallback to the base uncertainty table type
+          if (
+            (!instrumentSuffix || instrumentSuffix === "custom" || /^\d+$/.test(instrumentSuffix)) &&
+            response.data.data?.listInstrument?.uncertaintytable
+          ) {
             instrumentSuffix = response.data.data.listInstrument.uncertaintytable.toLowerCase();
           }
 
@@ -99,7 +110,7 @@ export default function ViewCMCCalculation() {
           if (String(instId) === "113" || response.data.data?.listInstrument?.instid == 113 || response.data.data?.instrument?.instid == 113) {
             instrumentSuffix = "vc";
           }
-          
+
           setSuffix(instrumentSuffix);
 
           // Fetch Custom Layout
@@ -216,18 +227,30 @@ export default function ViewCMCCalculation() {
           } else if (instrumentSuffix === "mm") {
             // For multimeter, data is in nested structure
             apiData = response.data.data?.uncertainty?.original?.data || [];
+          } else if (instrumentSuffix === "wb" || instrumentSuffix === "wbn" || instrumentSuffix === "dw") {
+            // For Weighing Balance and Dead Weight Tester, data is inside uncertainty.original.data or uncertainty.data
+            apiData =
+              response.data.data?.uncertainty?.original?.data ||
+              response.data.data?.uncertainty?.data ||
+              (Array.isArray(response.data.data?.uncertainty) ? response.data.data.uncertainty : []);
           } else if (instrumentSuffix === "mt" || instrumentSuffix === "fg") {
             // For MT and FG, data is inside uncertainty.data array
             apiData = response.data.data?.uncertainty?.data || [];
-          } else if (instrumentSuffix === "it" || instrumentSuffix === "hg" || instrumentSuffix === "avg" || instrumentSuffix === "msr" || instrumentSuffix === "mg" || instrumentSuffix === "exm" || instrumentSuffix === "rtdwi" || instrumentSuffix === "ppg" || instrumentSuffix === "gtm" || instrumentSuffix === "dg" || instrumentSuffix === "vc") {
-            // For IT, HG, AVG, MSR, MG, EXM, RTDWI, PPG, GTM, DG, and VC, data is direct array
+          } else if (instrumentSuffix === "it" || instrumentSuffix === "hg" || instrumentSuffix === "avg" || instrumentSuffix === "msr" || instrumentSuffix === "mg" || instrumentSuffix === "exm" || instrumentSuffix === "rtdwi" || instrumentSuffix === "ppg" || instrumentSuffix === "gtm" || instrumentSuffix === "dg" || instrumentSuffix === "vc" || instrumentSuffix === "th" || instrumentSuffix === "ts") {
+            // For IT, HG, AVG, MSR, MG, EXM, RTDWI, PPG, GTM, DG, VC, TH, and TS, data is direct array
             apiData = response.data.data?.uncertainty || [];
+          } else if (instrumentSuffix === "sw") {
+            // For SW (Stop Watch), data is inside uncertainty.original.data
+            apiData = response.data.data?.uncertainty?.original?.data || response.data.data?.uncertainty?.data || [];
           } else if (instrumentSuffix === "cent") {
             // For Centrifuge, data is inside uncertainty.data array
             apiData = response.data.data?.uncertainty?.data || [];
           } else {
-            // For CTG, DPG, and ODFM, data is direct
-            apiData = response.data.data?.uncertainty || [];
+            // For other instruments, fallback to uncertainty.original.data or uncertainty direct
+            apiData =
+              response.data.data?.uncertainty?.original?.data ||
+              response.data.data?.uncertainty?.data ||
+              (Array.isArray(response.data.data?.uncertainty) ? response.data.data.uncertainty : []);
           }
 
 
@@ -590,6 +613,34 @@ export default function ViewCMCCalculation() {
               cmcScope: item.cmc_scope,
             }));
             setData(mappedData);
+          } else if (instrumentSuffix === "sw") {
+            // For Stop Watch - same structure as Multimeter
+            const mappedData = apiData.map((item) => ({
+              srNo: item.sr_no,
+              unitType: item.unit_type,
+              mode: item.mode,
+              uuc0: item.uuc ? item.uuc[0] : item.uuc0,
+              uuc1: item.uuc ? item.uuc[1] : item.uuc1,
+              uuc2: item.uuc ? item.uuc[2] : item.uuc2,
+              uuc3: item.uuc ? item.uuc[3] : item.uuc3,
+              uuc4: item.uuc ? item.uuc[4] : item.uuc4,
+              unit: item.unit,
+              calibrationPoint: item.calibration_point,
+              average: item.average,
+              stdDeviation: item.std_deviation,
+              typeA: item.type_a,
+              accuracyOfCalibrator: item.accuracy_of_calibrator,
+              uncertaintyOfMaster: item.uncertainty_of_master,
+              leastCountOfUuc: item.least_count_of_uuc,
+              combinedUncertainty: item.combined_uncertainty,
+              degreeOfFreedom: item.degree_of_freedom,
+              coverageFactor: item.coverage_factor,
+              expandedUncertaintyValue: item.expanded_uncertainty_value,
+              expandedUncertaintyPercent: item.expanded_uncertainty_percent,
+              cmcTaken: item.cmc_taken,
+              cmcScope: item.cmc_scope,
+            }));
+            setData(mappedData);
           } else if (instrumentSuffix === "odfm") {
             const mappedData = apiData.map((item) => ({
               srNo: item.sr_no,
@@ -774,63 +825,96 @@ export default function ViewCMCCalculation() {
             }));
             setData(mappedData);
           } else if (instrumentSuffix === "dw") {
-            const mappedData = apiData.map((item) => ({
-              srNo: item.sr_no,
-              unit: item.unit,
-              calibrationPoint: item.calibration_point ?? item.point,
-              uuca: safeGetArrayValue(item.uuca ?? item.s1),
-              mastera: safeGetArrayValue(item.mastera ?? item.u1),
-              masterb: safeGetArrayValue(item.masterb ?? item.u2),
-              uucb: safeGetArrayValue(item.uucb ?? item.s2),
-              deltai: safeGetArrayValue(item.deltai ?? item.diff),
-              typeA: item.typea ?? item.type_a,
-              averagedeltai: item.averagedeltai ?? item.average_diff ?? item.avg_diff,
-              mcr: item.mcr ?? item.conv_mass,
-              densityofair: item.densityofair ?? item.density_of_air,
-              densityofairref: item.densityofairref ?? item.density_of_air_ref ?? 0.0012,
-              densityofmaster: item.densityofmaster ?? item.density_of_master,
-              densityuuc: item.densityuuc ?? item.density_uuc,
-              refweightmass: item.refweightmass ?? item.ref_weight_mass,
-              volumofref: item.volumofref ?? item.volume_of_ref,
-              volumeoftestweight: item.volumeoftestweight ?? item.volume_of_test_weight,
-              airbyouncy: item.airbyouncy ?? item.air_buoyancy,
-              masterleastcount: item.masterleastcount ?? item.master_least_count,
-              masterunc: item.masterunc ?? item.master_uncertainty ?? item.master_unc,
-              comuncer: item.comuncer ?? item.combined_uncertainty ?? item.combined_unc,
-              coveragefactor: item.coveragefactor ?? item.coverage_factor ?? 2,
-              expandeduncertainty: item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
-              cmcuncertainty: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
-            }));
+            const dataList = Array.isArray(apiData)
+              ? apiData
+              : (apiData?.original?.data || apiData?.data || []);
+
+            const defaultUnit = response.data.data?.uncertainty?.original?.uuc_unit || "g";
+
+            const mappedData = dataList.map((item) => {
+              let uuca = [];
+              let mastera = [];
+              let masterb = [];
+              let uucb = [];
+              let deltai = [];
+
+              if (Array.isArray(item.repeatable_data) && item.repeatable_data.length > 0) {
+                uuca = item.repeatable_data.map((r) => r.s1 ?? r.uuca);
+                mastera = item.repeatable_data.map((r) => r.u1 ?? r.mastera);
+                masterb = item.repeatable_data.map((r) => r.u2 ?? r.masterb);
+                uucb = item.repeatable_data.map((r) => r.s2 ?? r.uucb);
+                deltai = item.repeatable_data.map((r) => r.deltai ?? r.diff);
+              } else {
+                uuca = safeGetArrayValue(item.uuca ?? item.s1);
+                mastera = safeGetArrayValue(item.mastera ?? item.u1);
+                masterb = safeGetArrayValue(item.masterb ?? item.u2);
+                uucb = safeGetArrayValue(item.uucb ?? item.s2);
+                deltai = safeGetArrayValue(item.deltai ?? item.diff);
+              }
+
+              return {
+                srNo: item.sr_no,
+                unit: item.unit || defaultUnit,
+                calibrationPoint: item.calibration_point ?? item.point,
+                uuca,
+                mastera,
+                masterb,
+                uucb,
+                deltai,
+                typeA: item.typea ?? item.type_a,
+                averagedeltai: item.averagedeltai ?? item.average_deltai ?? item.average_diff ?? item.avg_diff,
+                mcr: item.mcr ?? item.conv_mass,
+                densityofair: item.densityofair ?? item.density_of_air,
+                densityofairref: item.densityofairref ?? item.reference_air_density ?? item.density_of_air_ref ?? 0.0012,
+                densityofmaster: item.densityofmaster ?? item.density_of_master,
+                densityuuc: item.densityuuc ?? item.density_of_uuc ?? item.density_uuc,
+                refweightmass: item.refweightmass ?? item.reference_weight_mass ?? item.ref_weight_mass,
+                volumofref: item.volumofref ?? item.volume_of_reference ?? item.volume_of_ref,
+                volumeoftestweight: item.volumeoftestweight ?? item.volume_of_test_weight,
+                airbyouncy: item.airbyouncy ?? item.air_buoyancy_correction ?? item.air_buoyancy,
+                masterleastcount: item.masterleastcount ?? item.least_count ?? item.master_least_count,
+                masterunc: item.masterunc ?? item.master_uncertainty ?? item.master_unc,
+                comuncer: item.comuncer ?? item.combined_uncertainty ?? item.combined_unc,
+                coveragefactor: item.coveragefactor ?? item.coverage_factor ?? 2,
+                expandeduncertainty: item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
+                cmcuncertainty: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
+              };
+            });
             setData(mappedData);
           } else if (instrumentSuffix === "wb") {
-            const mappedData = apiData.map((item) => ({
+            const dataList = Array.isArray(apiData)
+              ? apiData
+              : (apiData?.original?.data || apiData?.data || []);
+
+            const mappedData = dataList.map((item) => ({
               srNo: item.sr_no || item.srNo,
               unit: item.unit_desc || item.unit,
               calibrationPoint: item.calibration_point ?? item.point,
               values: [
-                item.uuc_0 ?? item.uuc0 ?? '',
-                item.uuc_1 ?? item.uuc1 ?? '',
-                item.uuc_2 ?? item.uuc2 ?? '',
-                item.uuc_3 ?? item.uuc3 ?? '',
-                item.uuc_4 ?? item.uuc4 ?? '',
-                item.uuc_5 ?? item.uuc5 ?? '',
-                item.uuc_6 ?? item.uuc6 ?? '',
-                item.uuc_7 ?? item.uuc7 ?? '',
-                item.uuc_8 ?? item.uuc8 ?? '',
-                item.uuc_9 ?? item.uuc9 ?? ''
+                item.reading_1 ?? item.uuc_0 ?? item.uuc0 ?? '',
+                item.reading_2 ?? item.uuc_1 ?? item.uuc1 ?? '',
+                item.reading_3 ?? item.uuc_2 ?? item.uuc2 ?? '',
+                item.reading_4 ?? item.uuc_3 ?? item.uuc3 ?? '',
+                item.reading_5 ?? item.uuc_4 ?? item.uuc4 ?? '',
+                item.reading_6 ?? item.uuc_5 ?? item.uuc5 ?? '',
+                item.reading_7 ?? item.uuc_6 ?? item.uuc6 ?? '',
+                item.reading_8 ?? item.uuc_7 ?? item.uuc7 ?? '',
+                item.reading_9 ?? item.uuc_8 ?? item.uuc8 ?? '',
+                item.reading_10 ?? item.uuc_9 ?? item.uuc9 ?? ''
               ],
-              average: item.averageuuc ?? item.average_uuc ?? item.average,
-              stdDeviation: item.repeatability ?? item.std_deviation ?? item.stdDeviation,
-              typeA: item.typea ?? item.type_a ?? item.typeA,
-              drift: item.drift ?? 0,
-              eccentricityfactor: item.eccentricityfactor ?? item.eccentricity_factor ?? 0,
-              uncertaintyOfMaster: item.masterunc ?? item.master_uncertainty ?? item.master_unc,
-              leastCount: item.leastcount ?? item.least_count,
-              combinedUnc: item.comuncer ?? item.combined_uncertainty ?? item.combined_unc,
-              dof: item.dof ?? item.degrees_of_freedom ?? item.degree_of_freedom,
-              coverageFactor: item.coveragefactor ?? item.coverage_factor ?? 2,
-              expandedUnc: item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
-              cmc: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
+              average: item.average_g ?? item.averageuuc ?? item.average_uuc ?? item.average,
+              stdDeviation: item.std_deviation ?? item.repeatability ?? item.stdDeviation,
+              typeA: item.type_a ?? item.typea ?? item.typeA,
+              drift: item.drift_in_mass_g ?? item.drift ?? 0,
+              eccentricityfactor: item.eccentricity_g ?? item.eccentricityfactor ?? item.eccentricity_factor ?? 0,
+              uncertaintyOfMaster: item.uncertainty_of_master_g ?? item.masterunc ?? item.master_uncertainty ?? item.master_unc,
+              leastCount: item.least_count_of_uuc_g ?? item.leastcount ?? item.least_count,
+              combinedUnc: item.combined_uncertainty ?? item.comuncer ?? item.combined_unc,
+              dof: item.degree_of_freedom ?? item.degrees_of_freedom ?? item.dof,
+              coverageFactor: item.coverage_factor ?? item.coveragefactor ?? 2,
+              expandedUnc: item.expanded_uncertainty_g ?? item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
+              expandedUncmg: item.expanded_uncertainty_mg ?? item.expandeduncertainty_mg ?? '',
+              cmc: item.cmc_taken ?? item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
             }));
             setData(mappedData);
           } else if (instrumentSuffix === "es") {
@@ -1272,20 +1356,20 @@ export default function ViewCMCCalculation() {
               const masterValues = Array.isArray(item.master_readings)
                 ? item.master_readings
                 : [
-                    item.master_0, item.master_1, item.master_2, item.master_3, item.master_4,
-                    item.master_5, item.master_6, item.master_7, item.master_8, item.master_9
-                  ];
+                  item.master_0, item.master_1, item.master_2, item.master_3, item.master_4,
+                  item.master_5, item.master_6, item.master_7, item.master_8, item.master_9
+                ];
 
               const averagemaster = parseFloat(item.average_master || 0);
-              const repeatability  = parseFloat(item.repeatability || 0);
-              const typea          = parseFloat(item.type_a || 0);
+              const repeatability = parseFloat(item.repeatability || 0);
+              const typea = parseFloat(item.type_a || 0);
               const masteraccuracy = parseFloat(item.master_accuracy || 0);
-              const masterunc      = parseFloat(item.master_uncertainty || 0);
-              const leastcount     = parseFloat(item.least_count || 0);
-              const comuncer       = parseFloat(item.combined_uncertainty || 0);
-              const dof            = parseFloat(item.degree_of_freedom || 0) || "-";
+              const masterunc = parseFloat(item.master_uncertainty || 0);
+              const leastcount = parseFloat(item.least_count || 0);
+              const comuncer = parseFloat(item.combined_uncertainty || 0);
+              const dof = parseFloat(item.degree_of_freedom || 0) || "-";
               const coveragefactor = parseFloat(item.coverage_factor || 2);
-              const expandeduncertainty        = parseFloat(item.expanded_uncertainty || 0);
+              const expandeduncertainty = parseFloat(item.expanded_uncertainty || 0);
               const expandeduncertaintypercent = parseFloat(item.expanded_uncertainty_percent || 0);
               const cmcuncertainty = parseFloat(item.cmc_uncertainty || 0);
 
@@ -1308,6 +1392,63 @@ export default function ViewCMCCalculation() {
                 cmc: cmcuncertainty,
               };
             });
+            setData(mappedData);
+          } else if (instrumentSuffix === "th") {
+            const mappedData = apiData.map((item, idx) => ({
+              srNo: item.srno ?? item.sr_no ?? (idx + 1),
+              values: Array.isArray(item.uuc) ? item.uuc : [
+                item.uuc0 ?? item.uuc_0 ?? "",
+                item.uuc1 ?? item.uuc_1 ?? "",
+                item.uuc2 ?? item.uuc_2 ?? "",
+                item.uuc3 ?? item.uuc_3 ?? "",
+                item.uuc4 ?? item.uuc_4 ?? "",
+              ],
+              unit: item.unit ?? "",
+              calibrationPoint: item.point ?? item.calibration_point ?? "",
+              average: item.averageuuc ?? item.average_uuc ?? item.average ?? "",
+              stdDeviation: item.repeatability ?? item.std_deviation ?? "",
+              typeA: item.typea ?? item.type_a ?? "",
+              masterUnc: item.masterunc ?? item.uncertainty_master ?? "",
+              accuracy: item.accuracy ?? item.accuracy_calibrator ?? "",
+              stability: item.stability ?? item.stability_bath ?? "",
+              uniformity: item.uniformity ?? item.uniformity_bath ?? "",
+              drift: item.drift ?? item.drift_master ?? "",
+              leastCount: item.leastcount ?? item.least_count ?? item.least_count_uuc ?? "",
+              combinedUnc: item.comuncer ?? item.combined_uncertainty ?? "",
+              dof: item.dof ?? item.degree_of_freedom ?? "",
+              coverageFactor: item.coveragefactor ?? item.coverage_factor ?? 2,
+              expandedUnc: item.expandeduncertainty ?? item.expanded_uncertainty ?? "",
+              cmc: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc_taken ?? item.cmc ?? "",
+            }));
+            setData(mappedData);
+          } else if (instrumentSuffix === "ts") {
+            const mappedData = apiData.map((item, idx) => ({
+              srNo: item.sr_no ?? (idx + 1),
+              values: [
+                item.reading1 ?? "",
+                item.reading2 ?? "",
+                item.reading3 ?? "",
+                item.reading4 ?? "",
+                item.reading5 ?? "",
+              ],
+              unit: item.unit ?? "",
+              calibrationPoint: item.calibration_point ?? "",
+              average: item.average ?? "",
+              stdDeviation: item.std_deviation ?? "",
+              typeA: item.type_a ?? "",
+              uncertaintyOfMaster: item.master_uncertainty ?? "",
+              leastCount: item.least_count ?? "",
+              thermalCoeffMaster: item.thermal_coeff_master ?? "",
+              thermalCoeffUuc: item.thermal_coeff_uuc ?? "",
+              uncTempDevice: item.uncertainty_temp_device ?? "",
+              stdUncTher20: item.std_unc_thermal_coeff ?? "",
+              stdUncDiff: item.std_unc_temp_diff ?? "",
+              combinedUnc: item.combined_uncertainty ?? "",
+              dof: item.degree_of_freedom ?? "",
+              coverageFactor: item.coverage_factor ?? 2,
+              expandedUnc: item.expanded_uncertainty ?? "",
+              cmc: item.cmc_taken ?? "",
+            }));
             setData(mappedData);
           } else {
             toast.error(`Unsupported instrument suffix: ${instrumentSuffix}`);
@@ -1847,20 +1988,20 @@ export default function ViewCMCCalculation() {
             <th className="border border-gray-300 px-1 py-2 align-bottom">Average</th>
             <th className="border border-gray-300 px-1 py-2 align-bottom">Std Deviation</th>
             <th className="border border-gray-300 px-1 py-2 align-bottom">Type A</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty of<br/>master in mm</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Least Count<br/>of UUC</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br/>Coefficient<br/>of Master</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br/>Coefficient<br/>of UUC</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br/>due to<br/>Temperature<br/>Indicating<br/>Device (mm)</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to the<br/>thermal<br/>coefficient<br/>of<br/>expansion<br/>master and<br/>Unit Under<br/>Calibration<br/>assuming<br/>20% (mm)</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to the<br/>difference<br/>in<br/>temperature<br/>master and<br/>Unit Under<br/>Calibration<br/>assuming<br/>0.5˚C (mm)</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br/>Due<br/>Parallelism<br/>in (mm)</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br/>uncertainty<br/>due to Error<br/>in Master<br/>(Taken Half)<br/>in mm</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Combined<br/>Uncertainty</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Degree of<br/>Freedom</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Coverage<br/>Factor (k)</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">Expanded<br/>Uncertainty<br/>in Value</th>
-            <th className="border border-gray-300 px-1 py-2 align-bottom">CMC<br/>taken</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty of<br />master in mm</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Least Count<br />of UUC</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br />Coefficient<br />of Master</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Thermal<br />Coefficient<br />of UUC</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br />due to<br />Temperature<br />Indicating<br />Device (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br />uncertainty<br />due to the<br />thermal<br />coefficient<br />of<br />expansion<br />master and<br />Unit Under<br />Calibration<br />assuming<br />20% (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br />uncertainty<br />due to the<br />difference<br />in<br />temperature<br />master and<br />Unit Under<br />Calibration<br />assuming<br />0.5˚C (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Uncertainty<br />Due<br />Parallelism<br />in (mm)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Standard<br />uncertainty<br />due to Error<br />in Master<br />(Taken Half)<br />in mm</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Combined<br />Uncertainty</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Degree of<br />Freedom</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Coverage<br />Factor (k)</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">Expanded<br />Uncertainty<br />in Value</th>
+            <th className="border border-gray-300 px-1 py-2 align-bottom">CMC<br />taken</th>
           </tr>
         </thead>
         <tbody>
@@ -2186,6 +2327,152 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncValue === 'number' ? row.expandedUncValue.toFixed(6) : row.expandedUncValue}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUncPercent === 'number' ? row.expandedUncPercent.toFixed(6) : row.expandedUncPercent}</td>
               <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? row.cmc.toFixed(6) : row.cmc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderTsTable = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[12px] text-gray-700 min-w-max">
+        <thead>
+          <tr className="bg-gray-100 text-center">
+            <th colSpan="11" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type A Factor
+            </th>
+            <th colSpan="7" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type B Factor
+            </th>
+            <th colSpan="5" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Uncertainty Measurement
+            </th>
+          </tr>
+          <tr className="bg-gray-200 text-center text-[12px] font-medium">
+            <th className="border border-gray-300 px-1 py-2">Sr no</th>
+            <th className="border border-gray-300 px-1 py-2">1</th>
+            <th className="border border-gray-300 px-1 py-2">2</th>
+            <th className="border border-gray-300 px-1 py-2">3</th>
+            <th className="border border-gray-300 px-1 py-2">4</th>
+            <th className="border border-gray-300 px-1 py-2">5</th>
+            <th className="border border-gray-300 px-1 py-2">Unit</th>
+            <th className="border border-gray-300 px-1 py-2">Calibration point</th>
+            <th className="border border-gray-300 px-1 py-2">Average</th>
+            <th className="border border-gray-300 px-1 py-2">Std Deviation</th>
+            <th className="border border-gray-300 px-1 py-2">Type A</th>
+            <th className="border border-gray-300 px-1 py-2">Uncertainty of Master in mm</th>
+            <th className="border border-gray-300 px-1 py-2">Least Count of UUC</th>
+            <th className="border border-gray-300 px-1 py-2">Thermal Coefficient of Master</th>
+            <th className="border border-gray-300 px-1 py-2">Thermal Coefficient of UUC</th>
+            <th className="border border-gray-300 px-1 py-2">Uncertainty due to Temperature Device (mm)</th>
+            <th className="border border-gray-300 px-1 py-2">Std Unc Thermal Coeff (20%)</th>
+            <th className="border border-gray-300 px-1 py-2">Std Unc Temp Difference (0.5°C)</th>
+            <th className="border border-gray-300 px-1 py-2">Combined Uncertainty</th>
+            <th className="border border-gray-300 px-1 py-2">Degree of Freedom</th>
+            <th className="border border-gray-300 px-1 py-2">Coverage Factor (k)</th>
+            <th className="border border-gray-300 px-1 py-2">Expanded Uncertainty</th>
+            <th className="border border-gray-300 px-1 py-2">CMC taken</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50 text-center text-[12px]">
+              <td className="border border-gray-300 px-1 py-2">{row.srNo ?? (i + 1)}</td>
+              {row.values?.map((v, idx) => (
+                <td key={idx} className="border border-gray-300 px-1 py-2">
+                  {v !== undefined && v !== null && v !== "" ? v : "-"}
+                </td>
+              ))}
+              <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
+              <td className="border border-gray-300 px-1 py-2 font-medium">{row.calibrationPoint}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? formatUncertaintyValue(row.average, 6) : row.average}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintyOfMaster === 'number' ? formatUncertaintyValue(row.uncertaintyOfMaster, 6) : row.uncertaintyOfMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.leastCount}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? formatUncertaintyValue(row.thermalCoeffMaster, 6) : row.thermalCoeffMaster}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffUuc === 'number' ? formatUncertaintyValue(row.thermalCoeffUuc, 6) : row.thermalCoeffUuc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uncTempDevice === 'number' ? formatUncertaintyValue(row.uncTempDevice, 6) : row.uncTempDevice}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncTher20 === 'number' ? formatUncertaintyValue(row.stdUncTher20, 6) : row.stdUncTher20}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncDiff === 'number' ? formatUncertaintyValue(row.stdUncDiff, 6) : row.stdUncDiff}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUnc === 'number' ? formatUncertaintyValue(row.combinedUnc, 6) : row.combinedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.dof === '-' ? '-' : (typeof row.dof === 'number' ? (row.dof > 1000 ? Math.round(row.dof) : formatUncertaintyValue(row.dof, 2)) : row.dof)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? formatUncertaintyValue(row.coverageFactor, 2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUnc === 'number' ? formatUncertaintyValue(row.expandedUnc, 6) : row.expandedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? formatUncertaintyValue(row.cmc, 6) : row.cmc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderThTable = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[12px] text-gray-700 min-w-max">
+        <thead>
+          <tr className="bg-gray-100 text-center">
+            <th colSpan="11" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type A Factor
+            </th>
+            <th colSpan="6" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Type B Factor
+            </th>
+            <th colSpan="5" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+              Uncertainty Measurement
+            </th>
+          </tr>
+          <tr className="bg-gray-200 text-center text-[12px] font-medium">
+            <th className="border border-gray-300 px-1 py-2">Sr no</th>
+            <th className="border border-gray-300 px-1 py-2">1</th>
+            <th className="border border-gray-300 px-1 py-2">2</th>
+            <th className="border border-gray-300 px-1 py-2">3</th>
+            <th className="border border-gray-300 px-1 py-2">4</th>
+            <th className="border border-gray-300 px-1 py-2">5</th>
+            <th className="border border-gray-300 px-1 py-2">Unit</th>
+            <th className="border border-gray-300 px-1 py-2">Calibration point</th>
+            <th className="border border-gray-300 px-1 py-2">Average</th>
+            <th className="border border-gray-300 px-1 py-2">Std Deviation</th>
+            <th className="border border-gray-300 px-1 py-2">Type A</th>
+            <th className="border border-gray-300 px-1 py-2">Uncertainty of master</th>
+            <th className="border border-gray-300 px-1 py-2">Accuracy Of Calibrator in Value</th>
+            <th className="border border-gray-300 px-1 py-2">Stability Of Bath</th>
+            <th className="border border-gray-300 px-1 py-2">Uniformity Of Bath</th>
+            <th className="border border-gray-300 px-1 py-2">Drift Of Master</th>
+            <th className="border border-gray-300 px-1 py-2">Least Count of UUC</th>
+            <th className="border border-gray-300 px-1 py-2">Combined Uncertainty</th>
+            <th className="border border-gray-300 px-1 py-2">Degree of Freedom</th>
+            <th className="border border-gray-300 px-1 py-2">Coverage Factor (k)</th>
+            <th className="border border-gray-300 px-1 py-2">Expanded Uncertainty in Value</th>
+            <th className="border border-gray-300 px-1 py-2">CmC Taken</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50 text-center text-[12px]">
+              <td className="border border-gray-300 px-1 py-2">{row.srNo ?? (i + 1)}</td>
+              {row.values?.map((v, idx) => (
+                <td key={idx} className="border border-gray-300 px-1 py-2">
+                  {v !== undefined && v !== null && v !== "" ? v : "-"}
+                </td>
+              ))}
+              <td className="border border-gray-300 px-1 py-2">{row.unit}</td>
+              <td className="border border-gray-300 px-1 py-2 font-medium">{row.calibrationPoint}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? formatUncertaintyValue(row.average, 6) : row.average}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.masterUnc === 'number' ? formatUncertaintyValue(row.masterUnc, 6) : row.masterUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.accuracy === 'number' ? formatUncertaintyValue(row.accuracy, 6) : row.accuracy}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.stability === 'number' ? formatUncertaintyValue(row.stability, 6) : row.stability}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.uniformity === 'number' ? formatUncertaintyValue(row.uniformity, 6) : row.uniformity}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.drift === 'number' ? formatUncertaintyValue(row.drift, 6) : row.drift}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.leastCount}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.combinedUnc === 'number' ? formatUncertaintyValue(row.combinedUnc, 6) : row.combinedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.dof === '-' ? '-' : (typeof row.dof === 'number' ? (row.dof > 1000 ? Math.round(row.dof) : formatUncertaintyValue(row.dof, 2)) : row.dof)}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.coverageFactor === 'number' ? formatUncertaintyValue(row.coverageFactor, 2) : row.coverageFactor}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.expandedUnc === 'number' ? formatUncertaintyValue(row.expandedUnc, 6) : row.expandedUnc}</td>
+              <td className="border border-gray-300 px-1 py-2">{typeof row.cmc === 'number' ? formatUncertaintyValue(row.cmc, 6) : row.cmc}</td>
             </tr>
           ))}
         </tbody>
@@ -2669,7 +2956,7 @@ export default function ViewCMCCalculation() {
           {data.map((row, i) => (
             <tr key={i} className="hover:bg-gray-50 text-center text-[12px]">
               <td className="border border-gray-300 px-1 py-2">{row.srNo}</td>
-              <td className="border border-gray-300 px-1 py-2 text-left text-[8px]">{row.unitType}</td>
+              <td className="border border-gray-300 px-1 py-2">{row.unitType}</td>
               <td className="border border-gray-300 px-1 py-2">{row.mode}</td>
               <td className="border border-gray-300 px-1 py-2">{row.uuc0}</td>
               <td className="border border-gray-300 px-1 py-2">{row.uuc1}</td>
@@ -2865,7 +3152,7 @@ export default function ViewCMCCalculation() {
               <th className="border border-gray-300 px-1 py-2 bg-gray-200">Diff., ∆m</th>
               <th className="border border-gray-300 px-1 py-2 bg-gray-200">Type A ({uucUnit})</th>
               <th rowSpan="3" className="border border-gray-300 px-1 py-2 bg-gray-200">Avg. Diff.(g)</th>
-              <th rowSpan="2" className="border border-gray-300 px-1 py-2 bg-gray-200">Conv. Mass <br />(Mr + ∆m+B.C.)(g)</th>
+              <th rowSpan="3" className="border border-gray-300 px-1 py-2 bg-gray-200">Conv. Mass <br />(Mr + ∆m+B.C.)(g)</th>
               <th rowSpan="3" className="border border-gray-300 px-1 py-2 bg-gray-200">Density of Moist Air (ρa) g/cm³</th>
               <th rowSpan="3" className="border border-gray-300 px-1 py-2 bg-gray-200">Reference Air Density(ρo) g/cm³</th>
               <th rowSpan="3" className="border border-gray-300 px-1 py-2 bg-gray-200">Density of Reference Weight g/cm³</th>
@@ -2955,7 +3242,7 @@ export default function ViewCMCCalculation() {
                           {typeof row.volumeoftestweight === 'number' ? row.volumeoftestweight.toFixed(6) : (row.volumeoftestweight ?? '-')}
                         </td>
                         <td rowSpan={repeatCount} className="border border-gray-300 px-1 py-2">
-                          {typeof row.airbyouncy === 'number' ? row.airbyouncy.toFixed(8) : (row.airbyouncy ?? '-')}
+                          {typeof row.airbyouncy === 'number' ? (Math.abs(row.airbyouncy) < 1e-6 ? row.airbyouncy.toExponential(4) : row.airbyouncy.toFixed(8)) : (row.airbyouncy ?? '-')}
                         </td>
                         <td rowSpan={repeatCount} className="border border-gray-300 px-1 py-2">
                           {typeof row.masterleastcount === 'number' ? row.masterleastcount.toFixed(6) : (row.masterleastcount ?? '-')}
@@ -3068,7 +3355,9 @@ export default function ViewCMCCalculation() {
                 <td className="border border-gray-300 px-2 py-3">
                   {typeof row.combinedUnc === 'number' ? row.combinedUnc.toFixed(8) : (row.combinedUnc ?? '-')}
                 </td>
-                <td className="border border-gray-300 px-2 py-3">{row.dof ?? '-'}</td>
+                <td className="border border-gray-300 px-2 py-3">
+                  {typeof row.dof === 'number' ? row.dof.toFixed(2) : (row.dof ?? '-')}
+                </td>
                 <td className="border border-gray-300 px-2 py-3">
                   {typeof row.coverageFactor === 'number' ? row.coverageFactor.toFixed(2) : (row.coverageFactor ?? '2')}
                 </td>
@@ -3409,6 +3698,7 @@ export default function ViewCMCCalculation() {
             {suffix === "ctg" && renderCtgTable()}
             {suffix === "dpg" && renderDpgTable()}
             {suffix === "mm" && renderMmTable()}
+            {suffix === "sw" && renderMmTable()}
             {suffix === "odfm" && renderOdfmTable()}
             {suffix === "mt" && renderMtTable()}
             {suffix === "it" && renderItTable()}
@@ -3431,7 +3721,9 @@ export default function ViewCMCCalculation() {
             {suffix === "observationuc" && renderObservationucTable()}
             {suffix === "biomedical" && renderBiomedicalTable()}
             {suffix === "wbn" && renderWbnTable()}
-            {!["ctg", "dpg", "mm", "odfm", "es", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "vc", "rtdwi", "ppg", "gtm", "tm", "cent", "dg", "dw", "wb", "observationuc", "biomedical", "wbn"].includes(suffix) && (
+            {suffix === "th" && renderThTable()}
+            {suffix === "ts" && renderTsTable()}
+            {!["ctg", "dpg", "mm", "sw", "odfm", "es", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "vc", "rtdwi", "ppg", "gtm", "tm", "cent", "dg", "dw", "wb", "observationuc", "biomedical", "wbn", "th", "ts"].includes(suffix) && (
               <div className="text-center py-8 text-gray-500">
                 No table available for suffix: {suffix}
               </div>

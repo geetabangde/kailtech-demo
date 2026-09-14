@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Page } from "components/shared/Page";
 import { Card } from "components/ui";
 import { DatePicker } from "components/shared/form/Datepicker";
+import Select from "react-select";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -423,6 +424,34 @@ export default function AddCalibrationInvoice() {
     [items, charges, isSgst, potype],
   );
 
+  // PO options for react-select
+  const poOptions = useMemo(() => {
+    return ponumbers.map((p) => {
+      const val =
+        typeof p === "string"
+          ? p
+          : (p.ponumber ?? (p.id != null ? String(p.id) : (p.value ?? "")));
+      const lbl =
+        typeof p === "string"
+          ? p
+          : (p.display ?? p.ponumber ?? (p.id != null ? String(p.id) : val));
+      return {
+        value: val,
+        label: lbl || val,
+      };
+    });
+  }, [ponumbers]);
+
+  const selectedPoOption = useMemo(() => {
+    if (!selectedPo) return null;
+    return (
+      poOptions.find((opt) => String(opt.value) === String(selectedPo)) || {
+        value: selectedPo,
+        label: selectedPo,
+      }
+    );
+  }, [selectedPo, poOptions]);
+
   // ── Load customers ────────────────────────────────────────────────────────
   useEffect(() => {
     axios
@@ -719,22 +748,28 @@ export default function AddCalibrationInvoice() {
               {loadingPo ? (
                 <Spinner text="Loading POs..." />
               ) : (
-                <select
-                  value={selectedPo}
-                  onChange={(e) => setSelectedPo(e.target.value)}
-                  className={selectCls}
-                  disabled={!customerid || ponumbers.length === 0}
-                >
-                  <option value="">Select PO</option>
-                  {ponumbers.map((p, i) => {
-                    const val = p.ponumber ?? p;
-                    return (
-                      <option key={i} value={val}>
-                        {val}
-                      </option>
-                    );
-                  })}
-                </select>
+                <Select
+                  value={selectedPoOption}
+                  onChange={(opt) => setSelectedPo(opt ? opt.value : "")}
+                  options={poOptions}
+                  placeholder={
+                    !customerid
+                      ? "Select customer first..."
+                      : ponumbers.length === 0
+                        ? "No PO found"
+                        : "Select PO..."
+                  }
+                  isClearable
+                  isSearchable
+                  isDisabled={!customerid || ponumbers.length === 0}
+                  className="react-select-container text-sm"
+                  classNamePrefix="react-select"
+                  styles={{
+                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                    menu: (base) => ({ ...base, zIndex: 9999 }),
+                  }}
+                  menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                />
               )}
             </div>
 
@@ -854,6 +889,8 @@ export default function AddCalibrationInvoice() {
                         {[
                           "Sr no",
                           "Description",
+                          "Identification no",
+                          "Serial no",
                           ...(potype === "Normal" ? ["Rate"] : []),
                           "",
                         ].map((h) => (
@@ -898,6 +935,16 @@ export default function AddCalibrationInvoice() {
                                 With Nabl
                               </span>
                             )}
+                        </td>
+
+                        {/* Identification no */}
+                        <td className="dark:text-dark-200 px-3 py-2 text-xs">
+                          {item.idno || "—"}
+                        </td>
+
+                        {/* Serial no */}
+                        <td className="dark:text-dark-200 px-3 py-2 text-xs">
+                          {item.serialno || "—"}
                         </td>
 
                         {/* PHP: if potype==Normal → rate input */}

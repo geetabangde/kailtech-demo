@@ -542,31 +542,53 @@ const safeGetArrayValue = (val) => {
 const mapDwData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
   
-  return apiData.map((item) => ({
-    srNo: item.sr_no,
-    unit: item.unit,
-    calibrationPoint: item.calibration_point ?? item.point,
-    uuca: safeGetArrayValue(item.uuca ?? item.s1),
-    mastera: safeGetArrayValue(item.mastera ?? item.u1),
-    masterb: safeGetArrayValue(item.masterb ?? item.u2),
-    uucb: safeGetArrayValue(item.uucb ?? item.s2),
-    deltai: safeGetArrayValue(item.deltai ?? item.diff),
-    typeA: item.typea ?? item.type_a,
-    averagedeltai: item.averagedeltai ?? item.average_diff ?? item.avg_diff,
-    mcr: item.mcr ?? item.conv_mass,
-    densityofair: item.densityofair ?? item.density_of_air,
-    densityofairref: item.densityofairref ?? item.density_of_air_ref ?? 0.0012,
-    densityofmaster: item.densityofmaster ?? item.density_of_master,
-    densityuuc: item.densityuuc ?? item.density_uuc,
-    refweightmass: item.refweightmass ?? item.ref_weight_mass,
-    volumofref: item.volumofref ?? item.volume_of_ref,
-    volumeoftestweight: item.volumeoftestweight ?? item.volume_of_test_weight,
-    airbyouncy: item.airbyouncy ?? item.air_buoyancy,
-    masterleastcount: item.masterleastcount ?? item.master_least_count,
-    masterunc: item.masterunc ?? item.master_uncertainty ?? item.master_unc,
-    comuncer: item.comuncer ?? item.combined_uncertainty ?? item.combined_unc,
-    coveragefactor: item.coveragefactor ?? item.coverage_factor ?? 2,
-    expandeduncertainty: item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
-    cmcuncertainty: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
-  }));
+  return apiData.map((item) => {
+    let uuca = [];
+    let mastera = [];
+    let masterb = [];
+    let uucb = [];
+    let deltai = [];
+
+    if (Array.isArray(item.repeatable_data) && item.repeatable_data.length > 0) {
+      uuca = item.repeatable_data.map((r) => r.s1 ?? r.uuca);
+      mastera = item.repeatable_data.map((r) => r.u1 ?? r.mastera);
+      masterb = item.repeatable_data.map((r) => r.u2 ?? r.masterb);
+      uucb = item.repeatable_data.map((r) => r.s2 ?? r.uucb);
+      deltai = item.repeatable_data.map((r) => r.deltai ?? r.diff);
+    } else {
+      uuca = safeGetArrayValue(item.uuca ?? item.s1);
+      mastera = safeGetArrayValue(item.mastera ?? item.u1);
+      masterb = safeGetArrayValue(item.masterb ?? item.u2);
+      uucb = safeGetArrayValue(item.uucb ?? item.s2);
+      deltai = safeGetArrayValue(item.deltai ?? item.diff);
+    }
+
+    return {
+      srNo: item.sr_no,
+      unit: item.unit,
+      calibrationPoint: item.calibration_point ?? item.point,
+      uuca,
+      mastera,
+      masterb,
+      uucb,
+      deltai,
+      typeA: item.typea ?? item.type_a,
+      averagedeltai: item.averagedeltai ?? item.average_deltai ?? item.average_diff ?? item.avg_diff,
+      mcr: item.mcr ?? item.conv_mass,
+      densityofair: item.densityofair ?? item.density_of_air,
+      densityofairref: item.densityofairref ?? item.reference_air_density ?? item.density_of_air_ref ?? 0.0012,
+      densityofmaster: item.densityofmaster ?? item.density_of_master,
+      densityuuc: item.densityuuc ?? item.density_of_uuc ?? item.density_uuc,
+      refweightmass: item.refweightmass ?? item.reference_weight_mass ?? item.ref_weight_mass,
+      volumofref: item.volumofref ?? item.volume_of_reference ?? item.volume_of_ref,
+      volumeoftestweight: item.volumeoftestweight ?? item.volume_of_test_weight,
+      airbyouncy: item.airbyouncy ?? item.air_buoyancy_correction ?? item.air_buoyancy,
+      masterleastcount: item.masterleastcount ?? item.least_count ?? item.master_least_count,
+      masterunc: item.masterunc ?? item.master_uncertainty ?? item.master_unc,
+      comuncer: item.comuncer ?? item.combined_uncertainty ?? item.combined_unc,
+      coveragefactor: item.coveragefactor ?? item.coverage_factor ?? 2,
+      expandeduncertainty: item.expandeduncertainty ?? item.expanded_uncertainty ?? item.expanded_unc,
+      cmcuncertainty: item.cmcuncertainty ?? item.cmc_uncertainty ?? item.cmc,
+    };
+  });
 };

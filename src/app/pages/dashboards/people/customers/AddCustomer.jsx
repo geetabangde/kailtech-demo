@@ -291,15 +291,18 @@ export default function AddCustomer() {
           // Only append image if file is selected
           payload.append(key, value);
         } else if (key === "stateid" || key === "state") {
-          // Only send the relevant state field based on country
-          if (isIndianCountry && key === "stateid" && value) {
-            payload.append(key, value);
-          } else if (!isIndianCountry && key === "state" && value) {
-            payload.append(key, value);
+          // Send the relevant state field based on country
+          if (isIndianCountry && key === "stateid") {
+            // For India, always send stateid (empty string if not selected)
+            payload.append(key, value || "");
+          } else if (!isIndianCountry && key === "state") {
+            // For non-India countries, always send state (empty string if not entered)
+            payload.append(key, value || "");
           }
+          // Don't send the other state field
         } else if (key !== "thumb_image") {
           // Append all other fields
-          payload.append(key, value);
+          payload.append(key, value || "");
         }
       });
 
@@ -346,8 +349,39 @@ export default function AddCustomer() {
         toast.error(res.data.message || "Failed to add customer");
       }
     } catch (err) {
-      toast.error("Something went wrong");
-      console.error(err);
+      console.error("Error:", err);
+
+      // Handle backend validation errors
+      if (err.response?.data?.errors) {
+        const backendErrors = err.response.data.errors;
+        const errorMessages = {};
+
+        Object.entries(backendErrors).forEach(([field, messages]) => {
+          if (Array.isArray(messages) && messages.length > 0) {
+            errorMessages[field] = messages[0];
+          }
+        });
+
+        setValidationErrors(errorMessages);
+
+        // Show first error in toast
+        const firstError = Object.values(errorMessages)[0];
+        if (firstError) {
+          toast.error(firstError);
+        }
+
+        // Focus on first error field
+        const firstErrorField = Object.keys(errorMessages)[0];
+        if (firstErrorField) {
+          const element = document.querySelector(`[name="${firstErrorField}"]`);
+          if (element) {
+            element.focus();
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      } else {
+        toast.error(err.response?.data?.message || "Something went wrong");
+      }
     } finally {
       setLoading(false);
     }
@@ -552,11 +586,14 @@ export default function AddCustomer() {
                   onChange={(selected) => handleSelectChange({ target: { value: selected ? String(selected.value) : "" } }, "stateid")}
                   value={states.find(s => String(s.value) === String(formData.stateid)) || null}
                   placeholder="Choose state..."
-                  className={errors.stateid ? "react-select-error" : ""}
+                  className={errors.stateid || validationErrors.stateid ? "react-select-error" : ""}
                   isClearable
                 />
                 {errors.stateid && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
+                )}
+                {validationErrors.stateid && (
+                  <p className="text-red-600 text-sm mt-1">{validationErrors.stateid}</p>
                 )}
               </>
             ) : (
@@ -571,10 +608,13 @@ export default function AddCustomer() {
                   placeholder="Enter state"
                   onChange={handleInputChange}
                   value={formData.state}
-                  className={errors.state ? "border-red-500 bg-red-50" : ""}
+                  className={errors.state || validationErrors.state ? "border-red-500 bg-red-50" : ""}
                 />
                 {errors.state && (
                   <p className="text-red-600 text-sm mt-1">This field is required</p>
+                )}
+                {validationErrors.state && (
+                  <p className="text-red-600 text-sm mt-1">{validationErrors.state}</p>
                 )}
               </div>
             )}

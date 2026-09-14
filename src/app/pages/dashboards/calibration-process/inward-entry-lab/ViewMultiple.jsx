@@ -41,6 +41,48 @@ export default function ViewMultipleDraft() {
   };
 
   useEffect(() => {
+    let isCancelled = false;
+
+    const fetchSingleCertificate = async (instid, retries = 1) => {
+      const apiUrl = `/calibrationprocess/view-multiple-draft-certificate?inwardid=${inwardId}&instid=${instid}&caliblocation=${caliblocation}&calibacc=${calibacc}`;
+      try {
+        console.log(`Fetching certificate for instid ${instid}:`, apiUrl);
+        const response = await axios.get(apiUrl);
+        console.log(`API Response for instid ${instid}:`, response.data);
+
+        let htmlContent = '';
+        if (response.data) {
+          if (response.data.success && response.data.data && Array.isArray(response.data.data)) {
+            htmlContent = response.data.data[0] || '';
+          } else if (response.data.success && response.data.data && typeof response.data.data === 'string') {
+            htmlContent = response.data.data;
+          } else if (typeof response.data === 'string') {
+            htmlContent = response.data;
+          } else if (response.data.data) {
+            htmlContent = response.data.data;
+          }
+        }
+
+        if (htmlContent) {
+          return { instid, html: htmlContent, success: true };
+        }
+
+        return { instid, html: null, success: false, error: 'Empty content returned' };
+      } catch (error) {
+        if (retries > 0) {
+          await new Promise((res) => setTimeout(res, 400));
+          return fetchSingleCertificate(instid, retries - 1);
+        }
+        console.error(`Error fetching certificate for instid ${instid}:`, error);
+        return {
+          instid,
+          html: null,
+          success: false,
+          error: error.response?.data?.message || error.message
+        };
+      }
+    };
+
     const fetchCertificates = async () => {
       const instids = getInstrumentIds();
 
@@ -59,136 +101,221 @@ export default function ViewMultipleDraft() {
       }
 
       try {
-        // Fetch certificates for all instrument IDs
-        const certificatePromises = instids.map(async (instid) => {
-          try {
-            const apiUrl = `/calibrationprocess/view-multiple-draft-certificate?inwardid=${inwardId}&instid=${instid}&caliblocation=${caliblocation}&calibacc=${calibacc}`;
-            console.log(`Fetching certificate for instid ${instid}:`, apiUrl);
+        setLoading(true);
+        const results = [];
+        const batchSize = 5;
 
-            const response = await axios.get(apiUrl);
-            
-            console.log(`API Response for instid ${instid}:`, response.data);
+        // Process in batches of 5 to avoid connection limits and server timeouts
+        for (let i = 0; i < instids.length; i += batchSize) {
+          if (isCancelled) return;
+          const batch = instids.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map((id) => fetchSingleCertificate(id))
+          );
+          results.push(...batchResults);
+        }
 
-            let htmlContent = '';
-            
-            // Handle different response structures
-            if (response.data) {
-              if (response.data.success && response.data.data && Array.isArray(response.data.data)) {
-                // Case 1: {success: true, data: [html_string]}
-                htmlContent = response.data.data[0] || '';
-              } else if (response.data.success && response.data.data && typeof response.data.data === 'string') {
-                // Case 2: {success: true, data: html_string}
-                htmlContent = response.data.data;
-              } else if (typeof response.data === 'string') {
-                // Case 3: direct HTML string
-                htmlContent = response.data;
-              } else if (response.data.data) {
-                // Case 4: nested data
-                htmlContent = response.data.data;
-              } else {
-                console.warn(`Unexpected response structure for instid ${instid}:`, response.data);
-              }
-            }
+        if (isCancelled) return;
 
-            return {
-              instid,
-              html: htmlContent,
-              success: htmlContent ? true : false
-            };
-          } catch (error) {
-            console.error(`Error fetching certificate for instid ${instid}:`, error);
-            toast.error(`Failed to load certificate for ID: ${instid}`);
-            return {
-              instid,
-              html: null,
-              success: false,
-              error: error.response?.data?.message || error.message
-            };
-          }
-        });
-
-        const results = await Promise.all(certificatePromises);
-        
         console.log("All API results:", results);
 
         // Filter successful certificates
-        const successfulCertificates = results.filter(res => res.success && res.html);
-        
+        const successfulCertificates = results.filter((res) => res.success && res.html);
+        const failedCount = results.length - successfulCertificates.length;
+
         console.log("Successful certificates:", successfulCertificates);
 
-        if (successfulCertificates.length === 0) {
-          toast.error("No certificates could be loaded");
-        } else {
+        if (successfulCertificates.length > 0) {
+          setCertificates(successfulCertificates);
           toast.success(`Loaded ${successfulCertificates.length} certificate(s)`);
+          if (failedCount > 0) {
+            toast.error(`${failedCount} certificate(s) could not be loaded`);
+          }
+        } else {
+          setCertificates([]);
+          toast.error("No certificates could be loaded");
         }
-
-        setCertificates(successfulCertificates);
       } catch (error) {
+        if (isCancelled) return;
         console.error("Error fetching certificates:", error);
         toast.error("Failed to fetch certificates");
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchCertificates();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [inwardId, instId, caliblocation, calibacc]);
 
   // Print handler for all certificates
   const handlePrint = () => {
+    if (certificates.length === 0) {
+      toast.error("No certificates to print");
+      return;
+    }
+
     setPrintLoading(true);
     try {
-      const printWindow = window.open("", "_blank", "width=900,height=650");
-      
-      if (!printWindow) {
-        toast.error("Unable to open print window. Please check popup blocker.");
-        setPrintLoading(false);
-        return;
-      }
-      
-      // Combine all certificate HTML content
-      const allCertificatesHtml = certificates
-        .map(cert => cert.html)
-        .join('<div style="page-break-after: always;"></div>');
+      const processCertificateHtml = (htmlString) => {
+        if (!htmlString || typeof htmlString !== 'string') return '';
+        try {
+          if (/<html|<body/i.test(htmlString)) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString, 'text/html');
+            const styles = Array.from(doc.querySelectorAll('style, link[rel="stylesheet"]'))
+              .map((el) => el.outerHTML)
+              .join('\n');
+            const bodyContent = doc.body ? doc.body.innerHTML : htmlString;
+            return `${styles}\n${bodyContent}`;
+          }
+        } catch (e) {
+          console.error("Error parsing cert html:", e);
+        }
+        return htmlString;
+      };
 
-      printWindow.document.write(`
+      // Combine all certificate HTML content wrapped in page containers
+      const allCertificatesHtml = certificates
+        .map((cert, index) => {
+          const isLast = index === certificates.length - 1;
+          const cleanHtml = processCertificateHtml(cert.html);
+          const pageBreakAfterCss = !isLast
+            ? 'page-break-after: always !important; break-after: page !important;'
+            : '';
+          const pageBreakBeforeCss = index > 0
+            ? 'page-break-before: always !important; break-before: page !important;'
+            : '';
+
+          return `
+            <div class="cert-page-wrapper" style="${pageBreakBeforeCss} ${pageBreakAfterCss} display: block; width: 100%; clear: both;">
+              ${cleanHtml}
+            </div>
+          `;
+        })
+        .join('\n');
+
+      const printableDocument = `
+        <!DOCTYPE html>
         <html>
           <head>
+            <meta charset="utf-8">
             <title>Multiple Certificates</title>
             <style>
+              @page {
+                size: auto;
+                margin: 10mm;
+              }
+              * {
+                box-sizing: border-box;
+              }
               body { 
                 font-family: Arial, sans-serif; 
-                margin: 20px; 
+                margin: 0; 
                 padding: 0;
+                background: #fff;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
               }
               .certificate-container { 
                 display: flex; 
                 justify-content: center; 
                 align-items: center; 
               }
+              .cert-page-wrapper {
+                display: block;
+                width: 100%;
+                clear: both;
+              }
+              .cert-page-wrapper::after {
+                content: "";
+                display: table;
+                clear: both;
+              }
               @media print {
-                body { margin: 0; }
-                .page-break { page-break-after: always; }
+                body { 
+                  margin: 0; 
+                  padding: 0; 
+                }
+                .cert-page-wrapper {
+                  display: block !important;
+                  clear: both !important;
+                  page-break-inside: auto !important;
+                  break-inside: auto !important;
+                }
+                .cert-page-wrapper:not(:last-child) {
+                  page-break-after: always !important;
+                  break-after: page !important;
+                }
+                .cert-page-wrapper + .cert-page-wrapper {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                }
               }
             </style>
           </head>
           <body>
             ${allCertificatesHtml}
-            <script>
-              window.onload = function() {
-                window.print();
-                window.close();
-              }
-            </script>
           </body>
         </html>
-      `);
-      printWindow.document.close();
+      `;
+
+      // Clean up any existing print iframe
+      const oldFrame = document.getElementById('cert-print-iframe');
+      if (oldFrame) {
+        oldFrame.remove();
+      }
+
+      // Use a hidden iframe to prevent popup-blockers and tab-freezing crashes
+      const printFrame = document.createElement('iframe');
+      printFrame.id = 'cert-print-iframe';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = 'none';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDoc = printFrame.contentWindow.document;
+      frameDoc.open();
+      frameDoc.write(printableDocument);
+      frameDoc.close();
+
+      const cleanup = () => {
+        if (document.body.contains(printFrame)) {
+          printFrame.remove();
+        }
+        setPrintLoading(false);
+      };
+
+      if (printFrame.contentWindow) {
+        printFrame.contentWindow.onafterprint = cleanup;
+      }
+
+      // Allow DOM and CSS in iframe to render before opening print dialog
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+        } catch (printErr) {
+          console.error("Iframe print error:", printErr);
+          toast.error("Print failed");
+        } finally {
+          setTimeout(cleanup, 500);
+        }
+      }, 300);
+
     } catch (error) {
       console.error("Print failed:", error);
       toast.error("Print failed");
-    } finally {
-      setTimeout(() => setPrintLoading(false), 1500);
+      setPrintLoading(false);
     }
   };
 
@@ -245,8 +372,8 @@ export default function ViewMultipleDraft() {
               <div>CalibAcc: {calibacc}</div>
               <div>Full URL: {window.location.href}</div>
             </div>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Retry
@@ -266,12 +393,12 @@ export default function ViewMultipleDraft() {
             {certificates.map((cert, index) => (
               <div key={cert.instid} className="certificate-container">
                 <div className="w-full">
-                  
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: cert.html }} 
+
+                  <div
+                    dangerouslySetInnerHTML={{ __html: cert.html }}
                     className="w-full"
                   />
-                  
+
                   {index < certificates.length - 1 && (
                     <div className="border-t-2 border-gray-300 my-8 pt-8"></div>
                   )}
@@ -287,7 +414,7 @@ export default function ViewMultipleDraft() {
               color="success"
               disabled={printLoading || certificates.length === 0}
               className="px-6 py-3 text-sm font-medium rounded-md shadow-lg hover:shadow-xl transition-all duration-200"
-              style={{ 
+              style={{
                 minWidth: '160px',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -319,16 +446,16 @@ export default function ViewMultipleDraft() {
                 </>
               ) : (
                 <>
-                  <svg 
-                    className="h-4 w-4" 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
                       d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>

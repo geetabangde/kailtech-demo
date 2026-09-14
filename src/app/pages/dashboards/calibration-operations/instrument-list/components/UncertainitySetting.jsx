@@ -1300,7 +1300,7 @@ export default function UncertainitySetting({
           </div>
         )}
 
-        {(!customLayout && !["ctg", "dpg", "mm", "odfm", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "rtdwi", "ppg", "gtm", "dg"].includes(suffix)) && (
+        {(!customLayout && !["ctg", "dpg", "mm", "odfm", "mt", "it", "fg", "hg", "avg", "msr", "mg", "exm", "rtdwi", "ppg", "gtm", "dg", "th"].includes(suffix)) && (
           <div className="text-center py-8 text-gray-500">
             No table available for suffix: {suffix}
           </div>

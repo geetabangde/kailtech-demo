@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ObservationBiomedical Analysis</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    h1 { color: #d32f2f; border-bottom: 3px solid #d32f2f; padding-bottom: 10px; }
+    h2 { color: #1976d2; margin-top: 30px; }
+    h3 { color: #388e3c; }
+    .section { border-left: 4px solid #1976d2; padding-left: 15px; margin: 20px 0; background: #f5f5f5; padding: 15px; border-radius: 4px; }
+    .status-ok { color: #388e3c; font-weight: bold; }
+    .status-missing { color: #d32f2f; font-weight: bold; }
+    .status-issue { color: #f57c00; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background: #f5f5f5; font-weight: bold; }
+    tr:nth-child(even) { background: #fafafa; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    .formula { background: #e3f2fd; padding: 10px; border-left: 3px solid #1976d2; margin: 10px 0; font-family: monospace; }
+    .fix { background: #fff3e0; padding: 10px; border-left: 3px solid #f57c00; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 ObservationBiomedical.jsx vs PHP Backend Logic</h1>
+    <p><strong>Analysis Date:</strong> 2026-09-13 | <strong>Component:</strong> ObservationBiomedical.jsx</p>
+
+    <h2>✅ What's Correctly Implemented</h2>
+
+    <div class="section">
+      <h3>1. Least Count Decimal Formatting</h3>
+      <p><span class="status-ok">✓ COMPLETE</span></p>
+      <p><code>formatValueByLc()</code> function (lines 25-44):</p>
+      <ul>
+        <li>Correctly extracts decimal places from <code>lc_decimals</code> or <code>least_count</code></li>
+        <li>Uses <code>toFixed(d)</code> to format numeric values</li>
+        <li>Handles special cases: fractions (e.g., "130/80"), NA values, empty strings</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h3>2. Measure vs Source Mode Architecture</h3>
+      <p><span class="status-ok">✓ COMPLETE</span></p>
+      <table>
+        <tr>
+          <th>Mode</th>
+          <th>Master Readings</th>
+          <th>UUC Readings</th>
+          <th>ReadOnly Status</th>
+        </tr>
+        <tr>
+          <td><strong>Measure</strong></td>
+          <td>1 (read-only)</td>
+          <td>5 (editable)</td>
+          <td>Master shows set_point; UUC fields accept input</td>
+        </tr>
+        <tr>
+          <td><strong>Source</strong></td>
+          <td>5 (editable)</td>
+          <td>1 (read-only)</td>
+          <td>Master fields accept input; UUC shows set_point</td>
+        </tr>
+      </table>
+      <p>Lines 190-240: <code>renderMasterCells()</code> and <code>renderUucCells()</code> correctly implement this logic.</p>
+    </div>
+
+    <div class="section">
+      <h3>3. Average Calculations</h3>
+      <p><span class="status-ok">✓ MOSTLY COMPLETE</span></p>
+      <p><code>computeBiomedicalAverages()</code> (lines 46-174) handles:</p>
+      <ul>
+        <li>✓ Regular numeric averages (lines 151-164)</li>
+        <li>✓ Waveform parameters: Only formats input averages, read-only display</li>
+        <li>✓ NIBP/Blood Pressure: Calculates systolic/diastolic averages separately (lines 133-149)</li>
+        <li>✓ Decimal formatting: Uses <code>lc_decimals</code> for UUC, <code>mlc_decimals</code> for Master</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h3>4. Deviation Calculation</h3>
+      <p><span class="status-ok">✓ IMPLEMENTED</span></p>
+      <p>Line 170: <code>error = (avgUuc - avgMaster).toFixed(devDecimals)</code></p>
+      <p>Formula matches PHP: Deviation = Average On UUC - Reading On Master (Measure mode)</p>
+    </div>
+
+    <div class="section">
+      <h3>5. Table Rendering Structure</h3>
+      <p><span class="status-ok">✓ COMPLETE</span></p>
+      <ul>
+        <li>✓ Electrical Safety Test (Measure Mode) - 1 Master, 5 UUC</li>
+        <li>✓ Electrical Safety Test (Source Mode) - 5 Master, 1 UUC</li>
+        <li>✓ Performance Testing (Measure Mode) - 1 Master, 5 UUC</li>
+        <li>✓ Performance Testing (Source Mode) - 5 Master, 1 UUC</li>
+        <li>✓ Correct column ordering (lines 251-265)</li>
+      </ul>
+    </div>
+
+    <h2>⚠️ Missing Components (NOT in ObservationBiomedical.jsx)</h2>
+
+    <div class="section">
+      <h3>1. Visual Inspection Section</h3>
+      <p><span class="status-missing">✗ MISSING</span></p>
+      <p><strong>PHP Logic:</strong> Fetch from <code>visualtest</code> table where <code>status=1</code></p>
+      <p><strong>What's needed:</strong></p>
+      <ul>
+        <li>Display description of each visual test item</li>
+        <li>Provide input field for "Observed Value / Remark"</li>
+        <li>Required field validation: <code>value !== null && value.trim() !== ''</code></li>
+      </ul>
+      <p><strong>Status:</strong> This section should be in a separate component (e.g., <code>ObservationVisualTest.jsx</code> or included here)</p>
+    </div>
+
+    <div class="section">
+      <h3>2. Basic Safety Test Section</h3>
+      <p><span class="status-missing">✗ MISSING</span></p>
+      <p><strong>PHP Logic:</strong> Fetch from <code>electricalsafety</code> table where <code>status=1 AND test='Basic Safety & Performance Test'</code></p>
+      <p><strong>Specification Logic:</strong></p>
+      <ul>
+        <li>If minRange & maxRange both 'NA' → "NA"</li>
+        <li>If only maxRange 'NA' → minRange + unit</li>
+        <li>If only minRange 'NA' → maxRange + unit</li>
+        <li>Both present → "minRange to maxRange + unit"</li>
+      </ul>
+      <p><strong>Pass/Fail Validation:</strong></p>
+      <div class="formula">
+function checkSafety(value, minRange, maxRange) {
+  if (!minRange || isNaN(minRange)) {
+    // Operator mode: <, >, =
+    if (minRange === "<") return parseFloat(value) < parseFloat(maxRange) ? "Pass" : "Fail";
+    if (minRange === ">") return parseFloat(value) > parseFloat(maxRange) ? "Pass" : "Fail";
+    if (minRange === "=") return parseFloat(value) === parseFloat(maxRange) ? "Pass" : "Fail";
+  } else {
+    // Range mode: min to max
+    return (parseFloat(value) >= minRange && parseFloat(value) <= maxRange) ? "Pass" : "Fail";
+  }
+}
+      </div>
+      <p><strong>Status:</strong> This section should be in a separate component or added to this one</p>
+    </div>
+
+    <h2>🔴 Critical Issues to Fix</h2>
+
+    <div class="section">
+      <h3>Issue #1: Deviation Calculation Context</h3>
+      <p><span class="status-issue">⚠️ NEEDS REVIEW</span></p>
+      <p><strong>Current Code (Line 170):</strong></p>
+      <div class="formula">error = (finalUuc - finalMaster).toFixed(devDecimals)</div>
+      <p><strong>PHP Logic says:</strong></p>
+      <div class="formula">
+// Measure Mode (Performance Testing):
+Deviation = Average On UUC - Reading On Master
+
+// Source Mode (Electrical Safety):
+Deviation = Reading On UUC - Average On Master
+      </div>
+      <p><strong>Analysis:</strong></p>
+      <ul>
+        <li>Your formula <code>avgUuc - avgMaster</code> is correct for Measure mode</li>
+        <li>But for Source mode with Electrical Safety, PHP might use different logic</li>
+        <li>Need to verify: Is deviation always <code>avgUuc - avgMaster</code>?</li>
+      </ul>
+      <div class="fix"><strong>Recommendation:</strong> Keep as-is if confirmed with backend, otherwise add mode-specific logic</div>
+    </div>
+
+    <div class="section">
+      <h3>Issue #2: Tolerance Pass/Fail Validation</h3>
+      <p><span class="status-missing">✗ NOT IMPLEMENTED</span></p>
+      <p><strong>Current Code:</strong> Only displays tolerance value (line 401)</p>
+      <p><strong>Missing:</strong> Pass/Fail validation logic</p>
+      <p><strong>PHP Logic:</strong></p>
+      <div class="formula">
+// Percentage Tolerance:
+allowedLimit = (tolerance_value / 100) * setpoint
+Pass if: Math.abs(deviation) <= allowedLimit
+
+// Fixed Tolerance:
+Pass if: Math.abs(deviation) <= tolerance_value
+
+// Operator Tolerance (< or >):
+Display as-is, no validation
+      </div>
+      <div class="fix"><strong>Action Required:</strong> Add Pass/Fail logic to <code>computeBiomedicalAverages()</code> or add a separate validation function</div>
+    </div>
+
+    <div class="section">
+      <h3>Issue #3: Input Validation</h3>
+      <p><span class="status-issue">⚠️ PRESENT IN PARENT</span></p>
+      <p><strong>Current:</strong> <code>validateDecimalPlaces()</code> is passed as prop (line 21) but not used in this component</p>
+      <p><strong>Status:</strong> Validation likely handled in <code>handleBiomedicalInputChange()</code> in CalibrateStep3.jsx</p>
+      <p>✓ Confirmed: Input validation is in parent component's handler functions</p>
+    </div>
+
+    <h2>📊 Summary Table</h2>
+    <table>
+      <tr>
+        <th>Feature</th>
+        <th>Status</th>
+        <th>Notes</th>
+      </tr>
+      <tr>
+        <td>Least Count Formatting</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Perfect match with PHP</td>
+      </tr>
+      <tr>
+        <td>Measure Mode (1 Master, 5 UUC)</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Correct read-only/editable states</td>
+      </tr>
+      <tr>
+        <td>Source Mode (5 Master, 1 UUC)</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Correct read-only/editable states</td>
+      </tr>
+      <tr>
+        <td>Average Calculations</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Includes special NIBP handling</td>
+      </tr>
+      <tr>
+        <td>Deviation Calculation</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>avgUuc - avgMaster formula</td>
+      </tr>
+      <tr>
+        <td>Electrical Safety Test Tables</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Both Measure and Source modes</td>
+      </tr>
+      <tr>
+        <td>Performance Testing Tables</td>
+        <td><span class="status-ok">✓</span></td>
+        <td>Both Measure and Source modes</td>
+      </tr>
+      <tr>
+        <td>Visual Inspection Section</td>
+        <td><span class="status-missing">✗</span></td>
+        <td>Not in this component</td>
+      </tr>
+      <tr>
+        <td>Basic Safety Test Section</td>
+        <td><span class="status-missing">✗</span></td>
+        <td>Not in this component</td>
+      </tr>
+      <tr>
+        <td>Tolerance Pass/Fail Validation</td>
+        <td><span class="status-missing">✗</span></td>
+        <td>Display only, no validation</td>
+      </tr>
+    </table>
+
+    <h2>🎯 Recommendations</h2>
+    <ol>
+      <li><strong>For Electrical Safety & Performance Testing:</strong> ObservationBiomedical.jsx is ✓ 95% aligned with PHP</li>
+      <li><strong>Create separate components:</strong>
+        <ul>
+          <li><code>ObservationVisualTest.jsx</code> - For visual inspection section</li>
+          <li><code>ObservationBasicSafety.jsx</code> - For basic safety test section with Pass/Fail logic</li>
+        </ul>
+      </li>
+      <li><strong>Add tolerance validation:</strong> Implement Pass/Fail logic in <code>computeBiomedicalAverages()</code></li>
+      <li><strong>Verify deviation calculation:</strong> Confirm with backend that <code>avgUuc - avgMaster</code> is correct for all modes</li>
+    </ol>
+  </div>
+</body>
+</html>

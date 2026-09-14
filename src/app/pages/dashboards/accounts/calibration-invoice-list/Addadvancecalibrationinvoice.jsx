@@ -619,6 +619,8 @@ export default function AddDirectCalibrationInvoice() {
           instid: it.instid,
           pricematrixid: it.pricematrixid,
           location: it.location,
+          idno: it.idno ?? it.id_no ?? "",
+          serialno: it.serialno ?? it.serial_no ?? "",
           qty: parseFloat(it.qty) || 1,
           rate: parseFloat(it.rate) || 0,
           amount: parseFloat(it.amount) || 0,
@@ -968,6 +970,8 @@ export default function AddDirectCalibrationInvoice() {
                 <tr className="dark:bg-dark-800 dark:text-dark-400 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase">
                   <th className="w-10 px-4 py-3 text-left">SR NO</th>
                   <th className="px-4 py-3 text-left">DESCRIPTION</th>
+                  <th className="px-4 py-3 text-left">IDENTIFICATION NO</th>
+                  <th className="px-4 py-3 text-left">SERIAL NO</th>
                   <th className="w-28 px-4 py-3 text-center">QTY</th>
                   <th className="w-32 px-4 py-3 text-center">RATE</th>
                   <th className="w-32 px-4 py-3 text-right">AMOUNT</th>
@@ -978,7 +982,7 @@ export default function AddDirectCalibrationInvoice() {
                 {items.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="dark:text-dark-500 px-4 py-8 text-center text-sm text-gray-400"
                     >
                       No items added yet. Search and add a product above.
@@ -1005,6 +1009,12 @@ export default function AddDirectCalibrationInvoice() {
                             {item.location}
                           </div>
                         )}
+                      </td>
+                      <td className="dark:text-dark-200 px-4 py-3 text-xs">
+                        {item.idno || "—"}
+                      </td>
+                      <td className="dark:text-dark-200 px-4 py-3 text-xs">
+                        {item.serialno || "—"}
                       </td>
                       <td className="px-4 py-3">
                         <input

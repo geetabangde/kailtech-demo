@@ -4,7 +4,7 @@ import {
   PopoverPanel,
   Transition,
 } from "@headlessui/react";
-import { ArrowLeftStartOnRectangleIcon, KeyIcon } from "@heroicons/react/24/outline";
+import { PowerIcon, KeyIcon } from "@heroicons/react/24/outline";
 import { Link } from "react-router";
 import { useState, useEffect } from "react";
 import axios from "utils/axios";
@@ -54,86 +54,86 @@ export function Profile() {
 
   return (
     <>
-      <Popover className="relative flex items-center gap-3">
-        <Link
-          to="/settings/general"
-          className="dark:text-dark-100 text-sm font-semibold text-gray-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-        >
-          {fullName}
-        </Link>
-        <PopoverButton
-          as={Avatar}
-          size={9}
-          role="button"
-          name={fullName}
-          initialColor="neutral"
-          alt={fullName}
-          indicator={
-            <AvatarDot
-              color="success"
-              className="-m-0.5 size-3 ltr:right-0 rtl:left-0"
-            />
-          }
-          classNames={{
-            root: "cursor-pointer",
-          }}
-        />
-        <Transition
-          enter="duration-200 ease-out"
-          enterFrom="translate-y-2 opacity-0"
-          enterTo="translate-y-0 opacity-100"
-          leave="duration-200 ease-out"
-          leaveFrom="translate-y-0 opacity-100"
-          leaveTo="translate-y-2 opacity-0"
-        >
-          <PopoverPanel
-            anchor={{ to: "bottom end", gap: 12 }}
-            className="border-gray-150 shadow-soft dark:border-dark-600 dark:bg-dark-700 z-70 flex w-64 flex-col rounded-lg border bg-white transition dark:shadow-none"
+      <div className="flex items-center gap-3">
+        <Popover className="relative flex items-center gap-3">
+          <Link
+            to="/settings/general"
+            className="dark:text-dark-100 text-sm font-semibold text-gray-700 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
           >
-            {({ close }) => (
-              <>
-                <div className="dark:bg-dark-800 flex items-center gap-4 rounded-t-lg bg-gray-100 px-4 py-5">
-                  <Avatar size={14} name={fullName} initialColor="neutral" alt={fullName} />
-                  <div>
-                    <Link
-                      className="hover:text-primary-600 focus:text-primary-600 dark:text-dark-100 dark:hover:text-primary-400 dark:focus:text-primary-400 text-base font-medium text-gray-700"
-                      to="/settings/general"
-                    >
-                      {fullName}
-                    </Link>
+            {fullName}
+          </Link>
+          <PopoverButton
+            as={Avatar}
+            size={9}
+            role="button"
+            name={fullName}
+            initialColor="neutral"
+            alt={fullName}
+            indicator={
+              <AvatarDot
+                color="success"
+                className="-m-0.5 size-3 ltr:right-0 rtl:left-0"
+              />
+            }
+            classNames={{
+              root: "cursor-pointer",
+            }}
+          />
+          <Transition
+            enter="duration-200 ease-out"
+            enterFrom="translate-y-2 opacity-0"
+            enterTo="translate-y-0 opacity-100"
+            leave="duration-200 ease-out"
+            leaveFrom="translate-y-0 opacity-100"
+            leaveTo="translate-y-2 opacity-0"
+          >
+            <PopoverPanel
+              anchor={{ to: "bottom end", gap: 12 }}
+              className="border-gray-150 shadow-soft dark:border-dark-600 dark:bg-dark-700 z-70 flex w-64 flex-col rounded-lg border bg-white transition dark:shadow-none"
+            >
+              <div className="dark:bg-dark-800 flex items-center gap-4 rounded-lg bg-gray-100 px-4 py-5">
+                <Avatar size={14} name={fullName} initialColor="neutral" alt={fullName} />
+                <div>
+                  <Link
+                    className="hover:text-primary-600 focus:text-primary-600 dark:text-dark-100 dark:hover:text-primary-400 dark:focus:text-primary-400 text-base font-medium text-gray-700"
+                    to="/settings/general"
+                  >
+                    {fullName}
+                  </Link>
 
-                    <p className="dark:text-dark-300 mt-0.5 text-xs text-gray-400">
-                      {designation}
-                    </p>
-                  </div>
+                  <p className="dark:text-dark-300 mt-0.5 text-xs text-gray-400">
+                    {designation}
+                  </p>
                 </div>
-                <div className="flex flex-col pt-2 pb-5">
-                  <div className="px-4 py-2">
-                    <Button
-                      className="w-full gap-2 justify-start"
-                      variant="flat"
-                      color="primary"
-                      onClick={() => {
-                        setIsPasswordModalOpen(true);
-                        close(); // Close the dropdown when opening modal
-                      }}
-                    >
-                      <KeyIcon className="size-4.5" />
-                      <span>Change Password</span>
-                    </Button>
-                  </div>
-                  <div className="px-4 border-t border-gray-100 dark:border-dark-600 pt-2">
-                    <Button className="w-full gap-2" onClick={handleLogout}>
-                      <ArrowLeftStartOnRectangleIcon className="size-4.5" />
-                      <span>Logout</span>
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </PopoverPanel>
-        </Transition>
-      </Popover>
+              </div>
+            </PopoverPanel>
+          </Transition>
+        </Popover>
+
+        {/* Change Password Button */}
+        <Button
+          isIcon
+          variant="flat"
+          onClick={() => setIsPasswordModalOpen(true)}
+          className="size-9 rounded-full text-gray-500 hover:bg-primary-50 hover:text-primary-600 dark:text-dark-200 dark:hover:bg-primary-900/20 dark:hover:text-primary-400 transition-colors"
+          title="Change Password"
+          aria-label="Change Password"
+        >
+          <KeyIcon className="size-6" />
+        </Button>
+
+        {/* Logout Button placed directly on the top bar */}
+        <Button
+          isIcon
+          variant="flat"
+          onClick={handleLogout}
+          className="size-9 rounded-full text-gray-500 hover:bg-error-50 hover:text-error-600 dark:text-dark-200 dark:hover:bg-error-900/20 dark:hover:text-error-400 transition-colors"
+          title="Logout"
+          aria-label="Logout"
+        >
+          <PowerIcon className="size-7" />
+        </Button>
+      </div>
 
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}

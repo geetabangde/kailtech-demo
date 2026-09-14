@@ -7,7 +7,7 @@ import {
   Portal,
 } from "@headlessui/react";
 import {
-  ArrowLeftStartOnRectangleIcon,
+  PowerIcon,
   KeyIcon,
 } from "@heroicons/react/24/outline";
 
@@ -122,7 +122,7 @@ export function Profile() {
                     </div>
                     <div className="px-4 border-t border-gray-100 dark:border-dark-600 pt-2">
                       <Button className="w-full gap-2" onClick={handleLogout}>
-                        <ArrowLeftStartOnRectangleIcon className="size-4.5" />
+                        <PowerIcon className="size-4.5" />
                         <span>Logout</span>
                       </Button>
                     </div>

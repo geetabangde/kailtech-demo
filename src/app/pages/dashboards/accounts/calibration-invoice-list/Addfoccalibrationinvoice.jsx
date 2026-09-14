@@ -19,6 +19,7 @@ import axios from "utils/axios";
 import { toast } from "sonner";
 import { Page } from "components/shared/Page";
 import { Card } from "components/ui";
+import Select from "react-select";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -31,8 +32,6 @@ const POTYPE = "Normal"; // FOC always Normal
 // ─────────────────────────────────────────────────────────────────────────────
 const inputCls =
   "dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400";
-const selectCls =
-  "dark:bg-dark-900 dark:border-dark-500 dark:text-dark-100 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
 const labelCls =
   "dark:text-dark-400 mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500";
 const roInputCls =
@@ -414,6 +413,34 @@ export default function AddFocTestingInvoice() {
     [cgstper, sgstper, igstper, isSgst],
   );
 
+  // PO options for react-select
+  const poOptions = useMemo(() => {
+    return ponumbers.map((p) => {
+      const val =
+        typeof p === "string"
+          ? p
+          : (p.ponumber ?? (p.id != null ? String(p.id) : (p.value ?? "")));
+      const lbl =
+        typeof p === "string"
+          ? p
+          : (p.display ?? p.ponumber ?? (p.id != null ? String(p.id) : val));
+      return {
+        value: val,
+        label: lbl || val,
+      };
+    });
+  }, [ponumbers]);
+
+  const selectedPoOption = useMemo(() => {
+    if (!selectedPo) return null;
+    return (
+      poOptions.find((opt) => String(opt.value) === String(selectedPo)) || {
+        value: selectedPo,
+        label: selectedPo,
+      }
+    );
+  }, [selectedPo, poOptions]);
+
   // ── Load customers ────────────────────────────────────────────────────────
   useEffect(() => {
     axios
@@ -708,28 +735,28 @@ export default function AddFocTestingInvoice() {
             {loadingPo ? (
               <Spinner text="Loading PO..." />
             ) : (
-              <select
-                value={selectedPo}
-                onChange={(e) => setSelectedPo(e.target.value)}
-                disabled={!customerid || ponumbers.length === 0}
-                className={selectCls}
-              >
-                <option value="">
-                  {!customerid
+              <Select
+                value={selectedPoOption}
+                onChange={(opt) => setSelectedPo(opt ? opt.value : "")}
+                options={poOptions}
+                placeholder={
+                  !customerid
                     ? "Select customer first..."
                     : ponumbers.length === 0
                       ? "No PO found"
-                      : "Select PO..."}
-                </option>
-                {ponumbers.map((po) => (
-                  <option
-                    key={po.id ?? po.ponumber}
-                    value={po.ponumber ?? po.id}
-                  >
-                    {po.display ?? po.ponumber ?? String(po.id)}
-                  </option>
-                ))}
-              </select>
+                      : "Select PO..."
+                }
+                isClearable
+                isSearchable
+                isDisabled={!customerid || ponumbers.length === 0}
+                className="react-select-container text-sm"
+                classNamePrefix="react-select"
+                styles={{
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                  menu: (base) => ({ ...base, zIndex: 9999 }),
+                }}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+              />
             )}
           </div>
 

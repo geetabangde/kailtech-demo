@@ -43,7 +43,7 @@ const AddCrf = () => {
     remark: '',
     adjustment: 'No',
     adjustmentremark: '',
-    modeofdispatch: '', 
+    modeofdispatch: '',
   });
 
   const [matrixEntries, setMatrixEntries] = useState([]);
@@ -66,7 +66,7 @@ const AddCrf = () => {
 
         if (instrumentRes.data.instrument && instrumentRes.data.matrix_data) {
           setInstrument(instrumentRes.data.instrument);
-          console.log("data",instrumentRes);
+          console.log("data", instrumentRes);
           setMatrixEntries(instrumentRes.data.matrix_data.map(item => ({
             unitType: item.unittype,
             unit: item.unit_id,
@@ -139,7 +139,7 @@ const AddCrf = () => {
         letterref: instrument.letterref || '',
         accessories: instrument.accessories || '',
         conformitystatement: instrument.conformitystatement || 'No',
-        instlocation: instrument.instlocation || '',
+        instlocation: instrument.instlocation || instrument.location || 'Lab',
         remark: instrument.remark || '',
         adjustment: instrument.adjustment || 'No',
         adjustmentremark: instrument.adjustmentremark || '',
@@ -182,7 +182,12 @@ const AddCrf = () => {
   };
 
   const addMatrixDetail = (entryIndex) => {
-    const entry = matrixEntries[entryIndex]; // undefined hoga jab niche se call ho
+    const isIndexValid = typeof entryIndex === 'number';
+    const entry = isIndexValid ? matrixEntries[entryIndex] : undefined;
+
+    const defaultUnitType = matrixDetails.length > 0 ? matrixDetails[0].unitType : "";
+    const defaultUnit = matrixDetails.length > 0 ? matrixDetails[0].unit : "";
+    const defaultUnitText = matrixDetails.length > 0 ? matrixDetails[0].unitText : "";
 
     // Agar entry nahi mili to empty defaults use karo
     const min = entry ? entry.range.split(" to ")[0] : "";
@@ -192,9 +197,9 @@ const AddCrf = () => {
       ...matrixDetails,
       {
         matrixType: "",
-        unitType: entry?.unitType || "",
-        unit: entry?.unit || "",
-        unitText: entry?.unitText || "",
+        unitType: entry?.unitType || defaultUnitType,
+        unit: entry?.unit || defaultUnit,
+        unitText: entry?.unitText || defaultUnitText,
         instrumentRangeMin: min,
         instrumentRangeMax: max,
         operatingRangeMin: "",
@@ -253,16 +258,16 @@ const AddCrf = () => {
 
     // Validate main form fields
     if (!formData.name.trim()) newErrors.name = 'Name is required';
-   // if (!formData.equipmentrange) newErrors.equipmentrange = 'Range is required';
+    // if (!formData.equipmentrange) newErrors.equipmentrange = 'Range is required';
     if (!formData.make.trim()) newErrors.make = 'Make is required';
-   
+
     if (!formData.serialno.trim()) newErrors.serialno = 'Serial No. is required';
-    
+
     if (!formData.accuracy.trim()) newErrors.accuracy = 'Accuracy is required';
     if (!formData.calibrationvalidity.trim()) newErrors.calibrationvalidity = 'Calibration Validity is required';
     if (!formData.idno.trim()) newErrors.idno = 'ID No. is required';
     if (!formData.adjustment) newErrors.adjustment = 'Adjustment is required';
-   // if (!formData.modeofdispatch) newErrors.modeofdispatch = 'Mode of Dispatch is required';
+    // if (!formData.modeofdispatch) newErrors.modeofdispatch = 'Mode of Dispatch is required';
     if (!formData.sop) newErrors.sop = 'Calibration Method is required';
     if (formData.standard.length === 0) newErrors.standard = 'At least one Calibration Standard is required';
 
@@ -275,7 +280,7 @@ const AddCrf = () => {
       // if (!detail.operatingRangeMin) newErrors[`operatingRangeMin[${index}]`] = 'Operating Range Min is required';
       // if (!detail.operatingRangeMax) newErrors[`operatingRangeMax[${index}]`] = 'Operating Range Max is required';
       // if (!detail.operatingRangeMax) newErrors[`operatingRangeMax[${index}]`] = 'Operating Range Max is required';
-         if (!detail.leastCount) newErrors[`leastCount[${index}]`] = 'Least Count is required';
+      if (!detail.leastCount) newErrors[`leastCount[${index}]`] = 'Least Count is required';
     });
 
     setErrors(newErrors);
@@ -299,14 +304,14 @@ const AddCrf = () => {
       const submitData = {
         inwardid: Number(inwardId),
         instid: Number(instId),
-        id:Number(instrument?.instid),
+        id: Number(instrument?.instid),
         caliblocation,
         calibacc,
         pricematrixid: Number(instrument?.price_matrix?.pricematrixid || matrixDetails[0]?.pricematrixid || 99),
         name: formData.name,
         equipmentrange: formData.equipmentrange,
         itemleastcount: formData.leastcount,
-        matrixtype: matrixDetails.map(d => d.matrixType || 'General'), 
+        matrixtype: matrixDetails.map(d => d.matrixType || 'General'),
         make: formData.make,
         model: formData.model,
         serialno: formData.serialno,
@@ -540,11 +545,14 @@ const AddCrf = () => {
                     <input
                       type="text"
                       name="instlocation"
-                      value={formData.location}
+                      value={formData.instlocation}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                       disabled={loading}
                     />
+                    {errors.instlocation && (
+                      <p className="mt-1 text-sm text-red-500">{errors.instlocation}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -862,18 +870,18 @@ const AddCrf = () => {
                         <div className="grid grid-cols-3 items-center gap-4">
                           <label className="text-sm text-gray-700">Unit Type/Parameter</label>
                           <div className="col-span-2">
-                            <select
+                            <ReactSelect
                               name={`unittype[${index}]`}
-                              value={detail.unitType}
-                              onChange={(e) => handleMatrixDetailChange(index, 'unitType', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                              disabled={loading}
-                            >
-                              <option value="">Select Unit Type</option>
-                              {unitTypes.map(type => (
-                                <option key={type.id} value={type.name}>{type.name}</option>
-                              ))}
-                            </select>
+                              options={unitTypes.map(type => ({ value: type.name, label: type.name }))}
+                              value={
+                                unitTypes
+                                  .map(type => ({ value: type.name, label: type.name }))
+                                  .find(opt => String(opt.value) === String(detail.unitType)) || null
+                              }
+                              onChange={(selected) => handleMatrixDetailChange(index, 'unitType', selected ? selected.value : '')}
+                              isDisabled={loading}
+                              placeholder="Select Unit Type"
+                            />
                             {errors[`unitType[${index}]`] && (
                               <p className="mt-1 text-sm text-red-500">{errors[`unitType[${index}]`]}</p>
                             )}
@@ -883,18 +891,18 @@ const AddCrf = () => {
                         <div className="grid grid-cols-3 items-center gap-4">
                           <label className="text-sm text-gray-700">Unit</label>
                           <div className="col-span-2">
-                            <select
+                            <ReactSelect
                               name={`unit[${index}]`}
-                              value={detail.unit}
-                              onChange={(e) => handleMatrixDetailChange(index, 'unit', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                              disabled={loading}
-                            >
-                              <option value="">Select Unit</option>
-                              {units.map(unit => (
-                                <option key={unit.id} value={unit.id}>{unit.description}</option>
-                              ))}
-                            </select>
+                              options={units.map(unit => ({ value: unit.id, label: unit.description }))}
+                              value={
+                                units
+                                  .map(unit => ({ value: unit.id, label: unit.description }))
+                                  .find(opt => String(opt.value) === String(detail.unit)) || null
+                              }
+                              onChange={(selected) => handleMatrixDetailChange(index, 'unit', selected ? selected.value : '')}
+                              isDisabled={loading}
+                              placeholder="Select Unit"
+                            />
                             {errors[`unit[${index}]`] && (
                               <p className="mt-1 text-sm text-red-500">{errors[`unit[${index}]`]}</p>
                             )}
@@ -970,19 +978,23 @@ const AddCrf = () => {
 
                         <div className="mt-2 space-y-2">
                           {(detail.calibPoints || []).map((value, pointIndex) => {
-                            const isInvalid = Number(value) > Number(detail.instrumentRangeMax);
+                            const isInvalid = Boolean(
+                              value &&
+                              !isNaN(Number(value)) &&
+                              Number(detail.instrumentRangeMax) &&
+                              Number(value) > Number(detail.instrumentRangeMax)
+                            );
 
                             return (
                               <div key={pointIndex} className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
                                   <input
-                                    type="number"
+                                    type="text"
                                     value={value || ""}
                                     name={`calibpoint[${index}][${pointIndex}]`}
                                     onChange={(e) => handleChange(e, index, pointIndex)}
-                                    className={`w-full px-3 py-2 border ${
-                                      isInvalid ? "border-red-500" : "border-gray-300"
-                                    } rounded text-sm`}
+                                    className={`w-full px-3 py-2 border ${isInvalid ? "border-red-500" : "border-gray-300"
+                                      } rounded text-sm`}
                                     placeholder={`Calibration Point ${pointIndex + 1}`}
                                     disabled={loading}
                                   />

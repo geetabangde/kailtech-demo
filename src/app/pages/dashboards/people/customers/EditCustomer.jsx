@@ -333,7 +333,7 @@ export default function EditCustomer() {
       const emails = formData.email.split(',').map(e => e.trim()).filter(e => e !== '');
       // Very relaxed validation: must contain at least one '@' symbol
       const invalidEmails = emails.filter(e => !e.includes('@'));
-      
+
       if (invalidEmails.length > 0) {
         newValidationErrors.email = "Please enter email";
       }
@@ -1046,52 +1046,52 @@ function EditAddressModal({ initialData, onClose, onSuccess }) {
           Edit Address
         </h3>
         <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Address Nickname"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          <Input
+            label="Address Nickname"
+            value={formData.name}
+            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            required
+          />
+          <Input
+            label="Mobile"
+            value={formData.mobile}
+            onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
+            required
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+              Address
+            </label>
+            <textarea
+              value={formData.address}
+              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+              rows={3}
               required
             />
-            <Input
-              label="Mobile"
-              value={formData.mobile}
-              onChange={(e) => setFormData(prev => ({ ...prev, mobile: e.target.value }))}
-              required
-            />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-                Address
-              </label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                rows={3}
-                required
-              />
-            </div>
-            <Input
-              label="City"
-              value={formData.city}
-              onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-              required
-            />
-            <Input
-              label="Pincode"
-              value={formData.pincode}
-              onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
-              maxLength={6}
-              required
-            />
-            <div className="flex justify-end gap-2 mt-6">
-              <Button type="button" onClick={onClose} variant="outline">
-                Close
-              </Button>
-              <Button type="submit" color="primary" disabled={loading}>
-                {loading ? "Saving..." : "Update Address"}
-              </Button>
-            </div>
-          </form>
+          </div>
+          <Input
+            label="City"
+            value={formData.city}
+            onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+            required
+          />
+          <Input
+            label="Pincode"
+            value={formData.pincode}
+            onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
+            maxLength={6}
+            required
+          />
+          <div className="flex justify-end gap-2 mt-6">
+            <Button type="button" onClick={onClose} variant="outline">
+              Close
+            </Button>
+            <Button type="submit" color="primary" disabled={loading}>
+              {loading ? "Saving..." : "Update Address"}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

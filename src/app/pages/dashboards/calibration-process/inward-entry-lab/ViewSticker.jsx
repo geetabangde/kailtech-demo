@@ -7,7 +7,9 @@ function ViewSticker() {
     const location = useLocation();
     const { inwardId, instId } = useParams();
 
-    const [stickersData, setStickersData] = useState([]);
+    const [instruments, setInstruments] = useState([]);
+    const [inwardEntry, setInwardEntry] = useState(null);
+    const [companyInfo, setCompanyInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -15,7 +17,7 @@ function ViewSticker() {
     const caliblocation = location.state?.caliblocation || "Lab";
     const calibacc = location.state?.calibacc || "Nabl";
 
-    // Function to get auth token from localStorage or wherever you store it
+    // Function to get auth token
     const getAuthToken = () => {
         const token = localStorage.getItem('token') ||
             localStorage.getItem('authToken') ||
@@ -25,7 +27,42 @@ function ViewSticker() {
         return token;
     };
 
-    // API call to fetch sticker data for multiple instruments
+    // Format date to d/m/Y (DD/MM/YYYY) matching PHP changedateformatespecito
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+
+        if (typeof dateString === 'string') {
+            const trimmed = dateString.trim();
+            // Check YYYY-MM-DD or YYYY-MM-DD HH:mm:ss
+            const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                const year = isoMatch[1];
+                const month = isoMatch[2].padStart(2, '0');
+                const day = isoMatch[3].padStart(2, '0');
+                return `${day}/${month}/${year}`;
+            }
+            // Check DD/MM/YYYY
+            const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (dmyMatch) {
+                const day = dmyMatch[1].padStart(2, '0');
+                const month = dmyMatch[2].padStart(2, '0');
+                const year = dmyMatch[3];
+                return `${day}/${month}/${year}`;
+            }
+        }
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return dateString;
+        }
+
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+
+    // API call to fetch sticker data using the Laravel getInstrumentLabels endpoint
     useEffect(() => {
         const fetchStickersData = async () => {
             try {
@@ -33,84 +70,66 @@ function ViewSticker() {
                 setError(null);
 
                 const token = getAuthToken();
-
                 if (!token) {
                     setError('Authentication token not found. Please login again.');
                     setLoading(false);
                     return;
                 }
 
-                // Split instId into array of IDs
-                const instIds = instId.split(',').map(id => id.trim());
-
                 const headers = {
                     'Content-Type': 'application/json',
+                    'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`
                 };
 
-                if (token.startsWith('Bearer ')) {
-                    headers['Authorization'] = token;
-                } else {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-
-                // Fetch sticker data for each instrument
-                const promises = instIds.map(async (id) => {
-                    try {
-                        console.log('Making API call for instId:', id);
-
-                        const response = await fetch(
-                            `${JWT_HOST_API}/calibrationprocess/view-sticker`,
-                            {
-                                method: 'POST',
-                                headers: headers,
-                                body: JSON.stringify({
-                                    inwardid: inwardId,
-                                    instid: id
-                                }),
-                            }
-                        );
-
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                throw new Error('Authentication failed. Please login again.');
-                            }
-                            if (response.status === 404) {
-                                console.warn(`Sticker not found for instId ${id}`);
-                                return null;
-                            }
-                            console.warn(`HTTP error! status: ${response.status} for instId ${id}`);
-                            return null;
-                        }
-
-                        const result = await response.json();
-
-                        if (result.status === "true" || result.status === true) {
-                            return result.data;
-                        } else {
-                            console.warn(`Failed to fetch sticker data for instId ${id}:`, result.message);
-                            return null;
-                        }
-                    } catch (err) {
-                        console.error(`Error fetching sticker for instId ${id}:`, err);
-                        if (err?.message?.includes('Authentication failed')) {
-                            throw err;
-                        }
-                        return null;
+                // The Laravel getInstrumentLabels accepts comma-separated instid directly
+                const response = await fetch(
+                    `${JWT_HOST_API}/calibrationprocess/view-sticker`,
+                    {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({
+                            inwardid: inwardId,
+                            instid: instId
+                        }),
                     }
-                });
+                );
 
-                const results = await Promise.all(promises);
-                const validResults = results.filter(result => result !== null);
-                
-                if (validResults.length === 0 && instIds.length > 0) {
-                     throw new Error('No instruments found with the given criteria');
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Authentication failed. Please login again.');
+                    }
+                    if (response.status === 404) {
+                        throw new Error('No instruments found with the given criteria.');
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
-                setStickersData(validResults);
 
+                const result = await response.json();
+
+                if (result.status === "true" || result.status === true || result.success === true) {
+                    const data = result.data;
+                    if (data?.instruments) {
+                        setInstruments(data.instruments || []);
+                        setInwardEntry(data.inward_entry || null);
+                        setCompanyInfo(Array.isArray(data.company_info) ? data.company_info[0] : data.company_info);
+                    } else if (Array.isArray(data)) {
+                        // Fallback in case old array format is returned
+                        const allInstruments = [];
+                        data.forEach(item => {
+                            if (item.instruments) {
+                                allInstruments.push(...item.instruments);
+                            }
+                        });
+                        setInstruments(allInstruments);
+                        setCompanyInfo(data[0]?.company_info?.[0] || null);
+                        setInwardEntry(data[0]?.inward_info?.[0] || null);
+                    }
+                } else {
+                    throw new Error(result.message || 'Failed to fetch sticker data');
+                }
             } catch (err) {
                 console.error('API Error:', err);
-                setError(`Network error: ${err.message}`);
+                setError(err.message || 'Failed to fetch sticker data');
             } finally {
                 setLoading(false);
             }
@@ -133,140 +152,33 @@ function ViewSticker() {
         });
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-
-        if (typeof dateString === 'string' && dateString.includes('/')) {
-            const parts = dateString.split('/');
-            if (parts.length === 3) {
-                if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
-                    return dateString;
-                }
-                if (parts[1].length <= 2 && parts[0].length <= 2 && parts[2].length === 4) {
-                    return `${parts[1].padStart(2, '0')}/${parts[0].padStart(2, '0')}/${parts[2]}`;
-                }
-            }
-        }
-
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-            return dateString;
-        }
-
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    };
-
-    // Style for print
+    // Print CSS — hides the app sidebar/navbar, shows only sticker cards
     useEffect(() => {
         const style = document.createElement('style');
         style.innerHTML = `
             @media print {
-                /* Hide everything by default */
-                body * {
-                    visibility: hidden;
-                }
-                
-                /* Reset positioning and spacing on all elements to prevent sidebar layout shifts */
-                * {
-                    position: static !important;
-                    box-shadow: none !important;
-                }
-                
-                /* Show our print container and its children */
-                .print-container, .print-container * {
-                    visibility: visible;
-                }
-                
-                /* Position the print container absolutely to the page to break out of all wrappers */
+                .noprint { display: none !important; }
+                body * { visibility: hidden; }
+                * { position: static !important; box-shadow: none !important; }
+                .print-container, .print-container * { visibility: visible; }
                 .print-container {
                     position: absolute !important;
                     left: 0 !important;
                     top: 0 !important;
-                    width: 100% !important;
+                    width: 8.71in !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     background-color: white !important;
                 }
-                
-                .noprint { display: none !important; }
             }
         `;
         document.head.appendChild(style);
-        return () => document.head.removeChild(style);
+        return () => {
+            if (document.head.contains(style)) {
+                document.head.removeChild(style);
+            }
+        };
     }, []);
-
-    const StickerCard = ({ stickerData }) => {
-        const instrument = stickerData?.instruments?.[0];
-        const companyInfo = stickerData?.company_info?.[0];
-
-        return (
-            <div
-                className="page-break-inside-avoid bg-white"
-                style={{
-                    pageBreakInside: 'avoid',
-                    float: 'left',
-                    marginLeft: '1%',
-                    marginBottom: '1%',
-                    width: '31%',
-                    border: '1px solid black',
-                    padding: '4px',
-                    fontFamily: 'Times New Roman, serif'
-                }}
-            >
-                <div style={{ float: 'left' }}>
-                    {companyInfo?.logo ? (
-                        <img 
-                            src={companyInfo.logo} 
-                            style={{ width: '55px', filter: 'grayscale(100%)' }} 
-                            alt="Logo" 
-                        />
-                    ) : (
-                        <div style={{ width: '55px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>ktrc</div>
-                    )}
-                </div>
-                
-                <div style={{ margin: 'auto' }}>
-                    <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', lineHeight: '1.2', marginBottom: '2px', paddingLeft: '55px' }}>
-                        {companyInfo?.name || 'Kailtech Test And Research Centre Pvt. Ltd.'}
-                    </div>
-                    <div style={{ textAlign: 'center', fontSize: '8px' }}>
-                        {companyInfo?.address || 'Plot No.141-C, Electronic Complex, Industrial Area, Indore-452010 (MADHYA PRADESH) India'} {companyInfo?.phone || 'Ph: 91-731-4787555 (30 lines)'}
-                    </div>
-                    
-                    <div style={{ textAlign: 'center', fontWeight: '600', fontSize: '14px' }}>
-                        Calibration Status Tag
-                    </div>
-                    
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px', paddingTop: '8px' }}>
-                        <b>Inst. Name: - </b>{instrument?.name || 'N/A'}
-                    </div>
-                    {instrument?.instlocation && (
-                        <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
-                            <b>Location: - </b>{instrument.instlocation}
-                        </div>
-                    )}
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
-                        <b>ID/Sr.: - </b>
-                        {(instrument?.idno && instrument?.idno !== 'NA' ? instrument.idno : 'N.A')}/
-                        {(instrument?.serialno && instrument?.serialno !== 'NA' ? instrument.serialno : 'N.A')}
-                    </div>
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
-                        <b>BRN No: - </b>{instrument?.bookingrefno || 'N/A'}
-                    </div>
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
-                        <b>Cal. Date: - </b>{formatDate(instrument?.calibratedon)}
-                    </div>
-                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
-                        <b>Due. Date No: - </b>{formatDate(instrument?.duedate)}
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     if (loading) {
         return (
@@ -275,18 +187,17 @@ function ViewSticker() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 000 8v4a8 8 0 01-8-8z"></path>
                 </svg>
-                Loading ViewStickers...
+                Loading Stickers...
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-50">
-                {/* Header Section */}
-                <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        <h1 className="text-2xl font-semibold text-gray-800">View Stickers</h1>
+            <div className="min-h-screen bg-gray-50 p-8">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center justify-between mb-4">
+                        <h1 className="text-xl font-semibold text-gray-800">View Stickers</h1>
                         <button
                             onClick={handleBack}
                             className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
@@ -294,56 +205,136 @@ function ViewSticker() {
                             ← Back to Perform Calibration
                         </button>
                     </div>
-                </div>
-
-                <div className="p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                            <p className="text-red-700">{error}</p>
-                            {error.includes('Authentication') && (
-                                <p className="text-red-600 mt-2 text-sm">
-                                    Please check if you are logged in and try again.
-                                </p>
-                            )}
-                        </div>
+                    <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                        <p className="text-red-700">{error}</p>
                     </div>
                 </div>
             </div>
         );
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header Section - Sticky at top */}
-            <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10 shadow-sm noprint">
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <h1 className="text-2xl font-semibold text-gray-800">
-                        View Stickers ({stickersData.length})
-                    </h1>
-                    <div className="space-x-4">
-                        <button
-                            onClick={() => window.print()}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                        >
-                            Print
-                        </button>
-                        <button
-                            onClick={handleBack}
-                            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                        >
-                            ← Back to Perform Calibration
-                        </button>
-                    </div>
-                </div>
-            </div>
+    const companyname = companyInfo?.name || 'Kailtech Test And Research Centre Pvt. Ltd.';
+    const companyaddress = companyInfo?.address || 'Plot No.141-C, Electronic Complex, Industrial Area, Indore-452010 (MADHYA PRADESH) India';
+    const companyphone = companyInfo?.phone || 'Ph: 91-731-4787555 (30 lines)';
+    const companylogo = companyInfo?.logo || '';
 
-            {/* Stickers Grid */}
-            <div className="p-8 print-container">
-                <div className="max-w-[8.71in] mx-auto overflow-hidden">
-                    {stickersData.map((stickerData, index) => (
-                        <StickerCard key={index} stickerData={stickerData} />
-                    ))}
-                </div>
+    return (
+        <div className="min-h-screen bg-gray-100 py-6">
+            {/* Print button — exact PHP: position:fixed;top:50;right:50 + zIndex to clear app navbar */}
+            <input
+                type="button"
+                onClick={() => window.print()}
+                className="noprint"
+                style={{ position: 'fixed', top: '65px', right: '160px', zIndex: 9999, cursor: 'pointer', padding: '6px 14px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, fontSize: '14px' }}
+                value="Print"
+            />
+            {/* Back button — for React navigation */}
+            <button
+                onClick={handleBack}
+                className="noprint"
+                style={{ position: 'fixed', top: '65px', right: '60px', zIndex: 9999, cursor: 'pointer', padding: '6px 14px', background: '#374151', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 600, fontSize: '14px' }}
+            >
+                ← Back
+            </button>
+
+            {/* Exact PHP: <div style="width: 8.71in;"> — no padding */}
+            <div
+                className="print-container bg-white shadow-sm mx-auto"
+                style={{
+                    width: '8.71in'
+                }}
+            >
+                {instruments.map((rowitem, index) => {
+                    const inwarddate = rowitem.inward_date || inwardEntry?.inwarddate || '';
+
+                    return (
+                        <div
+                            key={rowitem.id || index}
+                            style={{
+                                pageBreakInside: 'avoid',
+                                float: 'left',
+                                marginLeft: '1%',
+                                marginBottom: '1%',
+                                width: '26%',
+                                border: '1px solid black',
+                                padding: '4px',
+                                fontFamily: 'Times New Roman, serif',
+                                boxSizing: 'content-box',
+                                color: '#000'
+                            }}
+                        >
+                            {/* Logo logic matching PHP */}
+                            {rowitem.accreditation === 'Nabl' && inwarddate < '2022-08-01' ? (
+                                <div style={{ float: 'left' }}>
+                                    <img src="/images/nabl2348.png" style={{ width: '35px' }} alt="NABL" />
+                                </div>
+                            ) : (
+                                <div style={{ float: 'left' }}>
+                                    {companylogo ? (
+                                        <img
+                                            src={companylogo}
+                                            style={{ width: '60px', filter: 'grayscale(100%)' }}
+                                            alt="Logo"
+                                        />
+                                    ) : (
+                                        <div style={{ width: '60px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>ktrc</div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div style={{ margin: 'auto' }}>
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', lineHeight: '1.2' }}>
+                                    {companyname}
+                                </div>
+                                <div style={{ textAlign: 'center', fontSize: '8px', lineHeight: '10px' }}>
+                                    {companyaddress} {companyphone}
+                                </div>
+
+                                {inwarddate > '2022-08-01' && (
+                                    <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', lineHeight: '1.2' }}>
+                                        Calibration Status Tag
+                                    </div>
+                                )}
+
+                                <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px', paddingTop: '8px' }}>
+                                    <b>Inst. Name:- </b>{rowitem.name || ''}
+                                </div>
+
+                                <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                    <b>Location:- </b>{rowitem.instlocation || 'NA'}
+                                </div>
+
+                                <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                    <b>ID/Sr.: - </b>{(rowitem.idno ?? '') + '/' + (rowitem.serialno ?? '')}
+                                </div>
+
+                                {inwarddate < '2022-08-01' ? (
+                                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                        <b>Certificate No: -  </b>{rowitem.bookingrefno || ''}
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                        <b>BRN No: -  </b>{rowitem.bookingrefno || ''}
+                                    </div>
+                                )}
+
+                                <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                    <b>Cal. Date: -  </b>{formatDate(rowitem.calibratedon)}
+                                </div>
+
+                                <div style={{ textAlign: 'left', fontSize: '10px', lineHeight: '12px' }}>
+                                    <b>Due. Date No: -  </b>{formatDate(rowitem.duedate)}
+                                    {/* PHP uses class="float:right" (not inline style) — replicated exactly */}
+                                    {inwarddate < '2022-08-01' && (
+                                        <span className="float:right"> Cal. By: -</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                {/* Clear floats */}
+                <div style={{ clear: 'both' }}></div>
             </div>
         </div>
     );

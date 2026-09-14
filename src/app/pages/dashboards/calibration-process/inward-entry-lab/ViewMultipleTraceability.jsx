@@ -17,8 +17,23 @@ const ViewMultipleTraceability = () => {
     useEffect(() => {
         const fetchPdfs = async () => {
             try {
+                const authToken =
+                    localStorage.getItem("authToken") ||
+                    localStorage.getItem("token") ||
+                    sessionStorage.getItem("authToken") ||
+                    sessionStorage.getItem("token");
+
+                const headers = {
+                    "Content-Type": "application/json",
+                };
+                if (authToken) {
+                    headers.Authorization = `Bearer ${authToken}`;
+                }
+
                 const response = await axios.post(
-                    `/calibrationprocess/view-tracebility?inwardid=${inwardId}&instid=${instIds}`
+                    `/calibrationprocess/view-tracebility?inwardid=${inwardId}&instid=${instIds}`,
+                    {},
+                    { headers }
                 );
 
                 if (response.data.status && response.data.data) {
@@ -164,7 +179,13 @@ const ViewMultipleTraceability = () => {
                 width: '100%',
                 backgroundColor: '#ffffff'
             }}>
-                {pdfUrls.map((url, index) => (
+                {pdfUrls.map((item, index) => {
+                    const url = typeof item === 'string' ? item : (item?.file || item?.url || '');
+                    const title = typeof item === 'object' && item?.name
+                        ? `${item.name}${item.idno ? ` (${item.idno})` : ''}${item.certificateno ? ` - ${item.certificateno}` : ''}`
+                        : `Certificate ${index + 1} of ${pdfUrls.length}`;
+
+                    return (
                     <div 
                         key={index}
                         style={{
@@ -191,8 +212,23 @@ const ViewMultipleTraceability = () => {
                                 color: '#1e293b',
                                 letterSpacing: '0.5px'
                             }}>
-                                📄 Certificate {index + 1} of {pdfUrls.length}
+                                📄 {title}
                             </span>
+                            {url && (
+                                <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        fontSize: '13px',
+                                        color: '#2563eb',
+                                        fontWeight: '600',
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    Open in New Tab ↗
+                                </a>
+                            )}
                         </div>
 
                         {/* PDF Content - Clean white background, no scrollbar */}
@@ -234,7 +270,8 @@ const ViewMultipleTraceability = () => {
                             </div>
                         )}
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <style>

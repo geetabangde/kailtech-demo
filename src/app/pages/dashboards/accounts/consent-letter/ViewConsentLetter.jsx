@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import axios from "utils/axios";
+import dayjs from "dayjs";
 
 // Local Imports
 import { Page } from "components/shared/Page";
@@ -149,6 +150,16 @@ export default function ViewConsentLetter() {
 
   const isDraft = data.status === 0 || data.status === "0";
 
+  const formattedDate = (() => {
+    const raw = data.consentletterdate;
+    if (!raw) return "";
+    if (typeof raw === "string" && (/^\d{2}[/.-]\d{2}[/.-]\d{4}$/.test(raw.trim()))) {
+      return raw.trim();
+    }
+    const parsed = dayjs(raw);
+    return parsed.isValid() ? parsed.format("DD/MM/YYYY") : raw;
+  })();
+
   return (
     <Page title="View Consent Letter">
       <div className="p-4 sm:p-6">
@@ -232,7 +243,7 @@ export default function ViewConsentLetter() {
           <div className="mb-6 flex justify-end">
             <div className="text-right text-[13px] leading-relaxed">
               <p className="font-semibold">{data.conosentletterno}</p>
-              <p>{data.datedon}</p>
+              <p>{formattedDate}</p>
             </div>
           </div>
 
@@ -289,7 +300,7 @@ export default function ViewConsentLetter() {
                   <p>Electronically signed by</p>
                   <p>{data.signature_by || data.approved_by_name || "Authorized Signatory"} {data.signature_emp_id ? `(Emp - ${data.signature_emp_id})` : ""}</p>
                   <p>Designation:{data.signature_designation || "Manager-Accounts"}</p>
-                  <p>Date:{data.datedon || ""}</p>
+                  <p>Date:{formattedDate || data.datedon || ""}</p>
                 </div>
               )}
             </div>

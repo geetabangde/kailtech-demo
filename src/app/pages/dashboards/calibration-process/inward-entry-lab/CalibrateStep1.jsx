@@ -314,7 +314,7 @@ const Calibratestep1 = () => {
 
                     // Map API data to form fields
                     const mappedData = {
-                        equipmentName: instrument_master?.name || instrument_entry?.name || 'N/A',
+                        equipmentName: instrument_entry?.name || instrument_master?.name || 'N/A',
                         brnNo: inward?.bookingrefno || inward?.labreferenceno || '',
                         receiveDate: inward?.sample_received_on ?
                             formatDate(inward.sample_received_on) :

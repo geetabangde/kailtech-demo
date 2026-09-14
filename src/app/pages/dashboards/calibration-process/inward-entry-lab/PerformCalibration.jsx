@@ -1,10 +1,39 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button, Select, Pagination, PaginationItems, PaginationNext, PaginationPrevious } from "components/ui";
 import axios from "utils/axios";
 import { toast } from "sonner";
 import { PerformActions } from "./PerformActions";
 import { JWT_HOST_API } from 'configs/auth.config';
+import { TableConfig } from "./TableConfig";
+import { useLocalStorage, useLockScrollbar } from "hooks";
+import clsx from "clsx";
+
+const AVAILABLE_COLUMNS = [
+    { id: 'sno', label: 'S No' },
+    { id: 'refNo', label: 'Ref No' },
+    { id: 'name', label: 'Name' },
+    { id: 'typeOfInstrument', label: 'Type of Instrument' },
+    { id: 'idNo', label: 'Id No' },
+    { id: 'serialNo', label: 'Serial No' },
+    { id: 'calibrationMethod', label: 'Calibration Method' },
+    { id: 'allotedTo', label: 'Alloted To' },
+    { id: 'matrix', label: 'Matrix' },
+    { id: 'actions', label: 'Perform Actions' },
+];
+
+const DEFAULT_COLUMN_VISIBILITY = {
+    sno: true,
+    refNo: true,
+    name: true,
+    typeOfInstrument: true,
+    idNo: true,
+    serialNo: true,
+    calibrationMethod: true,
+    allotedTo: true,
+    matrix: true,
+    actions: true,
+};
 
 const PerformCalibration = () => {
     const navigate = useNavigate();
@@ -20,8 +49,56 @@ const PerformCalibration = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
 
+    const [tableSettings, setTableSettings] = useState({
+        enableFullScreen: false,
+        enableRowDense: false,
+    });
 
-    const [pageSize, setPageSize] = useState(10);
+    const [columnVisibility, setColumnVisibility] = useLocalStorage(
+        "column-visibility-perform-calibration-1",
+        DEFAULT_COLUMN_VISIBILITY
+    );
+
+    useLockScrollbar(tableSettings.enableFullScreen);
+
+    const tableAdapter = useMemo(() => ({
+        getState: () => ({
+            tableSettings,
+        }),
+        options: {
+            meta: {
+                setTableSettings,
+            },
+        },
+        getAllLeafColumns: () =>
+            AVAILABLE_COLUMNS.map((col) => ({
+                id: col.id,
+                columnDef: { label: col.label },
+                getIsVisible: () => (columnVisibility && columnVisibility[col.id] !== undefined ? columnVisibility[col.id] : true),
+                getToggleVisibilityHandler: () => (e) => {
+                    const isChecked = e && e.target && typeof e.target.checked === 'boolean'
+                        ? e.target.checked
+                        : (columnVisibility && columnVisibility[col.id] === false ? true : false);
+                    setColumnVisibility((prev) => ({
+                        ...(prev || DEFAULT_COLUMN_VISIBILITY),
+                        [col.id]: isChecked,
+                    }));
+                },
+                getCanPin: () => false,
+            })),
+        resetColumnVisibility: () => {
+            setColumnVisibility(DEFAULT_COLUMN_VISIBILITY);
+        },
+    }), [tableSettings, columnVisibility, setColumnVisibility]);
+
+    const visibleColumnCount = AVAILABLE_COLUMNS.filter(
+        (col) => !columnVisibility || columnVisibility[col.id] !== false
+    ).length;
+
+    const cellPadding = tableSettings.enableRowDense ? "p-1.5 text-xs" : "p-3";
+
+
+    const [pageSize, setPageSize] = useState(50);
     const [loading, setLoading] = useState(false);
     const [calibrationData, setCalibrationData] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]);
@@ -1302,10 +1379,13 @@ const PerformCalibration = () => {
                 </div>
 
                 {/* Main Content */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className={clsx(
+                    "bg-white rounded-lg shadow-sm border border-gray-200 transition-all",
+                    tableSettings.enableFullScreen && "fixed inset-0 z-61 bg-white p-4 overflow-auto rounded-none border-none"
+                )}>
                     {/* Controls */}
                     <div className="p-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-600">Search:</span>
                                 <input
@@ -1316,6 +1396,9 @@ const PerformCalibration = () => {
                                     placeholder="Search ID, Customer..."
                                 />
                             </div>
+                            <div className="flex items-center gap-2">
+                                <TableConfig table={tableAdapter} />
+                            </div>
                         </div>
                     </div>
 
@@ -1323,88 +1406,108 @@ const PerformCalibration = () => {
                         <table className="w-full text-sm border-collapse min-w-[1200px]" style={{ position: 'relative' }}>
                             <thead>
                                 <tr className="bg-gray-200">
-                                    <th className="text-center p-3 font-semibold text-gray-700 border border-gray-300 w-16">
-                                        <div className="flex flex-col items-center gap-1">
-                                            S NO
-                                            <input
-                                                type="checkbox"
-                                                checked={selectAll}
-                                                onChange={handleSelectAll}
-                                                className="rounded focus:ring-blue-500 mt-1"
-                                            />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[160px] cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('refNo')}
-                                    >
-                                        <div className="flex items-center justify-center">
-                                            <span>Ref No</span>
-                                            <SortIcon column="refNo" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('name')}
-                                    >
-                                        <div className="flex items-center justify-center">
-                                            <span>Name</span>
-                                            <SortIcon column="name" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('typeOfInstrument')}
-                                    >
-                                        <div className="flex flex-col items-center gap-1">
-                                            <span>Type of</span>
-                                            <span>Instrument</span>
-                                            <SortIcon column="typeOfInstrument" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 w-20 cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('idNo')}
-                                    >
-                                        <div className="flex items-center justify-center">
-                                            <span>Id no</span>
-                                            <SortIcon column="idNo" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 w-20 cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('serialNo')}
-                                    >
-                                        <div className="flex items-center justify-center">
-                                            <span>Serial no</span>
-                                            <SortIcon column="serialNo" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('calibrationMethod')}
-                                    >
-                                        <div className="flex flex-col items-center gap-1">
-                                            <span>Calibration</span>
-                                            <span>Method</span>
-                                            <SortIcon column="calibrationMethod" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[100px] cursor-pointer hover:bg-gray-100"
-                                        onClick={() => handleSort('allotedTo')}
-                                    >
-                                        <div className="flex items-center justify-center">
-                                            <span>Alloted to</span>
-                                            <SortIcon column="allotedTo" />
-                                        </div>
-                                    </th>
-                                    <th className="text-center p-3 font-semibold text-gray-700 border border-gray-300 w-20">
-                                        <span>Matrix</span>
-                                    </th>
-                                    <th className="text-center p-3 font-semibold text-gray-700 border border-gray-300 min-w-[80px]">
-                                        <span>Perform</span>
-                                    </th>
+                                    {(!columnVisibility || columnVisibility.sno !== false) && (
+                                        <th className={clsx("text-center font-semibold text-gray-700 border border-gray-300 w-16", cellPadding)}>
+                                            <div className="flex flex-col items-center gap-1">
+                                                S NO
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectAll}
+                                                    onChange={handleSelectAll}
+                                                    className="rounded focus:ring-blue-500 mt-1"
+                                                />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.refNo !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[160px] cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('refNo')}
+                                        >
+                                            <div className="flex items-center justify-center">
+                                                <span>Ref No</span>
+                                                <SortIcon column="refNo" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.name !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('name')}
+                                        >
+                                            <div className="flex items-center justify-center">
+                                                <span>Name</span>
+                                                <SortIcon column="name" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.typeOfInstrument !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('typeOfInstrument')}
+                                        >
+                                            <div className="flex flex-col items-center gap-1">
+                                                <span>Type of</span>
+                                                <span>Instrument</span>
+                                                <SortIcon column="typeOfInstrument" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.idNo !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 w-20 cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('idNo')}
+                                        >
+                                            <div className="flex items-center justify-center">
+                                                <span>Id no</span>
+                                                <SortIcon column="idNo" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.serialNo !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 w-20 cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('serialNo')}
+                                        >
+                                            <div className="flex items-center justify-center">
+                                                <span>Serial no</span>
+                                                <SortIcon column="serialNo" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.calibrationMethod !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[120px] cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('calibrationMethod')}
+                                        >
+                                            <div className="flex flex-col items-center gap-1">
+                                                <span>Calibration</span>
+                                                <span>Method</span>
+                                                <SortIcon column="calibrationMethod" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.allotedTo !== false) && (
+                                        <th
+                                            className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[100px] cursor-pointer hover:bg-gray-100", cellPadding)}
+                                            onClick={() => handleSort('allotedTo')}
+                                        >
+                                            <div className="flex items-center justify-center">
+                                                <span>Alloted to</span>
+                                                <SortIcon column="allotedTo" />
+                                            </div>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.matrix !== false) && (
+                                        <th className={clsx("text-center font-semibold text-gray-700 border border-gray-300 w-20", cellPadding)}>
+                                            <span>Matrix</span>
+                                        </th>
+                                    )}
+                                    {(!columnVisibility || columnVisibility.actions !== false) && (
+                                        <th className={clsx("text-center font-semibold text-gray-700 border border-gray-300 min-w-[80px]", cellPadding)}>
+                                            <span>Perform</span>
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
@@ -1417,79 +1520,99 @@ const PerformCalibration = () => {
 
                                         return (
                                             <tr key={item.id} className="border-b border-gray-200 hover:bg-gray-50">
-                                                <td className="p-3 text-center border border-gray-200">
-                                                    <div className="flex flex-col items-center gap-2">
-                                                        <span className="font-medium">{startIndex + itemIndex + 1}</span>
+                                                {(!columnVisibility || columnVisibility.sno !== false) && (
+                                                    <td className={clsx("text-center border border-gray-200", cellPadding)}>
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <span className="font-medium">{startIndex + itemIndex + 1}</span>
 
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedItems.includes(item.id)}
-                                                            onChange={() => handleSelectItem(item.id)}
-                                                            className="rounded focus:ring-blue-500"
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedItems.includes(item.id)}
+                                                                onChange={() => handleSelectItem(item.id)}
+                                                                className="rounded focus:ring-blue-500"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.refNo !== false) && (
+                                                    <td className={clsx("border border-gray-200", cellPadding)}>
+                                                        <div className="flex flex-col">
+                                                            {item.bookingrefno && (
+                                                                <span className="text-xs">
+                                                                    <strong>BRN:</strong> {item.bookingrefno}
+                                                                    {item.rev > 0 && `/R${item.rev}`}
+                                                                </span>
+                                                            )}
+                                                            {item.lrn && (
+                                                                <span className="text-xs">
+                                                                    <strong>LRN:</strong> {item.lrn}
+                                                                </span>
+                                                            )}
+                                                            {item.ulrno && item.ulrno !== 'N.A' && (
+                                                                <span className="text-xs">
+                                                                    <strong>ULR NO.:</strong> {item.ulrno}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.name !== false) && (
+                                                    <td className={clsx("border border-gray-200", cellPadding)}>
+                                                        <span className="font-medium">{item.name}</span>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.typeOfInstrument !== false) && (
+                                                    <td className={clsx("border border-gray-200", cellPadding)}>
+                                                        {item.instrument_name || item.type_of_instrument || item.name}
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.idNo !== false) && (
+                                                    <td className={clsx("text-center border border-gray-200", cellPadding)}>
+                                                        <span className="font-medium">{item.idno}</span>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.serialNo !== false) && (
+                                                    <td className={clsx("text-center border border-gray-200", cellPadding)}>
+                                                        <span className="font-medium">{item.serialno}</span>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.calibrationMethod !== false) && (
+                                                    <td className={clsx("border border-gray-200", cellPadding)}>
+                                                        <span className="font-medium">{item.sop_method}</span>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.allotedTo !== false) && (
+                                                    <td className={clsx("border border-gray-200", cellPadding)}>
+                                                        {allotedToDisplay}
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.matrix !== false) && (
+                                                    <td className={clsx("text-center border border-gray-200", cellPadding)}>
+                                                        <Link
+                                                            to={`/dashboards/calibration-process/inward-entry-lab/matrix/${inwardId}/${item.id}?caliblocation=${caliblocation}&calibacc=${calibacc}`}
+                                                            className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors inline-flex items-center justify-center"
+                                                        >
+                                                            Matrix
+                                                        </Link>
+                                                    </td>
+                                                )}
+                                                {(!columnVisibility || columnVisibility.actions !== false) && (
+                                                    <td className={clsx("text-center border border-gray-200", cellPadding)}>
+                                                        <PerformActions
+                                                            item={item}
+                                                            onAction={handleAction}
+                                                            inwardId={inwardId}
+                                                            caliblocation={caliblocation}
+                                                            calibacc={calibacc}
                                                         />
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 border border-gray-200">
-                                                    <div className="flex flex-col">
-                                                        {item.bookingrefno && (
-                                                            <span className="text-xs">
-                                                                <strong>BRN:</strong> {item.bookingrefno}
-                                                                {item.rev > 0 && `/R${item.rev}`}
-                                                            </span>
-                                                        )}
-                                                        {item.lrn && (
-                                                            <span className="text-xs">
-                                                                <strong>LRN:</strong> {item.lrn}
-                                                            </span>
-                                                        )}
-                                                        {item.ulrno && item.ulrno !== 'N.A' && (
-                                                            <span className="text-xs">
-                                                                <strong>ULR NO.:</strong> {item.ulrno}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 border border-gray-200">
-                                                    <span className="font-medium">{item.name}</span>
-                                                </td>
-                                                <td className="p-3 border border-gray-200">
-                                                    {item.instrument_name || item.type_of_instrument || item.name}
-                                                </td>
-                                                <td className="p-3 text-center border border-gray-200">
-                                                    <span className="font-medium">{item.idno}</span>
-                                                </td>
-                                                <td className="p-3 text-center border border-gray-200">
-                                                    <span className="font-medium">{item.serialno}</span>
-                                                </td>
-                                                <td className="p-3 border border-gray-200">
-                                                    <span className="font-medium">{item.sop_method}</span>
-                                                </td>
-                                                <td className="p-3 border border-gray-200">
-                                                    {allotedToDisplay}
-                                                </td>
-                                                <td className="p-3 text-center border border-gray-200">
-                                                    <Link
-                                                        to={`/dashboards/calibration-process/inward-entry-lab/matrix/${inwardId}/${item.id}?caliblocation=${caliblocation}&calibacc=${calibacc}`}
-                                                        className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-3 py-1 rounded text-xs font-medium transition-colors inline-flex items-center justify-center"
-                                                    >
-                                                        Matrix
-                                                    </Link>
-                                                </td>
-                                                <td className="p-3 text-center border border-gray-200">
-                                                    <PerformActions
-                                                        item={item}
-                                                        onAction={handleAction}
-                                                        inwardId={inwardId}
-                                                        caliblocation={caliblocation}
-                                                        calibacc={calibacc}
-                                                    />
-                                                </td>
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="10" className="p-4 text-center text-gray-500">
+                                        <td colSpan={visibleColumnCount || 1} className="p-4 text-center text-gray-500">
                                             No calibration instruments found
                                         </td>
                                     </tr>
