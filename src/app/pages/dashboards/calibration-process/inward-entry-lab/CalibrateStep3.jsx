@@ -1709,8 +1709,14 @@ const CalibrateStep3 = () => {
             // Map readings to observations for createObservationRows compatibility
             tsData = tsData.map((point, pointIdx) => {
               const calibPointId = point.calibration_point_id?.toString() || point.point_id?.toString() || point.id?.toString();
+              let masterLcDecPlaces = 2; // Default
+
               if (calibPointId) {
                 const masterLc = point.master_matrix?.leastcount ?? point.least_count ?? point.masterleastcount ?? 0.01;
+                // ✅ Calculate decimal places from least count
+                const masterLcStr = String(masterLc);
+                masterLcDecPlaces = (masterLcStr.split('.')[1] || '').length || 2;
+
                 leastCountMap[calibPointId] = {
                   master: parseFloat(masterLc) || 0.01,
                   masterLeastCountStr: String(masterLc)
@@ -1719,17 +1725,19 @@ const CalibrateStep3 = () => {
               const observations = point.observations ? [...point.observations] : [];
               const averages = [];
               if (point.readings && Array.isArray(point.readings)) {
-                console.log(`  Point ${pointIdx}: Processing ${point.readings.length} readings`);
+                console.log(`  Point ${pointIdx}: Processing ${point.readings.length} readings (decimals: ${masterLcDecPlaces})`);
                 point.readings.forEach((r, idx) => {
                   const globalRowIdx = pointIdx * 5 + idx;
                   if (r.values && Array.isArray(r.values)) {
                     r.values.forEach((vObj) => {
-                      const cleanVal = sanitizeSieveVal(vObj.value, 2);
+                      // ✅ FIXED: Use proper decimal places from least count, not hardcoded 2
+                      const cleanVal = sanitizeSieveVal(vObj.value, masterLcDecPlaces);
                       observations.push({ ...vObj, value: cleanVal });
                       const repParts = String(vObj.repeatable || '').split('-');
                       if (repParts.length === 2) {
                         const colIdx = parseInt(repParts[1], 10) + 1;
                         seededValues[`${globalRowIdx}-${colIdx}`] = cleanVal;
+                        console.log(`  ✅ Row ${globalRowIdx}, Col ${colIdx}: ${vObj.value} → ${cleanVal} (${masterLcDecPlaces} decimals)`);
                       }
                     });
                   }
@@ -1915,7 +1923,15 @@ const CalibrateStep3 = () => {
             allPoints.forEach(point => {
               const calibPointId = point.calibration_point_id?.toString() || point.point_id?.toString() || point.id?.toString();
               if (calibPointId) {
-                leastCountMap[calibPointId] = parseFloat(point.least_count_uuc || point.least_count || 0.01);
+                // ✅ CORRECTED: Store both uuc and master (with string representations for decimal extraction)
+                const lcUucStr = point.least_count_uuc || '0.01';
+                const lcMasterStr = point.least_count_master || '0.01';
+                leastCountMap[calibPointId] = {
+                  uuc: parseFloat(lcUucStr) || 0.01,
+                  uucLeastCountStr: String(lcUucStr),
+                  master: parseFloat(lcMasterStr) || 0.01,
+                  masterLeastCountStr: String(lcMasterStr)
+                };
               }
             });
             if (Object.keys(leastCountMap).length > 0) {
