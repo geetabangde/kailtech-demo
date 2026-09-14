@@ -2217,8 +2217,22 @@ const CalibrateStep3 = () => {
         const raw = rowData[idx + 1];
         return raw !== undefined && raw !== null && String(raw).trim() !== '' && !isNaN(val);
       });
+
+      // ✅ CORRECTED: Use proper decimal places from least count
+      const calibPointId = selectedTableData?.calibrationPoints?.[rowIndex];
+      const lcs = leastCountData[calibPointId];
+      let decPlaces = 2; // Default fallback
+
+      if (lcs && typeof lcs === 'object' && lcs?.master) {
+        decPlaces = getDecimalPlaces(lcs.master);
+      } else if (lcs && typeof lcs === 'object' && lcs?.masterLeastCountStr) {
+        decPlaces = getDecimalPlaces(lcs.masterLeastCountStr);
+      } else if (lcs && typeof lcs !== 'object') {
+        decPlaces = getDecimalPlaces(lcs);
+      }
+
       result.average = validReadings.length
-        ? (validReadings.reduce((sum, val) => sum + val, 0) / validReadings.length).toFixed(4)
+        ? (validReadings.reduce((sum, val) => sum + val, 0) / validReadings.length).toFixed(decPlaces)
         : '';
     } else if (template === 'observationwbn') {
       Object.assign(result, calculateWBNValues(rowData));
@@ -10219,18 +10233,24 @@ const CalibrateStep3 = () => {
 
       else if (selectedTableData.id === 'observationts') {
         const rc = selectedTableData.hiddenInputs?.repeatables?.[rowIndex] ?? (rowIndex % 5).toString();
+        console.log(`🔍 observationts Row ${rowIndex}: calibPointId=${calibPointId}, rc=${rc}`);
+
         for (let i = 0; i < 8; i++) {
           const colIdx = i + 1;
+          const readingValue = rowData[colIdx] || '0';
           calibrationPoints.push(calibPointId);
           types.push('uuc');
           repeatables.push(`${rc}-${i}`);
-          values.push(rowData[colIdx] || '0');
+          values.push(readingValue);
+          console.log(`  📊 Reading ${rc}-${i}: ${readingValue}`);
         }
 
+        const avgValue = tableInputValues[`${rowIndex}-9`] ?? calculated.average ?? rowData[9] ?? '0';
         calibrationPoints.push(calibPointId);
         types.push('averageuuc');
         repeatables.push(rc.toString());
-        values.push(tableInputValues[`${rowIndex}-9`] ?? calculated.average ?? rowData[9] ?? '0');
+        values.push(avgValue);
+        console.log(`  📊 Average ${rc}: ${avgValue}`);
       }
 
     });
@@ -10418,6 +10438,17 @@ const CalibrateStep3 = () => {
 
     console.log('Step 3 Payload:', payloadStep3);
 
+    // ✅ DEBUG: Log specific observationts data
+    if (selectedTableData?.id === 'observationts') {
+      const tsEntries = payloadStep3.calibrationpoint.map((cp, idx) => ({
+        calibrationpoint: cp,
+        type: payloadStep3.type[idx],
+        repeatable: payloadStep3.repeatable[idx],
+        value: payloadStep3.value[idx]
+      }));
+      console.log('📋 ObservationTS Data being submitted:', JSON.stringify(tsEntries, null, 2));
+    }
+
     try {
       const response = await axios.post(
         `${JWT_HOST_API}/calibrationprocess/insert-calibration-step3`,
@@ -10430,7 +10461,13 @@ const CalibrateStep3 = () => {
         }
       );
 
-      console.log('Step 3 saved successfully:', response.data);
+      console.log('✅ Step 3 Response:', response.data);
+
+      // ✅ DEBUG: Check if response contains observationts data
+      if (selectedTableData?.id === 'observationts') {
+        console.log('📋 Backend Response Status:', response.status, response.data?.status);
+      }
+
       toast.success('All data submitted successfully!');
       setTimeout(() => {
         navigate(
@@ -10438,7 +10475,7 @@ const CalibrateStep3 = () => {
         );
       }, 1000);
     } catch (error) {
-      console.error('Network Error:', error);
+      console.error('❌ Network Error:', error);
       toast.error(error.response?.data?.message || 'Something went wrong while submitting');
     }
   };
