@@ -1,9 +1,11 @@
 const ObservationCustom = ({
   selectedTableData,
   instrument,
-  tableInputValues,
+  tableInputValues = {},
   handleInputChange,
   handleObservationBlur,
+  observationErrors = {},
+  observations = [],
 }) => {
   if (!selectedTableData || selectedTableData.id !== 'observationcustom') return null;
 
@@ -58,16 +60,17 @@ const ObservationCustom = ({
       uucdone = true;
     };
 
+    // In PHP: if master <= uuc, Master columns come first.
+    // Otherwise, UUC columns come first.
+    let order = 'master-first';
     if (instrument.mastertoshow === 'Yes' && !masterdone && masterCount <= uucCount) {
       pushMaster();
-    }
-
-    if (instrument.uuctoshow === 'Yes' && !uucdone) {
-      pushUuc();
-    }
-
-    if (instrument.mastertoshow === 'Yes' && !masterdone) {
-      pushMaster();
+      if (instrument.uuctoshow === 'Yes' && !uucdone) pushUuc();
+      order = 'master-first';
+    } else {
+      if (instrument.uuctoshow === 'Yes' && !uucdone) pushUuc();
+      if (instrument.mastertoshow === 'Yes' && !masterdone) pushMaster();
+      order = 'uuc-first';
     }
 
     // Error column
@@ -91,11 +94,17 @@ const ObservationCustom = ({
       totalCols: colIdx,
       masterCount,
       uucCount,
+      order,
     };
   };
 
   const layout = getCustomLayoutIndices();
   if (!layout) return null;
+
+  // In PHP: $rowspan = (uuc > 1 || master > 1) ? 2 : 1
+  const isTwoHeaderRows = (layout.masterCount > 1 || layout.uucCount > 1) &&
+    (layout.masterObsIndices.length > 0 || layout.uucObsIndices.length > 0);
+  const mainRowSpan = isTwoHeaderRows ? 2 : 1;
 
   // ============================================================================
   // RENDER CUSTOM OBSERVATION TABLE
@@ -108,29 +117,193 @@ const ObservationCustom = ({
     );
   }
 
+  const renderMasterMainHeader = () => {
+    if (layout.masterObsIndices.length === 0) return null;
+    const count = layout.masterObsIndices.length;
+    const hasAvg = layout.avgMasterIdx !== -1;
+    const colSpan = count + (hasAvg ? 1 : 0);
+    const rowSpan = count > 1 ? 1 : mainRowSpan;
+    return (
+      <th
+        colSpan={colSpan}
+        rowSpan={rowSpan}
+        className="px-3 py-2 text-center text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600"
+      >
+        {instrument.masterheading || 'Master Observations'}
+      </th>
+    );
+  };
+
+  const renderUucMainHeader = () => {
+    if (layout.uucObsIndices.length === 0) return null;
+    const count = layout.uucObsIndices.length;
+    const hasAvg = layout.avgUucIdx !== -1;
+    const colSpan = count + (hasAvg ? 1 : 0);
+    const rowSpan = count > 1 ? 1 : mainRowSpan;
+    return (
+      <th
+        colSpan={colSpan}
+        rowSpan={rowSpan}
+        className="px-3 py-2 text-center text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600"
+      >
+        {instrument.uucheading || 'UUC Observations'}
+      </th>
+    );
+  };
+
+  const renderMasterSubHeaders = () => {
+    if (layout.masterObsIndices.length <= 1) return null;
+    return (
+      <>
+        {layout.masterObsIndices.map((idx, i) => (
+          <th
+            key={`master-sub-${i}`}
+            className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600"
+          >
+            Obs {i + 1}
+          </th>
+        ))}
+        {layout.avgMasterIdx !== -1 && (
+          <th className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600">
+            Average On Master
+          </th>
+        )}
+      </>
+    );
+  };
+
+  const renderUucSubHeaders = () => {
+    if (layout.uucObsIndices.length <= 1) return null;
+    return (
+      <>
+        {layout.uucObsIndices.map((idx, i) => (
+          <th
+            key={`uuc-sub-${i}`}
+            className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600"
+          >
+            Obs {i + 1}
+          </th>
+        ))}
+        {layout.avgUucIdx !== -1 && (
+          <th className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600">
+            Average On UUC
+          </th>
+        )}
+      </>
+    );
+  };
+
+  const renderMasterCells = (row, rowIndex, point) => (
+    <>
+      {layout.masterObsIndices.map((colIdx, obsIdx) => {
+        const cellKey = `${rowIndex}-${colIdx}`;
+        const hasError = !!observationErrors[cellKey];
+        return (
+          <td key={`master-${obsIdx}`} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="any"
+                id={`obs-cell-${cellKey}`}
+                data-cell-key={cellKey}
+                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
+                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                }`}
+                value={tableInputValues[cellKey] ?? row[colIdx] ?? ''}
+                onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
+                onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
+              />
+              {point?.masterunit && isNaN(point.masterunit) && <span className="text-xs text-gray-500 shrink-0">{point.masterunit}</span>}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+            )}
+          </td>
+        );
+      })}
+
+      {layout.avgMasterIdx !== -1 && (
+        <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+          <input
+            type="text"
+            id={`obs-cell-${rowIndex}-${layout.avgMasterIdx}`}
+            data-cell-key={`${rowIndex}-${layout.avgMasterIdx}`}
+            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
+            value={tableInputValues[`${rowIndex}-${layout.avgMasterIdx}`] ?? row[layout.avgMasterIdx] ?? ''}
+            readOnly
+          />
+        </td>
+      )}
+    </>
+  );
+
+  const renderUucCells = (row, rowIndex, point) => (
+    <>
+      {layout.uucObsIndices.map((colIdx, obsIdx) => {
+        const cellKey = `${rowIndex}-${colIdx}`;
+        const hasError = !!observationErrors[cellKey];
+        return (
+          <td key={`uuc-${obsIdx}`} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                step="any"
+                id={`obs-cell-${cellKey}`}
+                data-cell-key={cellKey}
+                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
+                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                }`}
+                value={tableInputValues[cellKey] ?? row[colIdx] ?? ''}
+                onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
+                onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
+              />
+              {point?.unit && isNaN(point.unit) && <span className="text-xs text-gray-500 shrink-0">{point.unit}</span>}
+            </div>
+            {hasError && (
+              <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+            )}
+          </td>
+        );
+      })}
+
+      {layout.avgUucIdx !== -1 && (
+        <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+          <input
+            type="text"
+            id={`obs-cell-${rowIndex}-${layout.avgUucIdx}`}
+            data-cell-key={`${rowIndex}-${layout.avgUucIdx}`}
+            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
+            value={tableInputValues[`${rowIndex}-${layout.avgUucIdx}`] ?? row[layout.avgUucIdx] ?? ''}
+            readOnly
+          />
+        </td>
+      )}
+    </>
+  );
+
   return (
     <div className="mb-8 overflow-x-auto border border-gray-200 dark:border-gray-600">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
-            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-12">
+            <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-12">
               Sr. No.
             </th>
 
             {layout.paramIdx !== -1 && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-24">
+              <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-24">
                 {instrument.parameterheading || 'Parameter'}
               </th>
             )}
 
             {layout.specIdx !== -1 && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-24">
+              <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-24">
                 {instrument.specificationheading || 'Specification'}
               </th>
             )}
 
             {layout.setpointIdx !== -1 && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-20">
+              <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-20">
                 {instrument.setpoint === 'Master'
                   ? instrument.masterheading || 'Master'
                   : instrument.setpoint === 'UUC'
@@ -139,198 +312,174 @@ const ObservationCustom = ({
               </th>
             )}
 
-            {/* Master Observations Header */}
-            {layout.masterObsIndices.length > 0 && (
-              <th
-                colSpan={layout.masterObsIndices.length + (layout.avgMasterIdx !== -1 ? 1 : 0)}
-                className="px-3 py-2 text-center text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600"
-              >
-                {instrument.masterheading || 'Master Observations'}
-              </th>
-            )}
-
-            {/* UUC Observations Header */}
-            {layout.uucObsIndices.length > 0 && (
-              <th
-                colSpan={layout.uucObsIndices.length + (layout.avgUucIdx !== -1 ? 1 : 0)}
-                className="px-3 py-2 text-center text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600"
-              >
-                {instrument.uucheading || 'UUC Observations'}
-              </th>
+            {/* Observation Headers rendered in dynamic order */}
+            {layout.order === 'master-first' ? (
+              <>
+                {renderMasterMainHeader()}
+                {renderUucMainHeader()}
+              </>
+            ) : (
+              <>
+                {renderUucMainHeader()}
+                {renderMasterMainHeader()}
+              </>
             )}
 
             {layout.errorIdx !== -1 && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-20">
+              <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase border-r border-gray-300 dark:border-gray-600 min-w-20">
                 {instrument.errorheading || 'Error'}
               </th>
             )}
 
             {layout.remarkIdx !== -1 && (
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase min-w-20">
+              <th rowSpan={mainRowSpan} className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase min-w-20">
                 {instrument.remarkheading || 'Remark'}
               </th>
             )}
           </tr>
 
-          {/* Sub-headers row for observations */}
-          {(layout.masterObsIndices.length > 0 || layout.uucObsIndices.length > 0) && (
+          {/* Sub-headers row for observations (only when uuc > 1 or master > 1) */}
+          {isTwoHeaderRows && (
             <tr className="bg-gray-50 dark:bg-gray-600 border-b border-gray-300 dark:border-gray-600">
-              <th colSpan={1 + (layout.paramIdx !== -1 ? 1 : 0) + (layout.specIdx !== -1 ? 1 : 0) + (layout.setpointIdx !== -1 ? 1 : 0)}></th>
-
-              {layout.masterObsIndices.map((idx, i) => (
-                <th
-                  key={`master-${i}`}
-                  className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600"
-                >
-                  Obs {i + 1}
-                </th>
-              ))}
-
-              {layout.avgMasterIdx !== -1 && (
-                <th className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600">
-                  Avg
-                </th>
-              )}
-
-              {layout.uucObsIndices.map((idx, i) => (
-                <th
-                  key={`uuc-${i}`}
-                  className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600"
-                >
-                  Obs {i + 1}
-                </th>
-              ))}
-
-              {layout.avgUucIdx !== -1 && (
-                <th className="px-3 py-1 text-center text-xs font-medium text-gray-600 dark:text-gray-300 border-r border-gray-300 dark:border-gray-600">
-                  Avg
-                </th>
+              {layout.order === 'master-first' ? (
+                <>
+                  {renderMasterSubHeaders()}
+                  {renderUucSubHeaders()}
+                </>
+              ) : (
+                <>
+                  {renderUucSubHeaders()}
+                  {renderMasterSubHeaders()}
+                </>
               )}
             </tr>
           )}
         </thead>
 
         <tbody className="bg-white dark:bg-gray-800">
-          {selectedTableData.staticRows.map((row, rowIndex) => (
-            <tr key={rowIndex} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
-              {/* Sr. No. */}
-              <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700 text-center font-medium">
-                {rowIndex + 1}
-              </td>
-
-              {/* Parameter */}
-              {layout.paramIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={row[layout.paramIdx] ?? ''}
-                    readOnly
-                  />
+          {selectedTableData.staticRows.map((row, rowIndex) => {
+            const point = observations?.[rowIndex] || {};
+            return (
+              <tr key={rowIndex} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                {/* Sr. No. */}
+                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700 text-center font-medium">
+                  {rowIndex + 1}
                 </td>
-              )}
 
-              {/* Specification */}
-              {layout.specIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={row[layout.specIdx] ?? ''}
-                    readOnly
-                  />
-                </td>
-              )}
+                {/* Parameter */}
+                {layout.paramIdx !== -1 && (
+                  <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+                    <input
+                      type="text"
+                      id={`obs-cell-${rowIndex}-${layout.paramIdx}`}
+                      data-cell-key={`${rowIndex}-${layout.paramIdx}`}
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
+                      value={row[layout.paramIdx] ?? ''}
+                      readOnly
+                    />
+                  </td>
+                )}
 
-              {/* Setpoint */}
-              {layout.setpointIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={row[layout.setpointIdx] ?? ''}
-                    readOnly
-                  />
-                </td>
-              )}
+                {/* Specification */}
+                {layout.specIdx !== -1 && (
+                  <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+                    <input
+                      type="text"
+                      id={`obs-cell-${rowIndex}-${layout.specIdx}`}
+                      data-cell-key={`${rowIndex}-${layout.specIdx}`}
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
+                      value={row[layout.specIdx] ?? ''}
+                      readOnly
+                    />
+                  </td>
+                )}
 
-              {/* Master Observations */}
-              {layout.masterObsIndices.map((colIdx, obsIdx) => (
-                <td key={`master-${obsIdx}`} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
-                  <input
-                    type="number"
-                    step="any"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tableInputValues[`${rowIndex}-${colIdx}`] ?? row[colIdx] ?? ''}
-                    onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
-                    onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
-                  />
-                </td>
-              ))}
+                {/* Setpoint */}
+                {layout.setpointIdx !== -1 && (() => {
+                  const cellKey = `${rowIndex}-${layout.setpointIdx}`;
+                  const isEditable = instrument?.setpoint === 'UUC';
+                  const hasError = !!observationErrors[cellKey];
+                  return (
+                    <td className={`px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white ${isEditable ? '' : 'bg-gray-50 dark:bg-gray-700'}`}>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type={isEditable ? "number" : "text"}
+                          step="any"
+                          id={`obs-cell-${cellKey}`}
+                          data-cell-key={cellKey}
+                          className={`w-full px-2 py-1 border rounded ${
+                            isEditable
+                              ? `bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
+                                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                                }`
+                              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed'
+                          }`}
+                          value={tableInputValues[cellKey] ?? row[layout.setpointIdx] ?? ''}
+                          readOnly={!isEditable}
+                          onChange={(e) => isEditable && handleInputChange && handleInputChange(rowIndex, layout.setpointIdx, e.target.value)}
+                          onBlur={(e) => isEditable && handleObservationBlur && handleObservationBlur(rowIndex, layout.setpointIdx, e.target.value)}
+                        />
+                        {point?.unit && isNaN(point.unit) && <span className="text-xs text-gray-500 shrink-0">{point.unit}</span>}
+                      </div>
+                      {hasError && isEditable && (
+                        <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+                      )}
+                    </td>
+                  );
+                })()}
 
-              {/* Average Master */}
-              {layout.avgMasterIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={tableInputValues[`${rowIndex}-${layout.avgMasterIdx}`] ?? row[layout.avgMasterIdx] ?? ''}
-                    readOnly
-                  />
-                </td>
-              )}
+                {/* Observations in dynamic order */}
+                {layout.order === 'master-first' ? (
+                  <>
+                    {renderMasterCells(row, rowIndex, point)}
+                    {renderUucCells(row, rowIndex, point)}
+                  </>
+                ) : (
+                  <>
+                    {renderUucCells(row, rowIndex, point)}
+                    {renderMasterCells(row, rowIndex, point)}
+                  </>
+                )}
 
-              {/* UUC Observations */}
-              {layout.uucObsIndices.map((colIdx, obsIdx) => (
-                <td key={`uuc-${obsIdx}`} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
-                  <input
-                    type="number"
-                    step="any"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tableInputValues[`${rowIndex}-${colIdx}`] ?? row[colIdx] ?? ''}
-                    onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
-                    onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
-                  />
-                </td>
-              ))}
+                {/* Error */}
+                {layout.errorIdx !== -1 && (
+                  <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+                    <input
+                      type="text"
+                      id={`obs-cell-${rowIndex}-${layout.errorIdx}`}
+                      data-cell-key={`${rowIndex}-${layout.errorIdx}`}
+                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
+                      value={tableInputValues[`${rowIndex}-${layout.errorIdx}`] ?? row[layout.errorIdx] ?? ''}
+                      readOnly
+                    />
+                  </td>
+                )}
 
-              {/* Average UUC */}
-              {layout.avgUucIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={tableInputValues[`${rowIndex}-${layout.avgUucIdx}`] ?? row[layout.avgUucIdx] ?? ''}
-                    readOnly
-                  />
-                </td>
-              )}
-
-              {/* Error */}
-              {layout.errorIdx !== -1 && (
-                <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                    value={tableInputValues[`${rowIndex}-${layout.errorIdx}`] ?? row[layout.errorIdx] ?? ''}
-                    readOnly
-                  />
-                </td>
-              )}
-
-              {/* Remark */}
-              {layout.remarkIdx !== -1 && (
-                <td className="px-3 py-2 text-sm dark:text-white">
-                  <input
-                    type="text"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tableInputValues[`${rowIndex}-${layout.remarkIdx}`] ?? row[layout.remarkIdx] ?? ''}
-                    onChange={(e) => handleInputChange && handleInputChange(rowIndex, layout.remarkIdx, e.target.value)}
-                  />
-                </td>
-              )}
-            </tr>
-          ))}
+                {/* Remark */}
+                {layout.remarkIdx !== -1 && (() => {
+                  const cellKey = `${rowIndex}-${layout.remarkIdx}`;
+                  const hasError = !!observationErrors[cellKey];
+                  return (
+                    <td className="px-3 py-2 text-sm dark:text-white">
+                      <input
+                        type="text"
+                        id={`obs-cell-${cellKey}`}
+                        data-cell-key={cellKey}
+                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
+                          hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                        }`}
+                        value={tableInputValues[cellKey] ?? row[layout.remarkIdx] ?? ''}
+                        onChange={(e) => handleInputChange && handleInputChange(rowIndex, layout.remarkIdx, e.target.value, 'text')}
+                      />
+                      {hasError && (
+                        <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+                      )}
+                    </td>
+                  );
+                })()}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -338,8 +487,44 @@ const ObservationCustom = ({
 };
 
 // Exported calculation function for use in CalibrateStep3
-export const calculateCustomValues = (rowData, instrument) => {
+export const calculateCustomValues = (rowData, instrument, point = null) => {
   const result = {};
+
+  const getDecimals = (lc) => {
+    if (!lc || lc === 'NA' || lc === 'No' || isNaN(parseFloat(lc))) return null;
+    const parts = lc.toString().split('.');
+    return parts.length > 1 ? parts[1].length : 0;
+  };
+
+  const pointLc = point?.matrix?.leastcount ?? point?.leastcount ?? instrument?.leastcount;
+  const pointMlc = point?.master_matrix?.leastcount ?? point?.masterleastcount ?? instrument?.masterleastcount;
+
+  const masterDecimalsParsed = getDecimals(pointMlc);
+  const uucDecimalsParsed = getDecimals(pointLc);
+
+  let errorDecimals = 0;
+  if (masterDecimalsParsed !== null && uucDecimalsParsed !== null) {
+    errorDecimals = Math.max(masterDecimalsParsed, uucDecimalsParsed);
+  } else if (masterDecimalsParsed !== null) {
+    errorDecimals = masterDecimalsParsed;
+  } else if (uucDecimalsParsed !== null) {
+    errorDecimals = uucDecimalsParsed;
+  } else {
+    // If both are NA / No, check if any input values have decimals
+    const getValDecimals = (val) => {
+      if (val === undefined || val === null) return 0;
+      const str = val.toString();
+      const p = str.split('.');
+      return p.length > 1 ? p[1].length : 0;
+    };
+    errorDecimals = Math.max(
+      ...(Array.isArray(rowData) ? rowData.map(getValDecimals).filter(n => !isNaN(n)) : []),
+      0
+    );
+  }
+
+  const masterDecimals = masterDecimalsParsed ?? 0;
+  const uucDecimals = uucDecimalsParsed ?? 0;
 
   const getCustomLayoutIndices = (inst) => {
     if (!inst) return null;
@@ -388,14 +573,10 @@ export const calculateCustomValues = (rowData, instrument) => {
 
     if (inst.mastertoshow === 'Yes' && !masterdone && masterCount <= uucCount) {
       pushMaster();
-    }
-
-    if (inst.uuctoshow === 'Yes' && !uucdone) {
-      pushUuc();
-    }
-
-    if (inst.mastertoshow === 'Yes' && !masterdone) {
-      pushMaster();
+      if (inst.uuctoshow === 'Yes' && !uucdone) pushUuc();
+    } else {
+      if (inst.uuctoshow === 'Yes' && !uucdone) pushUuc();
+      if (inst.mastertoshow === 'Yes' && !masterdone) pushMaster();
     }
 
     let hasError = inst.errortoshow === 'Yes';
@@ -426,7 +607,7 @@ export const calculateCustomValues = (rowData, instrument) => {
         .map(idx => (rowData[idx] !== undefined && rowData[idx] !== null && rowData[idx].toString().trim() !== '') ? parseFloat(rowData[idx]) : NaN)
         .filter(v => !isNaN(v));
       if (validMasterVals.length > 0 && validMasterVals.length === layout.masterObsIndices.length) {
-        result.averagemaster = (validMasterVals.reduce((a, b) => a + b, 0) / validMasterVals.length).toFixed(4);
+        result.averagemaster = (validMasterVals.reduce((a, b) => a + b, 0) / validMasterVals.length).toFixed(masterDecimals);
       } else {
         result.averagemaster = '';
       }
@@ -436,7 +617,7 @@ export const calculateCustomValues = (rowData, instrument) => {
         .map(idx => (rowData[idx] !== undefined && rowData[idx] !== null && rowData[idx].toString().trim() !== '') ? parseFloat(rowData[idx]) : NaN)
         .filter(v => !isNaN(v));
       if (validUucVals.length > 0 && validUucVals.length === layout.uucObsIndices.length) {
-        result.averageuuc = (validUucVals.reduce((a, b) => a + b, 0) / validUucVals.length).toFixed(4);
+        result.averageuuc = (validUucVals.reduce((a, b) => a + b, 0) / validUucVals.length).toFixed(uucDecimals);
       } else {
         result.averageuuc = '';
       }
@@ -477,7 +658,9 @@ export const calculateCustomValues = (rowData, instrument) => {
     }
 
     if (masterVal !== null && uucVal !== null && !isNaN(masterVal) && !isNaN(uucVal)) {
-      result.error = (uucVal - masterVal).toFixed(4);
+      const isStdUuc = (instrument?.error === 'stduuc' || instrument?.error_type === 'stduuc' || instrument?.custom_error === 'stduuc');
+      const diff = isStdUuc ? (masterVal - uucVal) : (uucVal - masterVal);
+      result.error = diff.toFixed(errorDecimals);
     } else {
       result.error = '';
     }
