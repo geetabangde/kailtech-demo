@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-const IMAGE_HOST_API = import.meta.env.REACT_APP_IMAGE_HOST || 'https://kailtech.in/newlims';
 
 const ObservationWBN = ({
   selectedTableData,
@@ -142,10 +141,9 @@ const ObservationWBN = ({
         <div className="flex gap-8 justify-center mb-6">
           <div className="flex flex-col items-center gap-2 border border-gray-200 dark:border-gray-700 p-4 rounded bg-white dark:bg-gray-800">
             <img
-              src={`${IMAGE_HOST_API}/images/circalimg.png`}
+              src="/images/circalimg.png"
               alt="Circular Diagram"
               className="h-32 object-contain"
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://kailtech.in/newlims/images/circalimg.png'; }}
             />
             <label className="flex items-center gap-2 text-sm font-medium dark:text-white mt-2">
               <input
@@ -161,10 +159,9 @@ const ObservationWBN = ({
           </div>
           <div className="flex flex-col items-center gap-2 border border-gray-200 dark:border-gray-700 p-4 rounded bg-white dark:bg-gray-800">
             <img
-              src={`${IMAGE_HOST_API}/images/newrectangle.png`}
+              src="/images/newrectangle.png"
               alt="Rectangular Diagram"
               className="h-32 object-contain"
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://kailtech.in/newlims/images/newrectangle.png'; }}
             />
             <label className="flex items-center gap-2 text-sm font-medium dark:text-white mt-2">
               <input
@@ -413,29 +410,38 @@ const ObservationWBN = ({
 // Exported calculation functions for use in CalibrateStep3
 export const calculateWBNValues = (rowData) => {
   const result = {};
-  const parsedValues = rowData.map((val) => {
-    const num = parseFloat(val);
-    return isNaN(num) ? 0 : num;
-  });
 
-  const wReadings = parsedValues.slice(2, 5).filter((val) => val !== 0 && !isNaN(val));
-  result.average = wReadings.length
-    ? (wReadings.reduce((sum, val) => sum + val, 0) / wReadings.length).toFixed(3)
+  const rawWReadings = (rowData.slice(2, 5) || [])
+    .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+    .map((val) => parseFloat(val));
+
+  result.average = rawWReadings.length
+    ? (rawWReadings.reduce((sum, val) => sum + val, 0) / rawWReadings.length).toFixed(3)
     : '';
-  const nominalValue = parsedValues[1];
-  result.error = result.average && nominalValue
+
+  const nominalRaw = rowData[1];
+  const hasNominal = nominalRaw !== undefined && nominalRaw !== null && String(nominalRaw).trim() !== '' && !isNaN(parseFloat(nominalRaw));
+  const nominalValue = hasNominal ? parseFloat(nominalRaw) : null;
+
+  result.error = (result.average !== '' && nominalValue !== null)
     ? (parseFloat(result.average) - nominalValue).toFixed(3)
     : '';
 
-  const rReadings = parsedValues.slice(7, 12).filter((val) => val !== 0 && !isNaN(val));
-  result.averageuucr = rReadings.length
-    ? (rReadings.reduce((sum, val) => sum + val, 0) / rReadings.length).toFixed(3)
+  const rawRReadings = (rowData.slice(7, 12) || [])
+    .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+    .map((val) => parseFloat(val));
+
+  result.averageuucr = rawRReadings.length
+    ? (rawRReadings.reduce((sum, val) => sum + val, 0) / rawRReadings.length).toFixed(3)
     : '';
 
-  const eReadings = parsedValues.slice(13, 23).filter((val) => val !== 0 && !isNaN(val));
-  if (eReadings.length > 0) {
-    const max = Math.max(...eReadings);
-    const min = Math.min(...eReadings);
+  const rawEReadings = (rowData.slice(13, 23) || [])
+    .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+    .map((val) => parseFloat(val));
+
+  if (rawEReadings.length > 0) {
+    const max = Math.max(...rawEReadings);
+    const min = Math.min(...rawEReadings);
     result.eccentricity = ((max - min) / 2).toFixed(3);
   } else {
     result.eccentricity = '';

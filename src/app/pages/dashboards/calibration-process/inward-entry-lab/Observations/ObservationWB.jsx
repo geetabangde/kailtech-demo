@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-const IMAGE_HOST_API = import.meta.env.REACT_APP_IMAGE_HOST || 'https://kailtech.in/newlims';
 
 const ObservationWB = ({
   selectedTableData,
@@ -9,8 +8,12 @@ const ObservationWB = ({
   handleObservationBlur,
   observationErrors,
   observations,
+  diagram: parentDiagram,
+  setDiagram: parentSetDiagram,
 }) => {
-  const [diagram, setDiagram] = useState('circalimg');
+  const [localDiagram, setLocalDiagram] = useState('circalimg');
+  const diagram = parentDiagram || localDiagram;
+  const setDiagram = parentSetDiagram || setLocalDiagram;
 
   if (selectedTableData?.id !== 'observationwb') return null;
 
@@ -98,10 +101,9 @@ const ObservationWB = ({
         <div className="flex gap-8 justify-center mb-6">
           <div className="flex flex-col items-center gap-2 border border-gray-200 dark:border-gray-700 p-4 rounded bg-white dark:bg-gray-800">
             <img
-              src={`${IMAGE_HOST_API}/images/circalimg.png`}
+              src="/images/circalimg.png"
               alt="Circular Diagram"
               className="h-32 object-contain"
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://kailtech.in/newlims/images/circalimg.png'; }}
             />
             <label className="flex items-center gap-2 text-sm font-medium dark:text-white mt-2">
               <input
@@ -117,10 +119,9 @@ const ObservationWB = ({
           </div>
           <div className="flex flex-col items-center gap-2 border border-gray-200 dark:border-gray-700 p-4 rounded bg-white dark:bg-gray-800">
             <img
-              src={`${IMAGE_HOST_API}/images/newrectangle.png`}
+              src="/images/newrectangle.png"
               alt="Rectangular Diagram"
               className="h-32 object-contain"
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://kailtech.in/newlims/images/newrectangle.png'; }}
             />
             <label className="flex items-center gap-2 text-sm font-medium dark:text-white mt-2">
               <input
@@ -200,8 +201,11 @@ const ObservationWB = ({
                           <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0">
                             <input
                               type="text"
-                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
-                                } ${observationErrors[key] ? 'border-red-500 focus:ring-red-500' : ''}`}
+                              id={`obs-cell-${key}`}
+                              data-cell-key={key}
+                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white transition-all ${
+                                isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
+                              } ${observationErrors[key] ? 'border-red-500 ring-2 ring-red-400 dark:ring-red-700 bg-red-50 dark:bg-red-950/30' : ''}`}
                               value={currentValue}
                               onChange={(e) => {
                                 if (isDisabled) return;
@@ -272,8 +276,11 @@ const ObservationWB = ({
                           <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0">
                             <input
                               type="text"
-                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
-                                } ${observationErrors[key] ? 'border-red-500 focus:ring-red-500' : ''}`}
+                              id={`obs-cell-${key}`}
+                              data-cell-key={key}
+                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white transition-all ${
+                                isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
+                              } ${observationErrors[key] ? 'border-red-500 ring-2 ring-red-400 dark:ring-red-700 bg-red-50 dark:bg-red-950/30' : ''}`}
                               value={currentValue}
                               onChange={(e) => {
                                 if (isDisabled) return;
@@ -352,8 +359,11 @@ const ObservationWB = ({
                           <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0">
                             <input
                               type="text"
-                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white ${isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
-                                } ${observationErrors[key] ? 'border-red-500 focus:ring-red-500' : ''}`}
+                              id={`obs-cell-${key}`}
+                              data-cell-key={key}
+                              className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white transition-all ${
+                                isDisabled ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : 'border-gray-200 dark:border-gray-600'
+                              } ${observationErrors[key] ? 'border-red-500 ring-2 ring-red-400 dark:ring-red-700 bg-red-50 dark:bg-red-950/30' : ''}`}
                               value={currentValue}
                               onChange={(e) => {
                                 if (isDisabled) return;
@@ -386,10 +396,6 @@ const ObservationWB = ({
 // Exported calculation function for use in CalibrateStep3
 export const calculateWBValues = (rowData, rowIndex, selectedTableData, instrument) => {
   const result = {};
-  const parsedValues = rowData.map((val) => {
-    const num = parseFloat(val);
-    return isNaN(num) ? 0 : num;
-  });
 
   const weighingCount = selectedTableData?.weighingCount || 0;
   const repeatabilityCount = selectedTableData?.repeatabilityCount || 0;
@@ -403,24 +409,37 @@ export const calculateWBValues = (rowData, rowIndex, selectedTableData, instrume
   const decimalPlaces = getDecimalPlaces(instrument?.leastcount || '0.001');
 
   if (rowIndex < weighingCount) {
-    const readings = parsedValues.slice(2, 5).filter(val => val !== 0 && !isNaN(val));
-    result.average = readings.length
-      ? (readings.reduce((sum, val) => sum + val, 0) / readings.length).toFixed(decimalPlaces)
+    const rawReadings = (rowData.slice(2, 5) || [])
+      .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+      .map((val) => parseFloat(val));
+
+    result.average = rawReadings.length
+      ? (rawReadings.reduce((sum, val) => sum + val, 0) / rawReadings.length).toFixed(decimalPlaces)
       : '';
-    const nominal = parsedValues[1];
-    result.error = result.average && nominal
+
+    const nominalRaw = rowData[1];
+    const hasNominal = nominalRaw !== undefined && nominalRaw !== null && String(nominalRaw).trim() !== '' && !isNaN(parseFloat(nominalRaw));
+    const nominal = hasNominal ? parseFloat(nominalRaw) : null;
+
+    result.error = (result.average !== '' && nominal !== null)
       ? (parseFloat(result.average) - nominal).toFixed(decimalPlaces)
       : '';
   } else if (rowIndex < weighingCount + repeatabilityCount) {
-    const readings = parsedValues.slice(1, 11).filter(val => val !== 0 && !isNaN(val));
-    result.average = readings.length
-      ? (readings.reduce((sum, val) => sum + val, 0) / readings.length).toFixed(decimalPlaces)
+    const rawReadings = (rowData.slice(1, 11) || [])
+      .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+      .map((val) => parseFloat(val));
+
+    result.average = rawReadings.length
+      ? (rawReadings.reduce((sum, val) => sum + val, 0) / rawReadings.length).toFixed(decimalPlaces)
       : '';
   } else {
-    const readings = parsedValues.slice(1, 11).filter(val => val !== 0 && !isNaN(val));
-    if (readings.length > 0) {
-      const maxVal = Math.max(...readings);
-      const minVal = Math.min(...readings);
+    const rawReadings = (rowData.slice(1, 11) || [])
+      .filter((val) => val !== undefined && val !== null && String(val).trim() !== '' && !isNaN(parseFloat(val)))
+      .map((val) => parseFloat(val));
+
+    if (rawReadings.length > 0) {
+      const maxVal = Math.max(...rawReadings);
+      const minVal = Math.min(...rawReadings);
       result.eccentricity = ((maxVal - minVal) / 2).toFixed(decimalPlaces);
     } else {
       result.eccentricity = '';

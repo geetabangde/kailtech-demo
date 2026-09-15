@@ -82,6 +82,12 @@ const Input = forwardRef((props, ref) => {
           ref={ref}
           disabled={disabled}
           {...rest}
+          onWheel={(e) => {
+            if (type === "number") {
+              e.target.blur();
+            }
+            rest.onWheel?.(e);
+          }}
         />
         {prefix && (
           <div

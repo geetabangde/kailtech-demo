@@ -628,6 +628,9 @@ export default function ValidityDetailsTable() {
                             header.getContext(),
                           )
                         )}
+                        {header.column.getCanFilter() ? (
+                          <ColumnFilter column={header.column} />
+                        ) : null}
                       </Th>
                     ))}
                   </Tr>

@@ -7,6 +7,7 @@ import { PerformActions } from "./PerformActions";
 import { JWT_HOST_API } from 'configs/auth.config';
 import { TableConfig } from "./TableConfig";
 import { useLocalStorage, useLockScrollbar } from "hooks";
+import { parseUserPermissions } from "utils/permissions";
 import clsx from "clsx";
 
 const AVAILABLE_COLUMNS = [
@@ -46,6 +47,15 @@ const PerformCalibration = () => {
     const searchParams = new URLSearchParams(window.location.search);
     const caliblocation = searchParams.get("caliblocation") || "Lab";
     const calibacc = searchParams.get("calibacc") || "Nabl";
+
+    const permissions = useMemo(() => {
+        if (typeof window === "undefined") return [];
+        return parseUserPermissions(localStorage.getItem("userPermissions"));
+    }, []);
+
+    const canAllotPerson = permissions.includes(102);
+    const canApproveSelected = permissions.includes(105) || permissions.includes(278);
+    const canReviewSelected = permissions.includes(115) || permissions.includes(277);
 
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -545,6 +555,10 @@ const PerformCalibration = () => {
         try {
             switch (action) {
                 case 'allotPerson':
+                    if (!canAllotPerson) {
+                        toast.error("You do not have permission to allot items to person");
+                        return;
+                    }
                     if (selectedItems.length === 0) {
                         toast.error("Please select at least one item");
                         return;
@@ -553,6 +567,10 @@ const PerformCalibration = () => {
                     break;
 
                 case 'approveSelected':
+                    if (!canApproveSelected) {
+                        toast.error("You do not have permission to approve selected items");
+                        return;
+                    }
                     if (selectedItems.length === 0) {
                         toast.error("Please select at least one item");
                         return;
@@ -561,6 +579,10 @@ const PerformCalibration = () => {
                     break;
 
                 case 'reviewSelected':
+                    if (!canReviewSelected) {
+                        toast.error("You do not have permission to review selected items");
+                        return;
+                    }
                     if (selectedItems.length === 0) {
                         toast.error("Please select at least one item");
                         return;
@@ -1673,24 +1695,30 @@ const PerformCalibration = () => {
                     {/* Action Buttons */}
                     <div className="p-4 border-t border-gray-200 bg-gray-50">
                         <div className="flex flex-wrap gap-2">
-                            <Button
-                                onClick={() => handleBulkAction('allotPerson')}
-                                className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-                            >
-                                Allot Person
-                            </Button>
-                            <Button
-                                onClick={() => handleBulkAction('approveSelected')}
-                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-                            >
-                                Approve Selected
-                            </Button>
-                            <Button
-                                onClick={() => handleBulkAction('reviewSelected')}
-                                className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-                            >
-                                Review Selected
-                            </Button>
+                            {canAllotPerson && (
+                                <Button
+                                    onClick={() => handleBulkAction('allotPerson')}
+                                    className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                                >
+                                    Allot Person
+                                </Button>
+                            )}
+                            {canApproveSelected && (
+                                <Button
+                                    onClick={() => handleBulkAction('approveSelected')}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                                >
+                                    Approve Selected
+                                </Button>
+                            )}
+                            {canReviewSelected && (
+                                <Button
+                                    onClick={() => handleBulkAction('reviewSelected')}
+                                    className="bg-indigo-500 hover:bg-fuchsia-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                                >
+                                    Review Selected
+                                </Button>
+                            )}
                             <Link
                                 to={selectedItems.length > 0 ? `/dashboards/calibration-process/inward-entry-lab/view-sticker/${inwardId}/${selectedItems.join(',')}?caliblocation=${caliblocation}&calibacc=${calibacc}` : '#'}
                                 state={{ caliblocation, calibacc }}

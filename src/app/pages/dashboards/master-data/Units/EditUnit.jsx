@@ -85,7 +85,7 @@ export default function EditUnit() {
     try {
       const form = new FormData();
       form.append("name", unit.name);
-      form.append("description_text", unit.description); // Fix: this field is required by the DB
+      form.append("description", unit.description); // Fix: this field is required by the DB
 
       const response = await axios.post(`/master/update-unit/${id}`, form); // ✅ updated endpoint
       const result = response.data;

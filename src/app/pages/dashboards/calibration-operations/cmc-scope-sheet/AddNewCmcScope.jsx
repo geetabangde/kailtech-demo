@@ -56,7 +56,7 @@ const CMCScopeForm = () => {
   }, [navigate, permissions]);
 
   const [formData, setFormData] = useState({
-    parameter: "Pressure",
+    parameter: [],
     mode: "Measure",
     minFrequency: "",
     maxFrequency: "",
@@ -175,12 +175,10 @@ const CMCScopeForm = () => {
     label: unit.name || unit.unit || unit.unitdesc || unit.description || "-"
   }));
 
-  const cmcUnitSelectOptions = unitOptions
-    .filter((unit) => unit.description)
-    .map((unit) => ({
-      value: unit.id,
-      label: unit.description
-    }));
+  const cmcUnitSelectOptions = unitOptions.map((unit) => ({
+    value: unit.id,
+    label: unit.description || unit.name || unit.unit || unit.unitdesc || "-"
+  }));
 
   const masterSelectOptions = masterOptions.map((master) => ({
     value: master.id,
@@ -200,26 +198,34 @@ const CMCScopeForm = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.parameter || !formData.mode) {
-      toast.error('Please fill in required fields: Parameter and Mode');
+    const hasParam = Array.isArray(formData.parameter)
+      ? formData.parameter.length > 0
+      : Boolean(formData.parameter && String(formData.parameter).trim());
+
+    if (!hasParam) {
+      toast.error('Please fill in required field: Parameter');
       return;
     }
 
     setSubmitting(true);
     try {
+      const paramPayload = Array.isArray(formData.parameter)
+        ? formData.parameter.map((p) => p?.value ?? p?.label ?? p)
+        : (typeof formData.parameter === 'string'
+            ? formData.parameter.split(',').map((p) => p.trim()).filter(Boolean)
+            : []);
+
       const payload = {
-        parameter: Array.isArray(formData.parameter)
-          ? formData.parameter
-          : formData.parameter.split(',').map(p => p.trim()),
-        mode: formData.mode,
-        minfrequency: parseInt(formData.minFrequency) || 0,
-        maxfrequency: parseInt(formData.maxFrequency) || 0,
-        unit: parseInt(formData.unit) || 0,
-        leastcount: parseFloat(formData.leastcount) || 0,
-        mincmc: parseFloat(formData.minCmc) || 0,
-        maxcmc: parseFloat(formData.maxCmc) || 0,
+        parameter: paramPayload,
+        mode: formData.mode || "",
+        minfrequency: !isNaN(parseFloat(formData.minFrequency)) ? parseFloat(formData.minFrequency) : 0,
+        maxfrequency: !isNaN(parseFloat(formData.maxFrequency)) ? parseFloat(formData.maxFrequency) : 0,
+        unit: parseInt(formData.unit, 10) || 0,
+        leastcount: !isNaN(parseFloat(formData.leastcount)) ? parseFloat(formData.leastcount) : 0,
+        mincmc: !isNaN(parseFloat(formData.minCmc)) ? parseFloat(formData.minCmc) : 0,
+        maxcmc: !isNaN(parseFloat(formData.maxCmc)) ? parseFloat(formData.maxCmc) : 0,
         cmctype: formData.cmcType || "",
-        cmcunit: parseInt(formData.cmcUnit) || 0,
+        cmcunit: parseInt(formData.cmcUnit, 10) || 0,
         masters: (formData.masters || []).map((m) => m?.value ?? m?.id ?? m) || [],
         location: formData.location || "",
         remark: formData.remark || ""
@@ -291,10 +297,17 @@ const CMCScopeForm = () => {
                 <div className="col-span-3">
                   <Select
                     options={instrumentSelectOptions}
-                    value={instrumentSelectOptions.find((o) => o.value === formData.parameter) || null}
-                    onChange={(opt) => handleInputChange('parameter', opt ? opt.value : "")}
+                    value={
+                      Array.isArray(formData.parameter)
+                        ? formData.parameter
+                        : formData.parameter
+                        ? [{ value: formData.parameter, label: formData.parameter }]
+                        : []
+                    }
+                    onChange={(selected) => handleInputChange('parameter', selected || [])}
                     placeholder="Select instrument..."
                     isSearchable
+                    isMulti
                     styles={selectStyles}
                     classNamePrefix="react-select"
                     className="react-select-container"
@@ -303,7 +316,7 @@ const CMCScopeForm = () => {
               </div>
 
               <div className="grid grid-cols-4 gap-4 items-center">
-                <label className="text-right text-gray-700 font-medium">Source *</label>
+                <label className="text-right text-gray-700 font-medium">Source</label>
                 <div className="col-span-3">
                   <Select
                     options={sourceSelectOptions}
@@ -311,6 +324,7 @@ const CMCScopeForm = () => {
                     onChange={(opt) => handleInputChange('mode', opt ? opt.value : "")}
                     placeholder="Select source..."
                     isSearchable
+                    isClearable
                     styles={selectStyles}
                     classNamePrefix="react-select"
                     className="react-select-container"
@@ -323,6 +337,7 @@ const CMCScopeForm = () => {
                 <div className="col-span-3">
                   <Input
                     type="number"
+                    step="any"
                     placeholder="e.g., 1, 50, 100"
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={formData.minFrequency}
@@ -336,6 +351,7 @@ const CMCScopeForm = () => {
                 <div className="col-span-3">
                   <Input
                     type="number"
+                    step="any"
                     placeholder="e.g., 10000, 5000, 40"
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={formData.maxFrequency}
@@ -415,6 +431,7 @@ const CMCScopeForm = () => {
                     onChange={(e) => handleInputChange('cmcType', e.target.value)}
                   >
                     <option value="Absolute">Absolute</option>
+                    <option value="%">%</option>
                     <option value="Percentage">%</option>
                   </select>
                 </div>
@@ -486,7 +503,7 @@ const CMCScopeForm = () => {
             <Button
               className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSubmit}
-              disabled={submitting || !formData.parameter || !formData.mode}
+              disabled={submitting || !formData.parameter || (Array.isArray(formData.parameter) && formData.parameter.length === 0)}
             >
               {submitting ? 'Adding Scope...' : 'Add Scope'}
             </Button>

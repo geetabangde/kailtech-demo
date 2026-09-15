@@ -584,6 +584,7 @@ export default function ViewCMCCalculation() {
               coverageFactor: item.coverage_factor,
               expandedUncertainty: item.expanded_uncertainty,
               cmcTaken: item.cmc_taken,
+              cmcScope: item.cmc_scope,
             }));
             setData(mappedData);
           } else if (instrumentSuffix === "mm") {
@@ -2882,6 +2883,7 @@ export default function ViewCMCCalculation() {
             <th className="border border-gray-300 px-2 py-2">Coverage Factor</th>
             <th className="border border-gray-300 px-2 py-2">Expanded Uncertainty</th>
             <th className="border border-gray-300 px-2 py-2">CMC Taken</th>
+            <th className="border border-gray-300 px-2 py-2">CMC Scope</th>
           </tr>
         </thead>
         <tbody>
@@ -2904,6 +2906,7 @@ export default function ViewCMCCalculation() {
               <td className="border border-gray-300 px-2 py-2">{row.coverageFactor}</td>
               <td className="border border-gray-300 px-2 py-2">{row.expandedUncertainty}</td>
               <td className="border border-gray-300 px-2 py-2">{row.cmcTaken}</td>
+              <td className="border border-gray-300 px-2 py-2">{row.cmcScope}</td>
             </tr>
           ))}
         </tbody>
@@ -3640,7 +3643,7 @@ export default function ViewCMCCalculation() {
               const cells = [
                 row.srNo, row.unitType, row.mode, ...values, row.unitDesc,
                 row.calibrationPoint, row.average, row.stdDeviation, row.typeA,
-                formatAccuracy(row.accuracyCalibrator), row.uncertaintyMaster, row.leastCount,
+                formatAccuracy(row.accuracyCalibrator), typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(5) : row.uncertaintyMaster, row.leastCount,
                 row.combinedUnc, row.dof, row.coverageFactor, row.expandedUncValue,
                 row.expandedUncPercent, row.cmcTaken, row.cmcScope
               ];

@@ -1,27 +1,265 @@
 const ObservationBiomedical = ({
   selectedTableData,
-  tableInputValues,
+  tableInputValues = {},
+  observations = [],
   isBiomedical,
   isVisualTestVisible,
   isBasicSafetyVisible,
   isElectricalSafetyVisible,
   isPerformanceVisible,
-  visualTests,
-  visualTestInputs,
+  visualTests = [],
+  visualTestInputs = {},
   setVisualTestInputs,
-  safetyTests,
-  safetyTestInputs,
+  safetyTests = [],
+  safetyTestInputs = {},
   setSafetyTestInputs,
   handleBiomedicalInputChange,
   handleBiomedicalInputBlur,
+  validateDecimalPlaces,
 }) => {
   if (!isBiomedical) return null;
+
+  // Calculate average from current readings (both state and initial data)
+  const calculateAverage = (pointId, readingType, count, point) => {
+    const readings = [];
+    const isMasterReadOnly = point.mode === 'Measure';
+    const isUucReadOnly = point.mode === 'Source';
+    const setPointRaw = (point.set_point ?? point.point ?? '').toString().trim();
+
+    for (let i = 0; i < count; i++) {
+      const stateKey = `${pointId}-${readingType}-${i}`;
+      let value = tableInputValues[stateKey];
+
+      if (value === undefined) {
+        if (readingType === 'master') {
+          value = point.master_readings?.[i]?.value ?? (isMasterReadOnly ? setPointRaw : '');
+        } else if (readingType === 'uuc') {
+          value = point.uuc_readings?.[i]?.value ?? (isUucReadOnly ? setPointRaw : '');
+        }
+      }
+
+      if (value !== '' && value !== null && value !== undefined) {
+        readings.push(String(value));
+      }
+    }
+
+    if (readings.length === 0) return '';
+
+    let sum = 0;
+    let validCount = 0;
+    readings.forEach(val => {
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        sum += num;
+        validCount++;
+      }
+    });
+
+    if (validCount === 0) return '';
+
+    const raw = sum / validCount;
+    let targetDec = 0;
+
+    const lc = readingType === 'master' ? point.master_least_count : point.least_count;
+    const lcDec = readingType === 'master' ? point.mlc_decimals : point.lc_decimals;
+
+    if (lcDec != null && lcDec !== 'NA' && lcDec !== '') {
+      const p = parseInt(lcDec, 10);
+      if (!isNaN(p)) targetDec = p;
+    }
+
+    if (targetDec === 0 && (!lcDec || lcDec === 'NA' || lcDec === '')) {
+      if (lc != null && lc !== 'NA' && lc !== '') {
+        const s = String(lc).trim();
+        if (s.includes('.')) targetDec = s.split('.')[1].length;
+      }
+    }
+
+    return raw.toFixed(targetDec);
+  };
+
+  // Dynamically determine effective least count based on value and instrument ranges
+  const getEffectiveLeastCount = (value, point, isMaster) => {
+    const defaultLc = isMaster
+      ? (point?.master_least_count ?? point?.masterleastcount ?? '1')
+      : (point?.least_count ?? point?.leastcount ?? '0.1');
+
+    if (value === '' || value === null || value === undefined) return defaultLc;
+
+    const strVal = String(value).trim();
+    if (strVal.endsWith('.') || strVal === '-' || strVal === 'NA' || strVal === 'N.A' || strVal.includes('/')) {
+      return defaultLc;
+    }
+
+    const numVal = parseFloat(strVal);
+    if (isNaN(numVal)) return defaultLc;
+
+    // Check backend matrices array if present on point object
+    const matrices = isMaster
+      ? (point?.master_matrices || point?.matrices || [])
+      : (point?.uuc_matrices || point?.matrices || []);
+
+    if (Array.isArray(matrices) && matrices.length > 0) {
+      const pParam = (point?.parameter || '').trim().toLowerCase();
+      for (const m of matrices) {
+        const mParam = (m.parameter || '').trim().toLowerCase();
+        
+        // If the matrix specifies a parameter and it doesn't match the point's parameter, skip it
+        if (mParam && pParam && mParam !== pParam) {
+          continue;
+        }
+
+        const min = parseFloat(m.minrange ?? m.min_range ?? m.calibrated_min);
+        const max = parseFloat(m.maxrange ?? m.max_range ?? m.calibrated_max);
+        if (!isNaN(min) && !isNaN(max) && numVal >= min && numVal <= max) {
+          if (m.leastcount || m.least_count) return String(m.leastcount || m.least_count);
+        }
+      }
+    }
+
+    return defaultLc;
+  };
+
+  // Least count validation function (checks decimal places and divisibility)
+  const validateLeastCount = (value, leastCount) => {
+    if (value === '' || value === null || value === undefined) {
+      return { isValid: true, error: null };
+    }
+    const strVal = String(value).trim();
+    if (strVal.endsWith('.') || strVal === '-' || strVal === 'NA' || strVal === 'N.A') {
+      return { isValid: true, error: null };
+    }
+
+    const numValue = parseFloat(strVal);
+    if (isNaN(numValue) || !leastCount || leastCount === 'NA' || isNaN(parseFloat(leastCount))) {
+      return { isValid: true, error: null };
+    }
+
+    const lcValue = parseFloat(leastCount);
+    if (lcValue <= 0) return { isValid: true, error: null };
+
+    // Also trigger validateDecimalPlaces if provided as prop
+    if (typeof validateDecimalPlaces === 'function') {
+      validateDecimalPlaces(value, leastCount);
+    }
+
+    // 1. Decimal places check
+    const lcStr = String(leastCount).trim();
+    const lcDecimals = lcStr.includes('.') ? lcStr.split('.')[1].length : 0;
+    const valueDecimals = strVal.includes('.') ? strVal.split('.')[1].length : 0;
+
+    if (valueDecimals > lcDecimals) {
+      return {
+        isValid: false,
+        error: `Max ${lcDecimals} decimal(s) allowed (LC: ${leastCount})`
+      };
+    }
+
+    // 2. Divisibility check
+    const factor = 1000000;
+    const scaledValue = Math.round(numValue * factor);
+    const scaledLc = Math.round(lcValue * factor);
+    const remainder = scaledValue % scaledLc;
+
+    if (remainder !== 0) {
+      return {
+        isValid: false,
+        error: `Must be a multiple of least count ${leastCount}`
+      };
+    }
+
+    return { isValid: true, error: null };
+  };
+
+  // PHP checksafety function exact logic
+  const checksafety = (value, minrange, maxrange) => {
+    if (value === null || value === undefined || value === '') return '';
+    const strVal = String(value).trim();
+    if (strVal === '' || strVal.toUpperCase() === 'N.A') return 'N.A';
+
+    const numVal = parseFloat(strVal);
+    if (isNaN(numVal)) return '';
+
+    const strMin = String(minrange ?? '').trim();
+    const strMax = String(maxrange ?? '').trim();
+
+    if (strMin === '>') {
+      const maxVal = parseFloat(strMax);
+      return !isNaN(maxVal) ? (numVal > maxVal ? 'Pass' : 'Fail') : '';
+    } else if (strMin === '<') {
+      const maxVal = parseFloat(strMax);
+      return !isNaN(maxVal) ? (numVal < maxVal ? 'Pass' : 'Fail') : '';
+    } else if (strMin === '=') {
+      const maxVal = parseFloat(strMax);
+      return !isNaN(maxVal) ? (numVal === maxVal ? 'Pass' : 'Fail') : '';
+    } else {
+      const minVal = parseFloat(strMin);
+      const maxVal = parseFloat(strMax);
+      if (!isNaN(minVal) && !isNaN(maxVal)) {
+        return (numVal >= minVal && numVal <= maxVal) ? 'Pass' : 'Fail';
+      } else if (!isNaN(maxVal) && (strMin === '' || strMin === 'NA')) {
+        return numVal <= maxVal ? 'Pass' : 'Fail';
+      } else if (!isNaN(minVal) && (strMax === '' || strMax === 'NA')) {
+        return numVal >= minVal ? 'Pass' : 'Fail';
+      }
+    }
+    return '';
+  };
+
+  const getPointRemark = (point, deviationVal) => {
+    if (deviationVal === null || deviationVal === undefined || deviationVal === '') {
+      return point.remark || '';
+    }
+
+    let min = point.tolerance_min;
+    let max = point.tolerance_max;
+
+    if (min == null || max == null) {
+      const tolType = (point.tolerance_type || '').trim();
+      const tolVal = parseFloat(point.tolerance_value ?? point.tolerance);
+      const setPointVal = parseFloat(point.set_point ?? point.point);
+
+      if (!isNaN(tolVal)) {
+        if (tolType === '%') {
+          if (!isNaN(setPointVal)) {
+            const limit = Math.abs((tolVal / 100) * setPointVal);
+            min = -limit;
+            max = limit;
+          }
+        } else if (tolType === 'Fixed') {
+          min = -tolVal;
+          max = tolVal;
+        }
+      }
+    }
+
+    if (min != null && max != null) {
+      const res = checksafety(deviationVal, min, max);
+      if (res === 'Pass') return 'Satisfactory';
+      if (res === 'Fail') return 'Not Satisfactory';
+      return res;
+    }
+
+    if (point.tolerance && String(point.tolerance).includes('<')) {
+      const parts = String(point.tolerance).split('<');
+      const maxVal = parseFloat(parts[1]);
+      if (!isNaN(maxVal)) {
+        const res = checksafety(deviationVal, '<', maxVal);
+        if (res === 'Pass') return 'Satisfactory';
+        if (res === 'Fail') return 'Not Satisfactory';
+      }
+    }
+
+    return point.remark || '';
+  };
 
   const formatValueByLc = (val, decimals, leastCount) => {
     if (val === null || val === undefined || val === '') return '';
     if (typeof val === 'string' && val.includes('/')) return val;
 
     const strVal = String(val).trim();
+    if (strVal.endsWith('.')) return strVal;
+
     const n = parseFloat(strVal);
     if (isNaN(n)) return val;
 
@@ -80,36 +318,48 @@ const ObservationBiomedical = ({
   };
 
   const renderVisualInspection = () => {
-    if (!isVisualTestVisible || !visualTests || visualTests.length === 0) return null;
+    const list = (selectedTableData?.visual_test && selectedTableData.visual_test.length > 0)
+      ? selectedTableData.visual_test
+      : visualTests;
+
+    if (!isVisualTestVisible || !list || list.length === 0) return null;
 
     return (
       <div className="mb-8">
-        <h2 className="text-md font-medium text-gray-800 dark:text-white mb-4">Visual Inspection</h2>
+        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">VISUAL INSPECTION</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse border border-gray-300 dark:border-gray-600">
             <thead>
               <tr className="bg-gray-100 dark:bg-gray-700">
-                <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Description</th>
-                <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center">Observed Value / Remark</th>
+                <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-left">Description</th>
+                <th className="p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-left">Remark</th>
               </tr>
             </thead>
             <tbody>
-              {visualTests.map((test) => (
-                <tr key={`visual-${test.id}`} className="dark:bg-gray-800">
-                  <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                    {test.description || test.name || ''}
-                  </td>
-                  <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
-                    <input
-                      type="text"
-                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={visualTestInputs[test.id] ?? ''}
-                      onChange={(e) => setVisualTestInputs({ ...visualTestInputs, [test.id]: e.target.value })}
-                      placeholder="Enter observation"
-                    />
-                  </td>
-                </tr>
-              ))}
+              {list.map((test) => {
+                const val = visualTestInputs[test.id] ?? (test.value ?? '');
+                return (
+                  <tr key={`visual-${test.id}`} className="dark:bg-gray-800">
+                    <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
+                      {test.description || test.name || ''}
+                    </td>
+                    <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
+                      <input type="hidden" name="calibrationpoint[]" value={test.instid || test.id} />
+                      <input type="hidden" name="type[]" value={test.type || `visualtest${test.id}`} />
+                      <input type="hidden" name="repeatable[]" value="0" />
+                      <input
+                        type="text"
+                        name="value[]"
+                        id={`visualtest${test.id}`}
+                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={val}
+                        onChange={(e) => setVisualTestInputs && setVisualTestInputs({ ...visualTestInputs, [test.id]: e.target.value })}
+                        placeholder="Enter observation / remark"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -118,43 +368,53 @@ const ObservationBiomedical = ({
   };
 
   const renderBasicSafetyTest = () => {
-    if (!isBasicSafetyVisible || !safetyTests || safetyTests.length === 0) return null;
+    const list = (selectedTableData?.basic_safety && selectedTableData.basic_safety.length > 0)
+      ? selectedTableData.basic_safety
+      : safetyTests;
 
-    const thCls = 'p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center';
+    if (!isBasicSafetyVisible || !list || list.length === 0) return null;
+
+    const thCls = 'p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-left';
     const tdCls = 'p-2 border border-gray-300 dark:border-gray-600 dark:text-white';
 
     return (
       <div className="mb-8">
-        <h2 className="text-md font-medium text-gray-800 dark:text-white mb-4">Basic Safety Test</h2>
+        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">BASIC SAFETY TEST</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse border border-gray-300 dark:border-gray-600">
             <thead>
               <tr className="bg-gray-100 dark:bg-gray-700">
                 <th className={thCls}>Description</th>
                 <th className={thCls}>Observed Value</th>
-                <th className={thCls}>Specification</th>
               </tr>
             </thead>
             <tbody>
-              {safetyTests.map((test) => (
-                <tr key={`safety-${test.id}`} className="dark:bg-gray-800">
-                  <td className={`${tdCls} bg-gray-50 dark:bg-gray-700`}>
-                    {test.description || test.name || ''}
-                  </td>
-                  <td className={tdCls}>
-                    <input
-                      type="text"
-                      className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={safetyTestInputs[test.id] ?? ''}
-                      onChange={(e) => setSafetyTestInputs({ ...safetyTestInputs, [test.id]: e.target.value })}
-                      placeholder="Enter value"
-                    />
-                  </td>
-                  <td className={`${tdCls} bg-gray-50 dark:bg-gray-700`}>
-                    {test.specification || test.range || ''}
-                  </td>
-                </tr>
-              ))}
+              {list.map((test) => {
+                const val = safetyTestInputs[test.id] ?? (test.value ?? '');
+
+                return (
+                  <tr key={`safety-${test.id}`} className="dark:bg-gray-800">
+                    <td className={`${tdCls} bg-gray-50 dark:bg-gray-700`}>
+                      {test.description || test.name || ''}
+                    </td>
+                    <td className={tdCls}>
+                      <input type="hidden" name="calibrationpoint[]" value={test.instid || test.id} />
+                      <input type="hidden" name="type[]" value={test.type || `electricalsafety${test.id}`} />
+                      <input type="hidden" name="repeatable[]" value="0" />
+                      <input
+                        type="text"
+                        name="value[]"
+                        id={`electricalsafety${test.id}`}
+                        className="w-32 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={val}
+                        onChange={(e) => setSafetyTestInputs && setSafetyTestInputs({ ...safetyTestInputs, [test.id]: e.target.value })}
+                        placeholder="Enter value"
+                      />
+                      <span className="ml-1 text-xs text-gray-500">{test.unit || ''}</span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -163,15 +423,42 @@ const ObservationBiomedical = ({
   };
 
   const renderBiomedicalTables = () => {
-    if (!selectedTableData || !selectedTableData.calibration_points) return null;
-    const points = selectedTableData.calibration_points;
-    const measureSafety = points.filter(p => p.mode === 'Measure' && p.is_electrical_safety);
-    const sourceSafety = points.filter(p => p.mode === 'Source' && p.is_electrical_safety);
-    const measurePerf = points.filter(p => p.mode === 'Measure' && !p.is_electrical_safety);
-    const sourcePerf = points.filter(p => p.mode === 'Source' && !p.is_electrical_safety);
+    let measureSafety = [];
+    let sourceSafety = [];
+    let measurePerf = [];
+    let sourcePerf = [];
 
-    const renderTable = (title, tablePoints, masterCount, uucCount, showDevAndUnc, isSource = false) => {
+    if (selectedTableData) {
+      if (selectedTableData.electrical_safety) {
+        measureSafety = selectedTableData.electrical_safety.measure || [];
+        sourceSafety = selectedTableData.electrical_safety.source || [];
+      }
+      if (selectedTableData.performance_test) {
+        measurePerf = selectedTableData.performance_test.measure || [];
+        sourcePerf = selectedTableData.performance_test.source || [];
+      }
+
+      if (selectedTableData.calibration_points && Array.isArray(selectedTableData.calibration_points)) {
+        const points = selectedTableData.calibration_points;
+        if (measureSafety.length === 0) measureSafety = points.filter(p => p.mode === 'Measure' && p.is_electrical_safety);
+        if (sourceSafety.length === 0) sourceSafety = points.filter(p => p.mode === 'Source' && p.is_electrical_safety);
+        if (measurePerf.length === 0) measurePerf = points.filter(p => p.mode === 'Measure' && !p.is_electrical_safety);
+        if (sourcePerf.length === 0) sourcePerf = points.filter(p => p.mode === 'Source' && !p.is_electrical_safety);
+      }
+    }
+
+    if (measureSafety.length === 0 && sourceSafety.length === 0 && measurePerf.length === 0 && sourcePerf.length === 0 && observations && observations.length > 0) {
+      measurePerf = observations.filter(p => p.mode === 'Measure' && !p.is_electrical_safety);
+      sourcePerf = observations.filter(p => p.mode === 'Source' && !p.is_electrical_safety);
+      measureSafety = observations.filter(p => p.mode === 'Measure' && p.is_electrical_safety);
+      sourceSafety = observations.filter(p => p.mode === 'Source' && p.is_electrical_safety);
+    }
+
+    const renderTable = (sectionTitle, tablePoints, defaultMasterCount, defaultUucCount, showDevAndUnc, isSource = false, showRemark = true) => {
       if (!tablePoints || tablePoints.length === 0) return null;
+
+      const masterCount = defaultMasterCount;
+      const uucCount = defaultUucCount;
 
       const thCls = 'p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-center';
       const tdCls = 'p-2 border border-gray-300 dark:border-gray-600 dark:text-white';
@@ -179,24 +466,43 @@ const ObservationBiomedical = ({
       const renderMasterCells = (point, pointId) => {
         const isMasterReadOnly = point.mode === 'Measure';
         return Array.from({ length: masterCount }).map((_, i) => {
-          const displayValue = isMasterReadOnly
-            ? (point.master_readings?.[i]?.value ?? point.set_point ?? point.point ?? '')
-            : (tableInputValues[`${pointId}-master-${i}`] ?? (point.master_readings?.[i]?.value ?? ''));
+          const rawState = tableInputValues[`${pointId}-master-${i}`];
+          const initialVal = point.master_readings?.[i]?.value ?? (isMasterReadOnly ? (point.set_point ?? point.point ?? '') : '');
+          const displayValue = rawState !== undefined ? rawState : initialVal;
+          const effectiveLc = getEffectiveLeastCount(displayValue, point, true);
+          const lcCheck = validateLeastCount(displayValue, effectiveLc);
+
           return (
             <td key={`master-${i}`} className={tdCls}>
               <input type="hidden" name="calibrationpoint[]" value={pointId} />
               <input type="hidden" name="type[]" value="master" />
               <input type="hidden" name="repeatable[]" value={i} />
-              <input
-                type="text"
-                name="value[]"
-                className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isMasterReadOnly ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'}`}
-                value={displayValue}
-                readOnly={isMasterReadOnly}
-                onChange={!isMasterReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'master', i, e.target.value, masterCount, uucCount) : undefined}
-                onBlur={!isMasterReadOnly ? (e) => handleBiomedicalInputBlur(pointId, 'master', i, e.target.value, masterCount, uucCount) : undefined}
-              />
-              <span className="ml-1 text-xs text-gray-500">{point.master_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    name="value[]"
+                    className={`w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 text-gray-900 dark:text-white ${
+                      !lcCheck.isValid
+                        ? 'border-red-500 bg-red-50 dark:bg-red-950/40 focus:ring-red-500'
+                        : isMasterReadOnly
+                        ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-600 focus:ring-blue-500'
+                    }`}
+                    value={displayValue}
+                    readOnly={isMasterReadOnly}
+                    title={!lcCheck.isValid ? lcCheck.error : undefined}
+                    placeholder={!isMasterReadOnly ? String(point.set_point ?? point.point ?? '') : ''}
+                    onChange={!isMasterReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'master', i, e.target.value, masterCount, uucCount) : undefined}
+                    onBlur={!isMasterReadOnly ? (e) => handleBiomedicalInputBlur(pointId, 'master', i, e.target.value, masterCount, uucCount) : undefined}
+                  />
+
+                  <span className="text-xs text-gray-500">{point.master_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+                </div>
+                {!lcCheck.isValid && (
+                  <span className="text-[10px] text-red-500 leading-none">{lcCheck.error}</span>
+                )}
+              </div>
             </td>
           );
         });
@@ -205,24 +511,43 @@ const ObservationBiomedical = ({
       const renderUucCells = (point, pointId) => {
         const isUucReadOnly = point.mode === 'Source';
         return Array.from({ length: uucCount }).map((_, i) => {
-          const displayValue = isUucReadOnly
-            ? (point.uuc_readings?.[i]?.value ?? point.set_point ?? point.point ?? '')
-            : (tableInputValues[`${pointId}-uuc-${i}`] ?? (point.uuc_readings?.[i]?.value ?? ''));
+          const rawState = tableInputValues[`${pointId}-uuc-${i}`];
+          const initialVal = point.uuc_readings?.[i]?.value ?? (isUucReadOnly ? (point.set_point ?? point.point ?? '') : '');
+          const displayValue = rawState !== undefined ? rawState : initialVal;
+          const effectiveLc = getEffectiveLeastCount(displayValue, point, false);
+          const lcCheck = validateLeastCount(displayValue, effectiveLc);
+
           return (
             <td key={`uuc-${i}`} className={tdCls}>
               <input type="hidden" name="calibrationpoint[]" value={pointId} />
               <input type="hidden" name="type[]" value="uuc" />
               <input type="hidden" name="repeatable[]" value={i} />
-              <input
-                type="text"
-                name="value[]"
-                className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isUucReadOnly ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-600'}`}
-                value={displayValue}
-                readOnly={isUucReadOnly}
-                onChange={!isUucReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'uuc', i, e.target.value, masterCount, uucCount) : undefined}
-                onBlur={!isUucReadOnly ? (e) => handleBiomedicalInputBlur(pointId, 'uuc', i, e.target.value, masterCount, uucCount) : undefined}
-              />
-              <span className="ml-1 text-xs text-gray-500">{point.uuc_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    name="value[]"
+                    className={`w-20 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 text-gray-900 dark:text-white ${
+                      !lcCheck.isValid
+                        ? 'border-red-500 bg-red-50 dark:bg-red-950/40 focus:ring-red-500'
+                        : isUucReadOnly
+                        ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-600 focus:ring-blue-500'
+                    }`}
+                    value={displayValue}
+                    readOnly={isUucReadOnly}
+                    title={!lcCheck.isValid ? lcCheck.error : undefined}
+                    placeholder={!isUucReadOnly ? String(point.set_point ?? point.point ?? '') : ''}
+                    onChange={!isUucReadOnly ? (e) => handleBiomedicalInputChange(pointId, 'uuc', i, e.target.value, masterCount, uucCount) : undefined}
+                    onBlur={!isUucReadOnly ? (e) => handleBiomedicalInputBlur(pointId, 'uuc', i, e.target.value, masterCount, uucCount) : undefined}
+                  />
+
+                  <span className="text-xs text-gray-500">{point.uuc_readings?.[i]?.unit || point.set_point_unit || point.unit || ''}</span>
+                </div>
+                {!lcCheck.isValid && (
+                  <span className="text-[10px] text-red-500 leading-none">{lcCheck.error}</span>
+                )}
+              </div>
             </td>
           );
         });
@@ -230,7 +555,7 @@ const ObservationBiomedical = ({
 
       return (
         <div className="mb-6">
-          <h3 className="text-md font-medium text-gray-800 dark:text-white mb-2">{title}</h3>
+          <h3 className="text-md font-semibold text-gray-800 dark:text-white mb-2">{sectionTitle}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse border border-gray-300 dark:border-gray-600">
               <thead>
@@ -254,33 +579,58 @@ const ObservationBiomedical = ({
                   )}
                   {showDevAndUnc && <th className={thCls}>Deviation</th>}
                   <th className={thCls}>Tolerance</th>
+                  {showDevAndUnc && showRemark && <th className={thCls}>Remark</th>}
                 </tr>
               </thead>
               <tbody>
                 {tablePoints.map((point) => {
-                  const pointId = point.id;
+                  const pointId = point.calibration_point_id || point.id;
+                  const devVal = tableInputValues[`${pointId}-error`] ?? point.deviation;
+                  const currentRemark = getPointRemark(point, devVal);
+
                   return (
                     <tr key={`bio-${pointId}`} className="dark:bg-gray-800">
+                      {/* Parameter */}
                       <td className={`${tdCls} min-w-[180px]`}>
                         <input type="hidden" name="calibrationpoint[]" value={pointId} />
                         <input type="hidden" name="type[]" value="parameter" />
                         <input type="hidden" name="repeatable[]" value="0" />
-                        <input type="text" name="value[]" title={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')} className="w-full min-w-[160px] px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')} readOnly />
+                        <input
+                          type="text"
+                          name="value[]"
+                          id={`parameter${pointId}`}
+                          title={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')}
+                          className="w-full min-w-[160px] px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                          value={tableInputValues[`${pointId}-parameter`] ?? (point.parameter || point.unittype || '')}
+                          readOnly
+                        />
                       </td>
+
+                      {/* Set Point */}
                       {showDevAndUnc && (
                         <td className={tdCls}>
                           <input type="hidden" name="calibrationpoint[]" value={pointId} />
                           <input type="hidden" name="type[]" value="setpoint" />
                           <input type="hidden" name="repeatable[]" value="0" />
-                          <input type="text" name="value[]" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={point.set_point ?? point.point ?? ''} readOnly /> {point.set_point_unit ?? point.unit ?? ''}
+                          <input
+                            type="text"
+                            name="value[]"
+                            id={`setpoint${pointId}`}
+                            className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                            value={point.set_point ?? point.point ?? ''}
+                            readOnly
+                          /> {point.set_point_unit ?? point.unit ?? ''}
                         </td>
                       )}
+
+                      {/* Readings */}
                       {isSource ? (
                         <>
                           {showDevAndUnc && renderUucCells(point, pointId)}
                           {showDevAndUnc && uucCount > 1 && (() => {
                             const isWaveform = (point.parameter || point.unittype || '').toLowerCase().includes('waveform');
-                            const uucVal = tableInputValues[`${pointId}-averageuuc`] ?? point.average_uuc ?? '';
+                            const calculatedAvg = isWaveform ? '' : calculateAverage(pointId, 'uuc', uucCount, point);
+                            const uucVal = tableInputValues[`${pointId}-averageuuc`] || calculatedAvg || (point.average_uuc ?? '');
                             return (
                               <td className={tdCls}>
                                 <input type="hidden" name="calibrationpoint[]" value={pointId} />
@@ -289,6 +639,7 @@ const ObservationBiomedical = ({
                                 <input
                                   type="text"
                                   name="value[]"
+                                  id={`averageuuc${pointId}`}
                                   className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isWaveform ? 'bg-white dark:bg-gray-600' : 'bg-gray-50 dark:bg-gray-700'}`}
                                   value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, point.least_count)}
                                   readOnly={!isWaveform}
@@ -300,32 +651,55 @@ const ObservationBiomedical = ({
                             );
                           })()}
                           {renderMasterCells(point, pointId)}
-                          {masterCount > 1 && (
-                            <td className={tdCls}>
-                              <input type="hidden" name="calibrationpoint[]" value={pointId} />
-                              <input type="hidden" name="type[]" value="averagemaster" />
-                              <input type="hidden" name="repeatable[]" value="0" />
-                              <input type="text" name="value[]" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={formatValueByLc(tableInputValues[`${pointId}-averagemaster`] ?? point.average_master, point.mlc_decimals, point.master_least_count)} readOnly />
-                              <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
-                            </td>
-                          )}
+                          {masterCount > 1 && (() => {
+                            const calculatedAvg = calculateAverage(pointId, 'master', masterCount, point);
+                            const displayAvg = tableInputValues[`${pointId}-averagemaster`] || calculatedAvg || point.average_master;
+                            return (
+                              <td className={tdCls}>
+                                <input type="hidden" name="calibrationpoint[]" value={pointId} />
+                                <input type="hidden" name="type[]" value="averagemaster" />
+                                <input type="hidden" name="repeatable[]" value="0" />
+                                <input
+                                  type="text"
+                                  name="value[]"
+                                  id={`averagemaster${pointId}`}
+                                  className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                  value={formatValueByLc(displayAvg, point.mlc_decimals, point.master_least_count)}
+                                  readOnly
+                                />
+                                <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
+                              </td>
+                            );
+                          })()}
                         </>
                       ) : (
                         <>
                           {showDevAndUnc && renderMasterCells(point, pointId)}
-                          {showDevAndUnc && masterCount > 1 && (
-                            <td className={tdCls}>
-                              <input type="hidden" name="calibrationpoint[]" value={pointId} />
-                              <input type="hidden" name="type[]" value="averagemaster" />
-                              <input type="hidden" name="repeatable[]" value="0" />
-                              <input type="text" name="value[]" className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white" value={formatValueByLc(tableInputValues[`${pointId}-averagemaster`] ?? point.average_master, point.mlc_decimals, point.master_least_count)} readOnly />
-                              <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
-                            </td>
-                          )}
+                          {showDevAndUnc && masterCount > 1 && (() => {
+                            const calculatedAvg = calculateAverage(pointId, 'master', masterCount, point);
+                            const displayAvg = tableInputValues[`${pointId}-averagemaster`] || calculatedAvg || point.average_master;
+                            return (
+                              <td className={tdCls}>
+                                <input type="hidden" name="calibrationpoint[]" value={pointId} />
+                                <input type="hidden" name="type[]" value="averagemaster" />
+                                <input type="hidden" name="repeatable[]" value="0" />
+                                <input
+                                  type="text"
+                                  name="value[]"
+                                  id={`averagemaster${pointId}`}
+                                  className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                  value={formatValueByLc(displayAvg, point.mlc_decimals, point.master_least_count)}
+                                  readOnly
+                                />
+                                <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
+                              </td>
+                            );
+                          })()}
                           {renderUucCells(point, pointId)}
                           {uucCount > 1 && (() => {
                             const isWaveform = (point.parameter || point.unittype || '').toLowerCase().includes('waveform');
-                            const uucVal = tableInputValues[`${pointId}-averageuuc`] ?? point.average_uuc ?? '';
+                            const calculatedAvg = isWaveform ? '' : calculateAverage(pointId, 'uuc', uucCount, point);
+                            const uucVal = tableInputValues[`${pointId}-averageuuc`] || calculatedAvg || (point.average_uuc ?? '');
                             return (
                               <td className={tdCls}>
                                 <input type="hidden" name="calibrationpoint[]" value={pointId} />
@@ -334,6 +708,7 @@ const ObservationBiomedical = ({
                                 <input
                                   type="text"
                                   name="value[]"
+                                  id={`averageuuc${pointId}`}
                                   className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isWaveform ? 'bg-white dark:bg-gray-600' : 'bg-gray-50 dark:bg-gray-700'}`}
                                   value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, point.least_count)}
                                   readOnly={!isWaveform}
@@ -346,8 +721,9 @@ const ObservationBiomedical = ({
                           })()}
                         </>
                       )}
+
+                      {/* Deviation */}
                       {showDevAndUnc && (() => {
-                        const devVal = tableInputValues[`${pointId}-error`] ?? point.deviation;
                         const pLcDec = (point.lc_decimals != null && point.lc_decimals !== 'NA') ? parseInt(point.lc_decimals, 10) : 0;
                         const pMlcDec = (point.mlc_decimals != null && point.mlc_decimals !== 'NA') ? parseInt(point.mlc_decimals, 10) : 0;
                         const countDec = (v) => {
@@ -364,7 +740,8 @@ const ObservationBiomedical = ({
                             <input
                               type="text"
                               name="value[]"
-                              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                              id={`error${pointId}`}
+                              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
                               value={formatValueByLc(devVal, devDecimals)}
                               readOnly
                             />
@@ -372,6 +749,8 @@ const ObservationBiomedical = ({
                           </td>
                         );
                       })()}
+
+                      {/* Specification / Tolerance */}
                       {(() => {
                         const rawTol = point.tolerance ?? point.tolerance_value ?? point.specification ?? '';
                         const tolType = (point.tolerance_type || '').trim();
@@ -386,7 +765,8 @@ const ObservationBiomedical = ({
                             <input
                               type="text"
                               name="value[]"
-                              className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                              id={`specification${pointId}`}
+                              className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
                               value={tableInputValues[`${pointId}-specification`] ?? formattedTolerance}
                               onChange={(e) => handleBiomedicalInputChange(pointId, 'specification', 0, e.target.value, masterCount, uucCount)}
                               onBlur={(e) => handleBiomedicalInputBlur(pointId, 'specification', 0, e.target.value, masterCount, uucCount)}
@@ -394,6 +774,50 @@ const ObservationBiomedical = ({
                           </td>
                         );
                       })()}
+
+                      {/* Remark */}
+                      {showDevAndUnc && showRemark && (
+                        <td className={tdCls}>
+                          <input type="hidden" name="calibrationpoint[]" value={pointId} />
+                          <input type="hidden" name="type[]" value="remark" />
+                          <input type="hidden" name="repeatable[]" value="0" />
+                          <input
+                            type="hidden"
+                            name="value[]"
+                            id={`remark${pointId}`}
+                            value={tableInputValues[`${pointId}-remark`] ?? currentRemark}
+                          />
+                          {currentRemark ? (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                              currentRemark === 'Satisfactory' || currentRemark === 'Pass'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : currentRemark === 'Not Satisfactory' || currentRemark === 'Fail'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700'
+                            }`}>
+                              {currentRemark}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                      )}
+
+                      {/* Expanded Uncertainty (Hidden input as per PHP) */}
+                      <input type="hidden" name="calibrationpoint[]" value={pointId} />
+                      <input type="hidden" name="type[]" value="expandeduncertainty" />
+                      <input type="hidden" name="repeatable[]" value="0" />
+                      <input type="hidden" id={`expandeduncertainty${pointId}`} name="value[]" value={tableInputValues[`${pointId}-expandeduncertainty`] ?? point.expanded_uncertainty ?? ''} />
+
+                      {/* Hidden: Remark (when not shown as visible column) */}
+                      {(!showDevAndUnc || !showRemark) && (
+                        <>
+                          <input type="hidden" name="calibrationpoint[]" value={pointId} />
+                          <input type="hidden" name="type[]" value="remark" />
+                          <input type="hidden" name="repeatable[]" value="0" />
+                          <input type="hidden" name="value[]" value={tableInputValues[`${pointId}-remark`] ?? currentRemark ?? point.remark ?? ''} />
+                        </>
+                      )}
                     </tr>
                   );
                 })}
@@ -408,8 +832,8 @@ const ObservationBiomedical = ({
       <div className="space-y-6">
         {isElectricalSafetyVisible && measureSafety.length > 0 && renderTable("ELECTRICAL SAFETY TEST", measureSafety, 1, 5, false, false)}
         {isElectricalSafetyVisible && sourceSafety.length > 0 && renderTable("ELECTRICAL SAFETY TEST (Source)", sourceSafety, 5, 1, false, true)}
-        {isPerformanceVisible && measurePerf.length > 0 && renderTable("PERFORMANCE TESTING", measurePerf, 1, 5, true, false)}
-        {isPerformanceVisible && sourcePerf.length > 0 && renderTable("PERFORMANCE TESTING (Source)", sourcePerf, 5, 1, true, true)}
+        {isPerformanceVisible && measurePerf.length > 0 && renderTable("PERFORMANCE TESTING", measurePerf, 1, 5, true, false, false)}
+        {isPerformanceVisible && sourcePerf.length > 0 && renderTable("PERFORMANCE TESTING (Source)", sourcePerf, 5, 1, true, true, false)}
       </div>
     );
   };

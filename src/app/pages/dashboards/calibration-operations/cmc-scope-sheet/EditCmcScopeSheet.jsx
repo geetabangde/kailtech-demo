@@ -22,7 +22,7 @@ export default function EditCmcScopeSheet() {
   const [errors, setErrors] = useState({});
 
   const [formData, setFormData] = useState({
-    parameter: "",
+    parameter: [],
     mode: "",
     minfrequency: "",
     maxfrequency: "",
@@ -30,10 +30,10 @@ export default function EditCmcScopeSheet() {
     leastcount: "",
     mincmc: "",
     maxcmc: "",
-    cmctype: "",
+    cmctype: "Absolute",
     cmcunit: "",
     masters: [], // Array to store selected masters
-    location: "",
+    location: "Site",
     remark: ""
   });
 
@@ -84,10 +84,12 @@ export default function EditCmcScopeSheet() {
       const response = await apiClient.get('/material/get-master-list');
       if (response.data.status === "true" && response.data.data) {
         setMasterOptions(response.data.data);
+        return response.data.data;
       }
     } catch (err) {
       console.error('Error fetching master options:', err);
     }
+    return [];
   };
 
   const fetchInstrumentOptions = async () => {
@@ -95,10 +97,12 @@ export default function EditCmcScopeSheet() {
       const response = await apiClient.get('/get-instrumentNames');
       if (response.data.status === "true" && response.data.data) {
         setInstrumentOptions(response.data.data);
+        return response.data.data;
       }
     } catch (err) {
       console.error('Error fetching instrument options:', err);
     }
+    return [];
   };
 
   const fetchSourceOptions = async () => {
@@ -106,10 +110,12 @@ export default function EditCmcScopeSheet() {
       const response = await apiClient.get('/get-source');
       if (response.data.status === "true" && response.data.data) {
         setSourceOptions(response.data.data);
+        return response.data.data;
       }
     } catch (err) {
       console.error('Error fetching source options:', err);
     }
+    return [];
   };
 
   const fetchUnitOptions = async () => {
@@ -117,14 +123,19 @@ export default function EditCmcScopeSheet() {
       const response = await apiClient.get('/master/units-list');
       if (response.data.status === "true" && response.data.data) {
         setUnitOptions(response.data.data);
+        return response.data.data;
       }
     } catch (err) {
       console.error('Error fetching unit options:', err);
     }
+    return [];
   };
 
   // Fetch CMC Scope data by ID
-  const fetchCmcScopeData = async () => {
+  const fetchCmcScopeData = async (
+    instOpts = instrumentOptions,
+    mstOpts = masterOptions
+  ) => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/calibrationoperations/get-cmcscope-byid/${id}`);
@@ -137,53 +148,59 @@ export default function EditCmcScopeSheet() {
 
         console.log('Extracted data:', data); // Debug log
 
+        // Handle parameter (supports comma-separated string or array of instruments)
+        let parametersArray = [];
+        if (data.parameter) {
+          const paramList = Array.isArray(data.parameter)
+            ? data.parameter
+            : data.parameter.toString().split(',').map(p => p.trim()).filter(Boolean);
+
+          parametersArray = paramList.map((paramName) => {
+            const found = instOpts.find(
+              (m) => m.name?.trim().toLowerCase() === paramName.toLowerCase()
+            );
+            return {
+              value: found ? found.name : paramName,
+              label: found ? found.name : paramName,
+            };
+          });
+        }
+
         // Handle masters - convert from string to array of select options
         let mastersArray = [];
         if (data.masters) {
-          const masterIds = data.masters.toString().split(',').map(id => id.trim()).filter(id => id);
-          mastersArray = masterIds
-            .map((masterId) => masterOptions.find(m => m.id === parseInt(masterId)))
-            .filter(Boolean)
-            .map((m) => ({
-              value: m.id,
-              label: `${m.name}${m.idno ? ` (${m.idno})` : ""}`
-            }));
+          const masterIds = data.masters.toString().split(',').map(id => id.trim()).filter(Boolean);
+          mastersArray = masterIds.map((masterId) => {
+            const m = mstOpts.find(opt => String(opt.id) === String(masterId));
+            return m
+              ? { value: m.id, label: `${m.name}${m.idno ? ` (${m.idno})` : ""}` }
+              : { value: isNaN(parseInt(masterId, 10)) ? masterId : parseInt(masterId, 10), label: `Master ID: ${masterId}` };
+          });
         }
 
-        const unitId = data.unit ? parseInt(data.unit) : "";
-        const cmcUnitId = data.cmcunit ? parseInt(data.cmcunit) : "";
+        const unitId = data.unit ? parseInt(data.unit, 10) : "";
+        const cmcUnitId = data.cmcunit ? parseInt(data.cmcunit, 10) : "";
+
+        let normalizedCmcType = data.cmctype || "Absolute";
+        if (String(normalizedCmcType).toLowerCase() === "percentage" || normalizedCmcType === "%") {
+          normalizedCmcType = "%";
+        }
 
         setFormData({
-          parameter: data.parameter || "",
+          parameter: parametersArray,
           mode: data.mode || "",
-          minfrequency: data.minfrequency ? data.minfrequency.toString() : "",
-          maxfrequency: data.maxfrequency ? data.maxfrequency.toString() : "",
+          minfrequency: data.minfrequency !== undefined && data.minfrequency !== null ? data.minfrequency.toString() : "",
+          maxfrequency: data.maxfrequency !== undefined && data.maxfrequency !== null ? data.maxfrequency.toString() : "",
           unit: unitId,
-          leastcount: data.leastcount ? data.leastcount.toString() : "",
-          mincmc: data.mincmc ? data.mincmc.toString() : "",
-          maxcmc: data.maxcmc ? data.maxcmc.toString() : "",
-          cmctype: data.cmctype || "Absolute",
+          leastcount: data.leastcount !== undefined && data.leastcount !== null ? data.leastcount.toString() : "",
+          mincmc: data.mincmc !== undefined && data.mincmc !== null ? data.mincmc.toString() : "",
+          maxcmc: data.maxcmc !== undefined && data.maxcmc !== null ? data.maxcmc.toString() : "",
+          cmctype: normalizedCmcType,
           cmcunit: cmcUnitId,
           masters: mastersArray,
           location: data.location || "Site",
           remark: data.remark || ""
         });
-
-        console.log('Form data set:', {
-          parameter: data.parameter || "",
-          mode: data.mode || "",
-          minfrequency: data.minfrequency ? data.minfrequency.toString() : "",
-          maxfrequency: data.maxfrequency ? data.maxfrequency.toString() : "",
-          unit: unitId,
-          leastcount: data.leastcount ? data.leastcount.toString() : "",
-          mincmc: data.mincmc ? data.mincmc.toString() : "",
-          maxcmc: data.maxcmc ? data.maxcmc.toString() : "",
-          cmctype: data.cmctype || "Absolute",
-          cmcunit: cmcUnitId,
-          masters: mastersArray,
-          location: data.location || "Site",
-          remark: data.remark || ""
-        }); // Debug log
 
       } else {
         toast.error(result.message || "Failed to load CMC scope data.");
@@ -197,29 +214,23 @@ export default function EditCmcScopeSheet() {
   };
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadAllData = async () => {
       setLoading(true);
       try {
-        await Promise.all([
+        const [insts, , , masters] = await Promise.all([
           fetchInstrumentOptions(),
           fetchSourceOptions(),
           fetchUnitOptions(),
           fetchMasterOptions()
         ]);
+        await fetchCmcScopeData(insts || [], masters || []);
       } catch (err) {
-        console.error('Error loading dropdown data:', err);
-      } finally {
+        console.error('Error loading data:', err);
         setLoading(false);
       }
     };
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (masterOptions.length > 0 && unitOptions.length > 0) {
-      fetchCmcScopeData();
-    }
-  }, [id, masterOptions, unitOptions]);
+    loadAllData();
+  }, [id]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -258,12 +269,10 @@ export default function EditCmcScopeSheet() {
     label: unit.name || unit.unit || unit.unitdesc || unit.description || "-"
   }));
 
-  const cmcUnitSelectOptions = unitOptions
-    .filter((unit) => unit.description)
-    .map((unit) => ({
-      value: unit.id,
-      label: unit.description
-    }));
+  const cmcUnitSelectOptions = unitOptions.map((unit) => ({
+    value: unit.id,
+    label: unit.description || unit.name || unit.unit || unit.unitdesc || "-"
+  }));
 
   const masterSelectOptions = masterOptions.map((master) => ({
     value: master.id,
@@ -285,12 +294,12 @@ export default function EditCmcScopeSheet() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.parameter.trim()) {
-      newErrors.parameter = "Parameter/Instrument is required";
-    }
+    const hasParam = Array.isArray(formData.parameter)
+      ? formData.parameter.length > 0
+      : Boolean(formData.parameter && String(formData.parameter).trim());
 
-    if (!formData.mode.trim()) {
-      newErrors.mode = "Source is required";
+    if (!hasParam) {
+      newErrors.parameter = "Parameter/Instrument is required";
     }
 
     setErrors(newErrors);
@@ -308,20 +317,24 @@ export default function EditCmcScopeSheet() {
     setLoading(true);
 
     try {
-      const unitId = parseInt(formData.unit) || 0;
-      const cmcUnitId = parseInt(formData.cmcunit) || 0;
+      const unitId = parseInt(formData.unit, 10) || 0;
+      const cmcUnitId = parseInt(formData.cmcunit, 10) || 0;
+
+      const paramPayload = Array.isArray(formData.parameter)
+        ? formData.parameter.map((p) => p?.value ?? p?.label ?? p)
+        : (typeof formData.parameter === 'string'
+            ? formData.parameter.split(',').map((p) => p.trim()).filter(Boolean)
+            : []);
 
       const payload = {
-        parameter: Array.isArray(formData.parameter)
-          ? formData.parameter
-          : formData.parameter.split(',').map(p => p.trim()),
-        mode: formData.mode,
-        minfrequency: parseInt(formData.minfrequency) || 0,
-        maxfrequency: parseInt(formData.maxfrequency) || 0,
+        parameter: paramPayload,
+        mode: formData.mode || "",
+        minfrequency: !isNaN(parseFloat(formData.minfrequency)) ? parseFloat(formData.minfrequency) : 0,
+        maxfrequency: !isNaN(parseFloat(formData.maxfrequency)) ? parseFloat(formData.maxfrequency) : 0,
         unit: unitId,
-        leastcount: parseFloat(formData.leastcount) || 0,
-        mincmc: parseFloat(formData.mincmc) || 0,
-        maxcmc: parseFloat(formData.maxcmc) || 0,
+        leastcount: !isNaN(parseFloat(formData.leastcount)) ? parseFloat(formData.leastcount) : 0,
+        mincmc: !isNaN(parseFloat(formData.mincmc)) ? parseFloat(formData.mincmc) : 0,
+        maxcmc: !isNaN(parseFloat(formData.maxcmc)) ? parseFloat(formData.maxcmc) : 0,
         cmctype: formData.cmctype || "",
         cmcunit: cmcUnitId,
         masters: (formData.masters || []).map((m) => m?.value ?? m?.id ?? m) || [],
@@ -352,7 +365,7 @@ export default function EditCmcScopeSheet() {
     }
   };
 
-  if (loading && !formData.parameter && masterOptions.length === 0) {
+  if (loading && (!formData.parameter || (Array.isArray(formData.parameter) && formData.parameter.length === 0)) && masterOptions.length === 0) {
     return (
       <Page title="Edit CMC Scope">
         <div className="flex h-[60vh] items-center justify-center text-gray-600">
@@ -394,10 +407,25 @@ export default function EditCmcScopeSheet() {
             <div className="flex-1">
               <Select
                 options={instrumentSelectOptions}
-                value={instrumentSelectOptions.find((o) => o.value === formData.parameter) || null}
-                onChange={(opt) => handleInputChange('parameter', opt ? opt.value : "")}
+                value={
+                  Array.isArray(formData.parameter)
+                    ? formData.parameter
+                    : formData.parameter
+                    ? [{ value: formData.parameter, label: formData.parameter }]
+                    : []
+                }
+                onChange={(selected) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    parameter: selected || [],
+                  }));
+                  if (errors.parameter) {
+                    setErrors((prev) => ({ ...prev, parameter: "" }));
+                  }
+                }}
                 placeholder="Select Instrument"
                 isSearchable
+                isMulti
                 styles={selectStyles}
                 classNamePrefix="react-select"
                 className="react-select-container"
@@ -411,7 +439,7 @@ export default function EditCmcScopeSheet() {
           {/* Source */}
           <div className="flex items-center">
             <label className="w-64 text-right pr-4 text-sm font-medium text-gray-700">
-              Source *
+              Source
             </label>
             <div className="flex-1">
               <Select
@@ -420,6 +448,7 @@ export default function EditCmcScopeSheet() {
                 onChange={(opt) => handleInputChange('mode', opt ? opt.value : "")}
                 placeholder="Select Source"
                 isSearchable
+                isClearable
                 styles={selectStyles}
                 classNamePrefix="react-select"
                 className="react-select-container"
@@ -438,6 +467,7 @@ export default function EditCmcScopeSheet() {
             <div className="flex-1">
               <Input
                 type="number"
+                step="any"
                 placeholder="e.g., 1, 50, 100"
                 value={formData.minfrequency}
                 onChange={(e) => handleInputChange('minfrequency', e.target.value)}
@@ -454,6 +484,7 @@ export default function EditCmcScopeSheet() {
             <div className="flex-1">
               <Input
                 type="number"
+                step="any"
                 placeholder="e.g., 10000, 5000, 40"
                 value={formData.maxfrequency}
                 onChange={(e) => handleInputChange('maxfrequency', e.target.value)}
@@ -542,7 +573,8 @@ export default function EditCmcScopeSheet() {
                 onChange={(e) => handleInputChange('cmctype', e.target.value)}
               >
                 <option value="Absolute">Absolute</option>
-                <option value="Percentage">%</option>
+                <option value="%">%</option>
+          
               </select>
             </div>
           </div>

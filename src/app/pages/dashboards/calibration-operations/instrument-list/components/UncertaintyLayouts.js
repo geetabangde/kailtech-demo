@@ -336,6 +336,7 @@ export const UNCERTAINTY_LAYOUTS = {
     { key: "coverage_factor", group: null, header: "Coverage Factor", value: (row) => row.coverageFactor },
     { key: "expanded_uncertainty", group: null, header: "Expanded Uncertainty", value: (row) => row.expandedUncertainty },
     { key: "cmc_taken", group: null, header: "CMC Taken", value: (row) => row.cmcTaken },
+    { key: "cmc_scope", group: null, header: "CMC Scope", value: (row) => row.cmcScope },
   ],
   mm: [
     { key: "sr_no", group: "Uncertainty Type A", header: "Sr No", value: (row) => row.srNo },

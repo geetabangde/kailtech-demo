@@ -3,7 +3,7 @@ import { Button } from "components/ui";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router";
 import axios from 'axios';
 import { toast } from "sonner";
-import { JWT_HOST_API, IMAGE_HOST_API } from "configs/auth.config";
+import { JWT_HOST_API } from "configs/auth.config";
 
 export default function CalibrationReport() {
   const navigate = useNavigate();
@@ -138,8 +138,9 @@ export default function CalibrationReport() {
     }
     if (d === null && leastCount !== null && leastCount !== undefined && leastCount !== 'NA' && leastCount !== '') {
       const str = String(leastCount).trim();
-      if (str.includes('.')) {
-        d = str.split('.')[1].length;
+      const match = str.match(/\.([0-9]+)/);
+      if (match) {
+        d = match[1].length;
       } else if (!isNaN(parseFloat(str))) {
         d = 0;
       }
@@ -368,21 +369,29 @@ export default function CalibrationReport() {
       }
     }
 
-    const addMasterObservations = () => {
-      let obsArray = [];
-      for (let i = 1; i <= masterCount; i++) obsArray.push(`Observation ${i}`);
-      if (masterCount > 1) obsArray.push("Average On Master");
+    const isMultiRow = (masterCount > 1 || uucCount > 1);
 
-      subHeaders[instrument.masterheading || "Master Observations"] = obsArray;
+    const addMasterObservations = () => {
+      if (masterCount > 1) {
+        let obsArray = [];
+        for (let i = 1; i <= masterCount; i++) obsArray.push(`Observation ${i}`);
+        obsArray.push("Average On Master");
+        subHeaders[instrument.masterheading || "Master Observations"] = obsArray;
+      } else {
+        singleHeaders.push(instrument.masterheading || "Master Observations");
+      }
       masterdone = true;
     };
 
     const addUucObservations = () => {
-      let obsArray = [];
-      for (let i = 1; i <= uucCount; i++) obsArray.push(`Observation ${i}`);
-      if (uucCount > 1) obsArray.push("Average On UUC");
-
-      subHeaders[instrument.uucheading || "UUC Observations"] = obsArray;
+      if (uucCount > 1) {
+        let obsArray = [];
+        for (let i = 1; i <= uucCount; i++) obsArray.push(`Observation ${i}`);
+        obsArray.push("Average On UUC");
+        subHeaders[instrument.uucheading || "UUC Observations"] = obsArray;
+      } else {
+        singleHeaders.push(instrument.uucheading || "UUC Observations");
+      }
       uucdone = true;
     };
 
@@ -399,11 +408,19 @@ export default function CalibrationReport() {
     }
 
     if (instrument.errortoshow === "Yes") {
-      remainingHeaders.push("Error");
+      if (isMultiRow) {
+        remainingHeaders.push("Error");
+      } else {
+        singleHeaders.push("Error");
+      }
     }
 
     if (instrument.remarktoshow === "Yes") {
-      remainingHeaders.push(instrument.remarkheading || "Remark");
+      if (isMultiRow) {
+        remainingHeaders.push(instrument.remarkheading || "Remark");
+      } else {
+        singleHeaders.push(instrument.remarkheading || "Remark");
+      }
     }
 
     return {
@@ -507,10 +524,10 @@ export default function CalibrationReport() {
         singleHeaders: [
           'SR NO',
           'SET PRESSURE ON UUC (CALCULATIONUNIT)',
-          '[SET PRESSURE ON UUC (MASTERUNIT)]',
+          'SET PRESSURE ON UUC (MASTERUNIT)',
         ],
         subHeaders: {
-          'OBSERVATION ON UUC': ['M1', 'M2', 'M3'],
+          'OBSERVATION ON MASTER (MASTERUNIT)': ['M1', 'M2', 'M3'],
         },
         remainingHeaders: ['MEAN (UUCUNIT)', 'ERROR (UUCUNIT)', 'REPEATABILITY (UUCUNIT)', 'HYSTERISIS (UUCUNIT)'],
       },
@@ -535,10 +552,10 @@ export default function CalibrationReport() {
         singleHeaders: [
           'SR NO',
           'SET PRESSURE ON UUC (CALCULATIONUNIT)',
-          '[SET PRESSURE ON UUC (MASTERUNIT)]',
+          'SET PRESSURE ON UUC (MASTERUNIT)',
         ],
         subHeaders: {
-          'OBSERVATION ON UUC': ['M1 (↑)', 'M2 (↓)', 'M3 (↑)', 'M4 (↓)', 'M5 (↑)', 'M6 (↓)'],
+          'OBSERVATION ON MASTER (MASTERUNIT)': ['M1 (↑)', 'M2 (↓)', 'M3 (↑)', 'M4 (↓)', 'M5 (↑)', 'M6 (↓)'],
         },
         remainingHeaders: ['MEAN (UUCUNIT)', 'ERROR (UUCUNIT)', 'REPEATABILITY (UUCUNIT)', 'HYSTERISIS (UUCUNIT)'],
       },
@@ -953,46 +970,97 @@ export default function CalibrationReport() {
 
           const summary = point.summary_data || point.summary || point.observations || point;
 
+          const uucLc = point?.matrix?.leastcount ?? point?.least_count ?? point?.leastcount;
+          const masterLc = point?.master_matrix?.leastcount ?? point?.master_least_count ?? point?.masterleastcount;
+
+          const getDec = (lc) => {
+            if (!lc || lc === 'NA' || lc === 'No' || isNaN(parseFloat(lc))) return null;
+            const parts = lc.toString().split('.');
+            return parts.length > 1 ? parts[1].length : 0;
+          };
+
+          const uucDecimals = getDec(uucLc);
+          const masterDecimals = getDec(masterLc);
+
+          let errorDecimals = 0;
+          if (masterDecimals !== null && uucDecimals !== null) {
+            errorDecimals = Math.max(masterDecimals, uucDecimals);
+          } else if (masterDecimals !== null) {
+            errorDecimals = masterDecimals;
+          } else if (uucDecimals !== null) {
+            errorDecimals = uucDecimals;
+          }
+
           const row = Array(layout.totalCols).fill('');
           row[0] = point.sr_no?.toString() || (index + 1).toString();
-          // Parameter: API returns it inside summary_data.parameter[0].value
+
           if (layout.paramIdx !== -1) row[layout.paramIdx] = safeGetValue(
             summary.parameter?.[0]?.value ?? point.parameter ?? point.unittype ?? point.matrix?.unittype
           );
-          // Specification
+
           if (layout.specIdx !== -1) row[layout.specIdx] = safeGetValue(
             summary.specification?.[0]?.value ?? point.specification
           );
-          // Set point (UUC or Master setpoint column)
-          if (layout.setpointIdx !== -1) row[layout.setpointIdx] = safeGetValue(
-            point.point ?? summary.setpoint?.[0]?.value ?? summary.uuc?.[0]?.value
-          );
 
-          // Master readings — sorted by repeatable index
+          if (layout.setpointIdx !== -1) {
+            const isMasterSp = instrumentSettings?.setpoint === 'Master';
+            const spDec = isMasterSp ? masterDecimals : uucDecimals;
+            const spLc = isMasterSp ? masterLc : uucLc;
+            const rawSp = point.point ?? summary.setpoint?.[0]?.value ?? summary.master?.[0]?.value ?? summary.uuc?.[0]?.value;
+            row[layout.setpointIdx] = formatValueByLc(rawSp, spDec, spLc);
+          }
+
           const masterVals = [...(summary.master ?? point.master ?? [])].sort(
             (a, b) => Number(a?.repeatable ?? 0) - Number(b?.repeatable ?? 0)
           );
           layout.masterObsIndices.forEach((idx, i) => {
-            row[idx] = formatValueByLc(masterVals[i]?.value ?? masterVals[i], point?.mlc_decimals, point?.master_least_count);
+            row[idx] = formatValueByLc(masterVals[i]?.value ?? masterVals[i], masterDecimals, masterLc);
           });
           if (layout.avgMasterIdx !== -1) row[layout.avgMasterIdx] = formatValueByLc(
-            summary.averagemaster?.[0]?.value ?? point.averagemaster, point?.mlc_decimals, point?.master_least_count
+            summary.averagemaster?.[0]?.value ?? point.averagemaster, masterDecimals, masterLc
           );
 
-          // UUC readings — sorted by repeatable index
           const uucVals = [...(summary.uuc ?? point.uuc ?? [])].sort(
             (a, b) => Number(a?.repeatable ?? 0) - Number(b?.repeatable ?? 0)
           );
           layout.uucObsIndices.forEach((idx, i) => {
-            row[idx] = formatValueByLc(uucVals[i]?.value ?? uucVals[i], point?.lc_decimals, point?.least_count);
+            row[idx] = formatValueByLc(uucVals[i]?.value ?? uucVals[i], uucDecimals, uucLc);
           });
           if (layout.avgUucIdx !== -1) row[layout.avgUucIdx] = formatValueByLc(
-            summary.averageuuc?.[0]?.value ?? point.averageuuc, point?.lc_decimals, point?.least_count
+            summary.averageuuc?.[0]?.value ?? point.averageuuc, uucDecimals, uucLc
           );
 
-          if (layout.errorIdx !== -1) row[layout.errorIdx] = safeGetValue(
-            summary.error?.[0]?.value ?? point.error
-          );
+          if (layout.errorIdx !== -1) {
+            let masterVal = null;
+            if (summary.averagemaster?.[0]?.value !== undefined && summary.averagemaster[0].value !== '') {
+              masterVal = parseFloat(summary.averagemaster[0].value);
+            } else if (masterVals.length > 0 && masterVals[0]?.value !== undefined && masterVals[0].value !== '') {
+              masterVal = parseFloat(masterVals[0].value);
+            } else if (instrumentSettings?.setpoint === 'Master') {
+              const raw = point.point ?? summary.setpoint?.[0]?.value;
+              if (raw !== undefined && raw !== '') masterVal = parseFloat(raw);
+            }
+
+            let uucVal = null;
+            if (summary.averageuuc?.[0]?.value !== undefined && summary.averageuuc[0].value !== '') {
+              uucVal = parseFloat(summary.averageuuc[0].value);
+            } else if (uucVals.length > 0 && uucVals[0]?.value !== undefined && uucVals[0].value !== '') {
+              uucVal = parseFloat(uucVals[0].value);
+            } else if (instrumentSettings?.setpoint === 'UUC') {
+              const raw = point.point ?? summary.setpoint?.[0]?.value;
+              if (raw !== undefined && raw !== '') uucVal = parseFloat(raw);
+            }
+
+            if (masterVal !== null && uucVal !== null && !isNaN(masterVal) && !isNaN(uucVal)) {
+              const isStdUuc = (instrumentSettings?.error === 'stduuc' || instrumentSettings?.error_type === 'stduuc' || instrumentSettings?.custom_error === 'stduuc');
+              const diff = isStdUuc ? (masterVal - uucVal) : (uucVal - masterVal);
+              row[layout.errorIdx] = diff.toFixed(errorDecimals);
+            } else {
+              const savedErr = summary.error?.[0]?.value ?? point.error;
+              row[layout.errorIdx] = formatValueByLc(savedErr, errorDecimals, uucLc);
+            }
+          }
+
           if (layout.remarkIdx !== -1) row[layout.remarkIdx] = safeGetValue(
             summary.remark?.[0]?.value ?? point.remark
           );
@@ -1120,39 +1188,97 @@ export default function CalibrationReport() {
     } else if (template === 'observationdpg') {
       dataArray.forEach((obs) => {
         if (!obs) return;
-        const lc = obs.least_count_uuc || '0.1';
+
+        const uucLc = obs?.least_counts?.uuc ?? obs?.least_count_uuc ?? obs?.uuc_least_count ?? obs?.least_count ?? obs?.leastcount ?? currentRawdata?.uuc_details?.least_count;
+        const masterLc = obs?.least_counts?.master ?? obs?.least_count_master ?? obs?.master_least_count ?? obs?.masterleastcount;
+
+        const m1Str = safeGetValue(obs.master_readings?.m1 ?? obs.master_readings?.[0] ?? obs.m1);
+        let mlc = null;
+        if (masterLc) {
+          const match = String(masterLc).match(/\.([0-9]+)/);
+          if (match) mlc = match[1].length;
+          else if (!isNaN(parseFloat(masterLc))) mlc = 0;
+        }
+        if (mlc === null && m1Str.includes('.')) {
+          mlc = m1Str.split('.')[1].length;
+        }
+        if (mlc === null) mlc = 3;
+
+        let uucDecimals = null;
+        if (uucLc) {
+          const match = String(uucLc).match(/\.([0-9]+)/);
+          if (match) uucDecimals = match[1].length;
+          else if (!isNaN(parseFloat(uucLc))) uucDecimals = 0;
+        }
+        if (uucDecimals === null) {
+          const uucStr = safeGetValue(obs.uuc_value ?? obs.set_pressure_uuc);
+          if (uucStr.includes('.')) uucDecimals = uucStr.split('.')[1].length;
+          else uucDecimals = 1;
+        }
+
+        const errorDecimals = Math.max(mlc, uucDecimals);
+
         const row = [
           obs.sr_no?.toString() || '',
-          formatValueByLc(obs.uuc_value || obs.set_pressure_uuc, null, lc),
-          formatValueByLc(obs.converted_uuc_value || obs.set_pressure_master, null, lc),
-          formatValueByLc(obs.master_readings?.m1 || obs.m1, null, lc),
-          formatValueByLc(obs.master_readings?.m2 || obs.m2, null, lc),
-          formatValueByLc(obs.master_readings?.m3 || obs.m3, null, lc),
-          formatValueByLc(obs.average_master || obs.mean, null, lc),
-          formatValueByLc(obs.error, null, lc),
-          formatValueByLc(obs.repeatability, null, lc),
-          formatValueByLc(obs.hysterisis || obs.hysteresis, null, lc),
+          formatValueByLc(obs.uuc_value ?? obs.set_pressure_uuc, uucDecimals, uucLc),
+          formatValueByLc(obs.converted_uuc_value ?? obs.set_pressure_master, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m1 ?? obs.master_readings?.[0] ?? obs.m1, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m2 ?? obs.master_readings?.[1] ?? obs.m2, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m3 ?? obs.master_readings?.[2] ?? obs.m3, mlc, masterLc),
+          formatValueByLc(obs.average_master ?? obs.average ?? obs.mean, mlc, masterLc),
+          formatValueByLc(obs.error, errorDecimals, masterLc),
+          formatValueByLc(obs.repeatability ?? obs.repeatable, mlc, masterLc),
+          formatValueByLc(obs.hysterisis ?? obs.hysteresis, mlc, masterLc),
         ];
         rows.push(row);
       });
     } else if (template === 'observationppg') {
       dataArray.forEach((obs) => {
         if (!obs) return;
-        const lc = obs.least_count_uuc || '0.1';
+
+        const uucLc = obs?.least_counts?.uuc ?? obs?.least_count_uuc ?? obs?.uuc_least_count ?? obs?.least_count ?? obs?.leastcount ?? currentRawdata?.uuc_details?.least_count;
+        const masterLc = obs?.least_counts?.master ?? obs?.least_count_master ?? obs?.master_least_count ?? obs?.masterleastcount;
+
+        const m1Str = safeGetValue(obs.master_readings?.m1 ?? obs.master_readings?.[0] ?? obs.m1);
+        let mlc = null;
+        if (masterLc) {
+          const match = String(masterLc).match(/\.([0-9]+)/);
+          if (match) mlc = match[1].length;
+          else if (!isNaN(parseFloat(masterLc))) mlc = 0;
+        }
+        if (mlc === null && m1Str.includes('.')) {
+          mlc = m1Str.split('.')[1].length;
+        }
+        if (mlc === null) mlc = 3;
+
+        let uucDecimals = null;
+        if (uucLc) {
+          const match = String(uucLc).match(/\.([0-9]+)/);
+          if (match) uucDecimals = match[1].length;
+          else if (!isNaN(parseFloat(uucLc))) uucDecimals = 0;
+        }
+        if (uucDecimals === null) {
+          const uucStr = safeGetValue(obs.uuc_value ?? obs.set_pressure_uuc);
+          if (uucStr.includes('.')) uucDecimals = uucStr.split('.')[1].length;
+          else uucDecimals = 1;
+        }
+
+        const errorDecimals = Math.max(mlc, uucDecimals);
+
         const row = [
           obs.sr_no?.toString() || '',
-          formatValueByLc(obs.uuc_value, null, lc),
-          formatValueByLc(obs.converted_uuc_value, null, lc),
-          formatValueByLc(obs.master_readings?.m1, null, lc),
-          formatValueByLc(obs.master_readings?.m2, null, lc),
-          formatValueByLc(obs.master_readings?.m3, null, lc),
-          formatValueByLc(obs.master_readings?.m4, null, lc),
-          formatValueByLc(obs.master_readings?.m5, null, lc),
-          formatValueByLc(obs.master_readings?.m6, null, lc),
-          formatValueByLc(obs.average_master, null, lc),
-          formatValueByLc(obs.error, null, lc),
-          formatValueByLc(obs.repeatability, null, lc),
-          formatValueByLc(obs.hysterisis || obs.hysteresis, null, lc),
+          formatValueByLc(obs.uuc_value ?? obs.set_pressure_uuc, uucDecimals, uucLc),
+          formatValueByLc(obs.converted_uuc_value ?? obs.set_pressure_master, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m1 ?? obs.master_readings?.[0] ?? obs.m1, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m2 ?? obs.master_readings?.[1] ?? obs.m2, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m3 ?? obs.master_readings?.[2] ?? obs.m3, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m4 ?? obs.master_readings?.[3] ?? obs.m4, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m5 ?? obs.master_readings?.[4] ?? obs.m5, mlc, masterLc),
+          formatValueByLc(obs.master_readings?.m6 ?? obs.master_readings?.[5] ?? obs.m6, mlc, masterLc),
+          formatValueByLc(obs.average_master ?? obs.average ?? obs.mean, mlc, masterLc),
+          formatValueByLc(obs.error, errorDecimals, masterLc),
+          formatValueByLc(obs.repeatability ?? obs.repeatable, mlc, masterLc),
+          formatValueByLc(obs.hysterisis ?? obs.hysteresis, mlc, masterLc),
         ];
         rows.push(row);
       });
@@ -1393,17 +1519,20 @@ export default function CalibrationReport() {
         if (!point) return;
 
         const observations = safeGetArray(point.observations, 5);
-        const repeatableCycle = parseInt(point.repeatable_cycle || point.repeatablecycle, 10) || 5;
-        const lc = point.least_count_uuc || '0.01';
+        const repeatableCycle = parseInt(point.metadata?.repeatable_cycle || point.repeatable_cycle || point.repeatablecycle, 10) || 5;
+        const masterLc = point.metadata?.master_least_count ?? point.master_least_count ?? '0.005';
+        const masterDecimals = point.metadata?.master_decimal_places ?? null;
+        const uucLc = point.metadata?.least_count ?? point.least_count ?? '1';
+        const uucDecimals = point.metadata?.decimal_places ?? null;
 
         const row = [
           point.sequence_number?.toString() || point.sr_no?.toString() || '',
-          safeGetValue(point.uuc_value || point.nominal_value || point.test_point),
+          formatValueByLc(point.uuc_value || point.nominal_value || point.test_point, uucDecimals, uucLc),
           ...Array.from({ length: 5 }, (_, index) =>
-            index < repeatableCycle ? formatValueByLc(observations[index], null, lc) : ''
+            index < repeatableCycle ? formatValueByLc(observations[index], masterDecimals, masterLc) : ''
           ),
-          formatValueByLc(point.average_master || point.average, null, lc),
-          formatValueByLc(point.error, null, lc),
+          formatValueByLc(point.average_master || point.average, masterDecimals, masterLc),
+          formatValueByLc(point.error, masterDecimals, masterLc),
         ];
 
         while (row.length < 9) {
@@ -2114,23 +2243,26 @@ export default function CalibrationReport() {
     const headers = [];
     const subHeadersRow = [];
 
-    const uucUnit = unitInfo?.uuc_unit?.description || unitInfo?.uuc_unit || '';
-    const masterUnit = unitInfo?.master_unit?.description || unitInfo?.master_unit || '';
+    const uucUnit = unitInfo?.uuc_unit?.description || unitInfo?.uuc_unit || unitInfo?.calculation || unitInfo?.test || '';
+    const masterUnit = unitInfo?.master_unit?.description || unitInfo?.master_unit || unitInfo?.master || '';
 
     const formatHeader = (text) => {
       if (typeof text !== 'string') return text;
       let formatted = text;
       if (uucUnit) {
         formatted = formatted
-          .replace(/\(UUC Unit\)/gi, `(${uucUnit})`)
-          .replace(/\[unit\]/gi, uucUnit)
-          .replace(/\[CALCULATIONUNIT\]/gi, uucUnit);
+          .replace(/\(UUC Unit\)/gi, `(${uucUnit.toUpperCase()})`)
+          .replace(/\(UUCUNIT\)/gi, `(${uucUnit.toUpperCase()})`)
+          .replace(/\[unit\]/gi, uucUnit.toUpperCase())
+          .replace(/\(CALCULATIONUNIT\)/gi, `(${uucUnit.toUpperCase()})`)
+          .replace(/\[CALCULATIONUNIT\]/gi, uucUnit.toUpperCase());
       }
       if (masterUnit) {
         formatted = formatted
-          .replace(/\(Master Unit\)/gi, `(${masterUnit})`)
-          .replace(/\[master unit\]/gi, masterUnit)
-          .replace(/\[MASTERUNIT\]/gi, masterUnit);
+          .replace(/\(Master Unit\)/gi, `(${masterUnit.toUpperCase()})`)
+          .replace(/\(MASTERUNIT\)/gi, `(${masterUnit.toUpperCase()})`)
+          .replace(/\[master unit\]/gi, masterUnit.toUpperCase())
+          .replace(/\[MASTERUNIT\]/gi, masterUnit.toUpperCase());
       }
       return formatted.replace(/\[|\]/g, '');
     };
@@ -2274,7 +2406,30 @@ export default function CalibrationReport() {
         if (observationTemplate === 'observationbiomedical') {
           const formatPoints = (points, mode, section) => (
             Array.isArray(points)
-              ? points.map((point) => ({ ...point, mode, biomedical_section: section }))
+              ? points.map((point) => {
+                  let effectiveLc = point.least_count;
+                  let effectiveLcDec = (point.lc_decimals != null && point.lc_decimals !== 'NA' && point.lc_decimals !== '') ? parseInt(point.lc_decimals, 10) : null;
+
+                  const mlc = point.master_least_count;
+                  const mlcDec = (point.mlc_decimals != null && point.mlc_decimals !== 'NA' && point.mlc_decimals !== '') ? parseInt(point.mlc_decimals, 10) : null;
+
+                  if (mlc && mlc !== 'NA') {
+                    const numMlc = parseFloat(mlc);
+                    const numLc = parseFloat(effectiveLc);
+                    if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc) || (effectiveLcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+                      effectiveLc = mlc;
+                      effectiveLcDec = mlcDec;
+                    }
+                  }
+
+                  return {
+                    ...point,
+                    mode,
+                    biomedical_section: section,
+                    least_count: effectiveLc ?? point.least_count,
+                    lc_decimals: effectiveLcDec ?? point.lc_decimals,
+                  };
+                })
               : []
           );
 
@@ -2335,12 +2490,13 @@ export default function CalibrationReport() {
             processedObservations = [];
           }
         }
-        else if (observationTemplate === 'observationdpg' && observationData.observations) {
-          processedObservations = observationData.observations;
+        else if (observationTemplate === 'observationdpg') {
+          const obsList = observationData.observations || observationData.observation_data?.observations || observationData.data?.observations;
+          processedObservations = Array.isArray(obsList) ? obsList : [];
         }
-        else if (observationTemplate === 'observationppg' && observationData.observations) {
-          console.log('🔄 Refetching PPG observations:', observationData.observations);
-          processedObservations = observationData.observations;
+        else if (observationTemplate === 'observationppg') {
+          const obsList = observationData.observations || observationData.observation_data?.observations || observationData.data?.observations;
+          processedObservations = Array.isArray(obsList) ? obsList : [];
         }
         else if (observationTemplate === 'observationavg') {
           console.log('🔄 Refetching AVG observations:', observationData);
@@ -2622,7 +2778,6 @@ export default function CalibrationReport() {
             }));
           }
         } else if (observationTemplate === 'observationwb' || observationTemplate === 'observationwbn') {
-          console.log(`🔍 Setting ${observationTemplate} observations:`, observationData);
           if (observationData.weighing_process || observationData.repeatability || observationData.eccentricity) {
             processedObservations = [observationData];
           } else if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
@@ -2635,7 +2790,6 @@ export default function CalibrationReport() {
             processedObservations = [observationData];
           }
         } else if (observationTemplate === 'observationwwbn') {
-          console.log(`🔍 Setting ${observationTemplate} observations:`, observationData);
           if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
             processedObservations = observationData.calibration_points;
           } else if (observationData.data && Array.isArray(observationData.data)) {
@@ -2644,7 +2798,6 @@ export default function CalibrationReport() {
             processedObservations = observationData;
           }
         } else if (observationTemplate === 'observationuc') {
-          console.log('🔍 Setting UC observations:', observationData);
           if (observationData.measure_data || observationData.source_data) {
             const combined = [];
             if (Array.isArray(observationData.measure_data)) {
@@ -2664,7 +2817,6 @@ export default function CalibrationReport() {
             processedObservations = [];
           }
         } else if (observationTemplate === 'observationcustom') {
-          console.log('🔍 Setting custom observations:', observationData);
           if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
             processedObservations = observationData.calibration_points;
           } else if (observationData.data && Array.isArray(observationData.data)) {
@@ -2689,7 +2841,6 @@ export default function CalibrationReport() {
                 uuc: uucCoeff,
                 master: masterCoeff
               }));
-              console.log('✅ TS Thermal coefficients set:', { uuc: uucCoeff, master: masterCoeff });
             }
           }
           if (Array.isArray(observationData)) {
@@ -2726,7 +2877,8 @@ export default function CalibrationReport() {
           if (observationTemplate === 'observationcustom' && observationData.instrument_settings) {
             selectedTable.structure = getObservationCustomStructure(observationData.instrument_settings);
           }
-          setTableStructure(generateTableStructure(selectedTable, observationData?.units || observationData?.unit_info || observationData?.data?.units));
+          const units = observationData?.units || observationData?.unit_info || observationData?.data?.units || observationData?.observations?.[0]?.units || processedObservations?.[0]?.units;
+          setTableStructure(generateTableStructure(selectedTable, units));
         }
         return observationData;
       } else {
@@ -2866,6 +3018,18 @@ export default function CalibrationReport() {
             const dynObsResult = await fetchDynamicObservations(resolvedTemplate);
             dynEnv = dynObsResult?.environment || dynObsResult?.data?.environment;
             await fetchObservationData(resolvedTemplate);
+
+            if (observation_data?.observations) {
+              const obsList = observation_data.observations || observation_data.data?.observations;
+              if (Array.isArray(obsList) && obsList.length > 0) {
+                setDynamicObservations(prev => (prev && prev.length > 0 ? prev : obsList));
+                const selectedTable = observationTables.find(table => table.id === resolvedTemplate);
+                if (selectedTable) {
+                  const units = obsList[0]?.units || observation_data?.units;
+                  setTableStructure(prev => prev || generateTableStructure(selectedTable, units));
+                }
+              }
+            }
 
             if (resolvedTemplate === 'observationvc' && observation_data) {
               const therm = observation_data.thermal_coeff || observation_data.thermal_coefficients;
@@ -3262,7 +3426,7 @@ export default function CalibrationReport() {
           <div className="mb-6 flex flex-col items-center gap-2">
             <h4 className="font-semibold text-sm">Selected Diagram: {diagram === 'circalimg' ? 'Circular Diagram' : 'Rectangular Diagram'}</h4>
             <img
-              src={diagram === 'circalimg' ? `${IMAGE_HOST_API}/images/circalimg.png` : `${IMAGE_HOST_API}/images/newrectangle.png`}
+              src={diagram === 'circalimg' ? '/images/circalimg.png' : '/images/newrectangle.png'}
               alt="Selected Diagram"
               className="h-32 object-contain border border-gray-200 p-2 rounded"
             />
