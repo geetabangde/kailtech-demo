@@ -1800,9 +1800,9 @@ const CalibrateStep3 = () => {
 
               setFormData(prev => ({
                 ...prev,
-                pressurestart: prev.pressurestart || envPressureStart || '',
-                pressureend: prev.pressureend || envPressureEnd || '',
-                stabilizationtime: prev.stabilizationtime || envStabilizationTime || '',
+                pressurestart: envPressureStart || '',
+                pressureend: envPressureEnd || '',
+                stabilizationtime: envStabilizationTime || '',
               }));
 
               const envTableValues = {
@@ -8081,9 +8081,9 @@ const CalibrateStep3 = () => {
 
             setFormData(prev => ({
               ...prev,
-              pressurestart: prev.pressurestart || envPressureStart || '',
-              pressureend: prev.pressureend || envPressureEnd || '',
-              stabilizationtime: prev.stabilizationtime || envStabilizationTime || '',
+              pressurestart: envPressureStart || '',
+              pressureend: envPressureEnd || '',
+              stabilizationtime: envStabilizationTime || '',
             }));
 
             setTableInputValues(prev => ({
@@ -9736,12 +9736,25 @@ const CalibrateStep3 = () => {
       } catch { /* ignore storage errors */ }
     }
 
+    if (type === 'pressure') {
+      if (index === 0 || index === '0') {
+        setFormData(prev => ({ ...prev, pressurestart: value }));
+        setTableInputValues(prev => ({ ...prev, [`${instId}-pressure-start`]: value }));
+      } else if (index === 1 || index === '1') {
+        setFormData(prev => ({ ...prev, pressureend: value }));
+        setTableInputValues(prev => ({ ...prev, [`${instId}-pressure-end`]: value }));
+      }
+    } else if (type === 'stabilizationtime') {
+      setFormData(prev => ({ ...prev, stabilizationtime: value }));
+      setTableInputValues(prev => ({ ...prev, [`${instId}-stabilization`]: value }));
+    }
+
     const payload = {
       inwardid: inwardId,
       instid: instId,
       calibrationpoint: pointId,
       type: type,
-      repeatable: (type === 'master' || type === 'uuc') ? index.toString() : '0',
+      repeatable: (type === 'master' || type === 'uuc' || type === 'pressure') ? index.toString() : '0',
       value: value || '0',
     };
 
@@ -11025,7 +11038,7 @@ const CalibrateStep3 = () => {
       if (formData.stabilizationtime) {
         calibrationPoints.push(instId);
         types.push('stabilizationtime');
-        repeatables.push('1');
+        repeatables.push('0');
         values.push(formData.stabilizationtime);
       }
     }
@@ -11064,8 +11077,11 @@ const CalibrateStep3 = () => {
       tempend: formData.tempend,
       humiend: formData.humiend,
       pressurestart: formData.pressurestart,
+      pressure_start: formData.pressurestart,
       pressureend: formData.pressureend,
+      pressure_end: formData.pressureend,
       stabilizationtime: formData.stabilizationtime,
+      stabilization_time: formData.stabilizationtime,
       notes: formData.notes,
       enddate: formData.enddate,
       duedate: formData.duedate,
@@ -11389,6 +11405,9 @@ const CalibrateStep3 = () => {
                       <ObservationDW
                         selectedTableData={selectedTableData}
                         tableInputValues={tableInputValues}
+                        setTableInputValues={setTableInputValues}
+                        formData={formData}
+                        setFormData={setFormData}
                         observations={observations}
                         isDW={isDW}
                         instId={instId}

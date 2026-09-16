@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 
 const ObservationDW = ({
   tableInputValues = {},
+  setTableInputValues,
+  formData = {},
+  setFormData,
   observations = [],
   isDW,
   instId,
@@ -9,19 +12,19 @@ const ObservationDW = ({
 }) => {
   const [dwValues, setDwValues] = useState({});
   const [envValues, setEnvValues] = useState({
-    pressureStart: tableInputValues[`${instId}-pressure-start`] || '',
-    pressureEnd: tableInputValues[`${instId}-pressure-end`] || '',
-    stabilization: tableInputValues[`${instId}-stabilization`] || '',
+    pressureStart: tableInputValues[`${instId}-pressure-start`] ?? formData?.pressurestart ?? '',
+    pressureEnd: tableInputValues[`${instId}-pressure-end`] ?? formData?.pressureend ?? '',
+    stabilization: tableInputValues[`${instId}-stabilization`] ?? formData?.stabilizationtime ?? '',
   });
 
   useEffect(() => {
-    console.log('📥 Syncing environment values from tableInputValues');
+    console.log('📥 Syncing environment values from tableInputValues / formData');
     setEnvValues({
-      pressureStart: tableInputValues[`${instId}-pressure-start`] || '',
-      pressureEnd: tableInputValues[`${instId}-pressure-end`] || '',
-      stabilization: tableInputValues[`${instId}-stabilization`] || '',
+      pressureStart: tableInputValues[`${instId}-pressure-start`] ?? formData?.pressurestart ?? '',
+      pressureEnd: tableInputValues[`${instId}-pressure-end`] ?? formData?.pressureend ?? '',
+      stabilization: tableInputValues[`${instId}-stabilization`] ?? formData?.stabilizationtime ?? '',
     });
-  }, [tableInputValues, instId]);
+  }, [tableInputValues, formData?.pressurestart, formData?.pressureend, formData?.stabilizationtime, instId]);
 
   const SIGDIG = 100000000;
   const getMasterLeastCount = () => '0.001';
@@ -29,10 +32,12 @@ const ObservationDW = ({
   if (!isDW) return null;
 
   const calculateDeltaI = (s1, u1, u2, s2) => {
-    const s1Val = parseFloat(s1) || 0;
-    const u1Val = parseFloat(u1) || 0;
-    const u2Val = parseFloat(u2) || 0;
-    const s2Val = parseFloat(s2) || 0;
+    const s1Val = parseFloat(s1);
+    const u1Val = parseFloat(u1);
+    const u2Val = parseFloat(u2);
+    const s2Val = parseFloat(s2);
+
+    if (isNaN(s1Val) || isNaN(u1Val) || isNaN(u2Val) || isNaN(s2Val)) return '';
 
     const tempa = Math.floor((u1Val - s1Val) * SIGDIG) / SIGDIG;
     const tempb = Math.floor((u2Val - s2Val) * SIGDIG) / SIGDIG;
@@ -43,41 +48,91 @@ const ObservationDW = ({
   };
 
   const calculateAverageDeltaI = (pointId) => {
-    const cycles = observations.find(p => p.pointid === pointId)?.cycles || [];
+    const point = observations.find(p => String(p.pointid ?? p.point_id ?? p.point ?? '') === String(pointId));
+    if (!point) return '';
+
+    const cycles = point.cycles || [];
+    let hasUserChanges = false;
+
+    for (let cycleIdx = 0; cycleIdx < cycles.length; cycleIdx++) {
+      if (
+        dwValues[`${pointId}-s1-${cycleIdx}`] !== undefined ||
+        dwValues[`${pointId}-u1-${cycleIdx}`] !== undefined ||
+        dwValues[`${pointId}-u2-${cycleIdx}`] !== undefined ||
+        dwValues[`${pointId}-s2-${cycleIdx}`] !== undefined ||
+        dwValues[`${pointId}-delta-${cycleIdx}`] !== undefined
+      ) {
+        hasUserChanges = true;
+        break;
+      }
+    }
+
+    if (!hasUserChanges) {
+      const apiAvg = point.average_diff ?? point.averagedeltai ?? point.average_deltai ?? point.avg_diff ?? point.average;
+      if (apiAvg !== undefined && apiAvg !== null && apiAvg !== '') {
+        return String(apiAvg);
+      }
+    }
+
     let sum = 0;
     let count = 0;
 
-    cycles.forEach((_, cycleIdx) => {
+    cycles.forEach((cycle, cycleIdx) => {
       const deltaKey = `${pointId}-delta-${cycleIdx}`;
-      const deltaVal = parseFloat(dwValues[deltaKey] || 0);
+      let deltaValStr = dwValues[deltaKey];
+
+      if (deltaValStr === undefined) {
+        const s1 = dwValues[`${pointId}-s1-${cycleIdx}`] ?? cycle.S1 ?? cycle.s1 ?? cycle.uuca ?? '';
+        const u1 = dwValues[`${pointId}-u1-${cycleIdx}`] ?? cycle.U1 ?? cycle.u1 ?? cycle.mastera ?? '';
+        const u2 = dwValues[`${pointId}-u2-${cycleIdx}`] ?? cycle.U2 ?? cycle.u2 ?? cycle.masterb ?? '';
+        const s2 = dwValues[`${pointId}-s2-${cycleIdx}`] ?? cycle.S2 ?? cycle.s2 ?? cycle.uucb ?? '';
+
+        if (s1 !== '' && u1 !== '' && u2 !== '' && s2 !== '') {
+          deltaValStr = calculateDeltaI(s1, u1, u2, s2);
+        } else {
+          deltaValStr = cycle.Delta ?? cycle.deltai ?? cycle.diff ?? '';
+        }
+      }
+
+      const deltaVal = parseFloat(deltaValStr);
       if (!isNaN(deltaVal)) {
         sum += deltaVal;
         count++;
       }
     });
 
-    return count > 0 ? (sum / count).toFixed(8) : '';
+    if (count > 0) {
+      const avg = sum / count;
+      return isNaN(avg) ? '' : avg.toFixed(8);
+    }
+
+    const apiAvg = point.average_diff ?? point.averagedeltai ?? point.average_deltai ?? point.avg_diff ?? point.average;
+    return apiAvg !== undefined && apiAvg !== null && apiAvg !== '' ? String(apiAvg) : '';
   };
 
   const handleInputChange = (pointId, field, cycleIdx, value) => {
     const key = `${pointId}-${field}-${cycleIdx}`;
-    setDwValues(prev => ({
-      ...prev,
-      [key]: value
-    }));
-
-    if (['s1', 'u1', 'u2', 's2'].includes(field)) {
-      const s1 = field === 's1' ? value : dwValues[`${pointId}-s1-${cycleIdx}`];
-      const u1 = field === 'u1' ? value : dwValues[`${pointId}-u1-${cycleIdx}`];
-      const u2 = field === 'u2' ? value : dwValues[`${pointId}-u2-${cycleIdx}`];
-      const s2 = field === 's2' ? value : dwValues[`${pointId}-s2-${cycleIdx}`];
-
-      const delta = calculateDeltaI(s1, u1, u2, s2);
-      setDwValues(prev => ({
+    setDwValues(prev => {
+      const updated = {
         ...prev,
-        [`${pointId}-delta-${cycleIdx}`]: delta
-      }));
-    }
+        [key]: value
+      };
+
+      if (['s1', 'u1', 'u2', 's2'].includes(field)) {
+        const point = observations.find(p => String(p.pointid ?? p.point_id ?? p.point ?? '') === String(pointId));
+        const cycle = point?.cycles?.[cycleIdx] || {};
+
+        const s1 = field === 's1' ? value : (updated[`${pointId}-s1-${cycleIdx}`] ?? cycle.S1 ?? cycle.s1 ?? cycle.uuca ?? '');
+        const u1 = field === 'u1' ? value : (updated[`${pointId}-u1-${cycleIdx}`] ?? cycle.U1 ?? cycle.u1 ?? cycle.mastera ?? '');
+        const u2 = field === 'u2' ? value : (updated[`${pointId}-u2-${cycleIdx}`] ?? cycle.U2 ?? cycle.u2 ?? cycle.masterb ?? '');
+        const s2 = field === 's2' ? value : (updated[`${pointId}-s2-${cycleIdx}`] ?? cycle.S2 ?? cycle.s2 ?? cycle.uucb ?? '');
+
+        const delta = calculateDeltaI(s1, u1, u2, s2);
+        updated[`${pointId}-delta-${cycleIdx}`] = delta;
+      }
+
+      return updated;
+    });
   };
 
   const renderReadingsTable = () => {
@@ -106,9 +161,10 @@ const ObservationDW = ({
           </thead>
           <tbody>
             {observations.map((point) => {
-              const pointId = point.pointid;
+              const pointId = point.pointid ?? point.point_id ?? point.point;
               const cycles = point.cycles || [];
-              const repeatableCount = cycles.length;
+              const repeatableCount = cycles.length > 0 ? cycles.length : 1;
+              const avgDiffVal = calculateAverageDeltaI(pointId);
 
               return (
                 <React.Fragment key={`dw-point-${pointId}`}>
@@ -120,12 +176,12 @@ const ObservationDW = ({
                     const densityKey = `${pointId}-density-0`;
                     const deltaKey = `${pointId}-delta-${cycleIndex}`;
 
-                    const s1Val = dwValues[s1Key] || cycle.S1 || '';
-                    const u1Val = dwValues[u1Key] || cycle.U1 || '';
-                    const u2Val = dwValues[u2Key] || cycle.U2 || '';
-                    const s2Val = dwValues[s2Key] || cycle.S2 || '';
-                    const densityVal = dwValues[densityKey] || point.density || '';
-                    const deltaVal = dwValues[deltaKey] || cycle.Delta || '';
+                    const s1Val = dwValues[s1Key] !== undefined ? dwValues[s1Key] : (cycle.S1 ?? cycle.s1 ?? cycle.uuca ?? '');
+                    const u1Val = dwValues[u1Key] !== undefined ? dwValues[u1Key] : (cycle.U1 ?? cycle.u1 ?? cycle.mastera ?? '');
+                    const u2Val = dwValues[u2Key] !== undefined ? dwValues[u2Key] : (cycle.U2 ?? cycle.u2 ?? cycle.masterb ?? '');
+                    const s2Val = dwValues[s2Key] !== undefined ? dwValues[s2Key] : (cycle.S2 ?? cycle.s2 ?? cycle.uucb ?? '');
+                    const densityVal = dwValues[densityKey] !== undefined ? dwValues[densityKey] : (point.density ?? '');
+                    const deltaVal = dwValues[deltaKey] !== undefined ? dwValues[deltaKey] : (cycle.Delta ?? cycle.deltai ?? cycle.diff ?? '');
 
                     return (
                       <tr key={`dw-cycle-${pointId}-${cycleIndex}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -142,7 +198,7 @@ const ObservationDW = ({
                         {cycleIndex === 0 && (
                           <>
                             <td rowSpan={repeatableCount} className="border border-gray-300 dark:border-gray-600 p-2 text-center">
-                              {point.nominal_value}
+                              {point.nominal_value ?? point.calibration_point ?? point.point}
                             </td>
                             <td rowSpan={repeatableCount} className="border border-gray-300 dark:border-gray-600 p-2">
                               <input
@@ -150,7 +206,7 @@ const ObservationDW = ({
                                 className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white"
                                 value={densityVal}
                                 onChange={(e) => handleInputChange(pointId, 'density', 0, e.target.value)}
-                                onBlur={(e) => handleBiomedicalInputBlur(pointId, 'density', 0, e.target.value)}
+                                onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(pointId, 'density', 0, e.target.value)}
                                 placeholder="Enter density"
                                 step={masterLC}
                               />
@@ -165,7 +221,7 @@ const ObservationDW = ({
                             className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white"
                             value={s1Val}
                             onChange={(e) => handleInputChange(pointId, 's1', cycleIndex, e.target.value)}
-                            onBlur={(e) => handleBiomedicalInputBlur(pointId, 'uuca', cycleIndex, e.target.value)}
+                            onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(pointId, 'uuca', cycleIndex, e.target.value)}
                             step={masterLC}
                             placeholder={`Min: ${masterLC}`}
                           />
@@ -182,7 +238,7 @@ const ObservationDW = ({
                             className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white"
                             value={u1Val}
                             onChange={(e) => handleInputChange(pointId, 'u1', cycleIndex, e.target.value)}
-                            onBlur={(e) => handleBiomedicalInputBlur(pointId, 'mastera', cycleIndex, e.target.value)}
+                            onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(pointId, 'mastera', cycleIndex, e.target.value)}
                             step={masterLC}
                             placeholder={`Min: ${masterLC}`}
                           />
@@ -199,7 +255,7 @@ const ObservationDW = ({
                             className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white"
                             value={u2Val}
                             onChange={(e) => handleInputChange(pointId, 'u2', cycleIndex, e.target.value)}
-                            onBlur={(e) => handleBiomedicalInputBlur(pointId, 'masterb', cycleIndex, e.target.value)}
+                            onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(pointId, 'masterb', cycleIndex, e.target.value)}
                             step={masterLC}
                             placeholder={`Min: ${masterLC}`}
                           />
@@ -216,7 +272,7 @@ const ObservationDW = ({
                             className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white"
                             value={s2Val}
                             onChange={(e) => handleInputChange(pointId, 's2', cycleIndex, e.target.value)}
-                            onBlur={(e) => handleBiomedicalInputBlur(pointId, 'uucb', cycleIndex, e.target.value)}
+                            onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(pointId, 'uucb', cycleIndex, e.target.value)}
                             step={masterLC}
                             placeholder={`Min: ${masterLC}`}
                           />
@@ -229,11 +285,10 @@ const ObservationDW = ({
                         {/* Delta I - Calculated (readonly) */}
                         <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700">
                           <input
-                            type="number"
+                            type="text"
                             readOnly
-                            className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-700 dark:text-white"
+                            className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-700 dark:text-white focus:outline-none"
                             value={deltaVal}
-                            step={masterLC}
                           />
                           <input type="hidden" name="calibrationpoint[]" value={pointId} />
                           <input type="hidden" name="type[]" value="deltai" />
@@ -243,18 +298,17 @@ const ObservationDW = ({
 
                         {/* Average Delta I - Show only in first cycle */}
                         {cycleIndex === 0 && (
-                          <td rowSpan={repeatableCount} className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700">
+                          <td rowSpan={repeatableCount} className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700 text-center font-medium">
                             <input
-                              type="number"
+                              type="text"
                               readOnly
-                              className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-700 dark:text-white"
-                              value={calculateAverageDeltaI(pointId)}
-                              step={masterLC}
+                              className="w-full px-2 py-1 bg-gray-50 dark:bg-gray-700 dark:text-white text-center font-medium focus:outline-none"
+                              value={avgDiffVal}
                             />
                             <input type="hidden" name="calibrationpoint[]" value={pointId} />
                             <input type="hidden" name="type[]" value="average" />
                             <input type="hidden" name="repeatable[]" value="0" />
-                            <input type="hidden" name="value[]" value={calculateAverageDeltaI(pointId)} />
+                            <input type="hidden" name="value[]" value={avgDiffVal} />
                           </td>
                         )}
                       </tr>
@@ -277,6 +331,37 @@ const ObservationDW = ({
         ...prev,
         [field]: value,
       }));
+
+      if (setTableInputValues) {
+        const tableKeyMap = {
+          pressureStart: `${instId}-pressure-start`,
+          pressureEnd: `${instId}-pressure-end`,
+          stabilization: `${instId}-stabilization`,
+        };
+        const tableKey = tableKeyMap[field];
+        if (tableKey) {
+          setTableInputValues(prev => ({
+            ...prev,
+            [tableKey]: value,
+          }));
+        }
+      }
+
+      if (setFormData) {
+        const formKeyMap = {
+          pressureStart: 'pressurestart',
+          pressureEnd: 'pressureend',
+          stabilization: 'stabilizationtime',
+        };
+        const formKey = formKeyMap[field];
+        if (formKey) {
+          setFormData(prev => ({
+            ...prev,
+            [formKey]: value,
+          }));
+        }
+      }
+
       console.log(`🌐 ${field} changed to:`, value);
     };
 
@@ -297,7 +382,7 @@ const ObservationDW = ({
                   className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={envValues.pressureStart}
                   onChange={(e) => handleEnvChange('pressureStart', e.target.value)}
-                  onBlur={(e) => handleBiomedicalInputBlur(instId, 'pressure', 0, e.target.value)}
+                  onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(instId, 'pressure', 0, e.target.value)}
                   placeholder="Enter pressure start"
                 />
                 <input type="hidden" name="calibrationpoint[]" value={instId} />
@@ -314,7 +399,7 @@ const ObservationDW = ({
                   className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={envValues.pressureEnd}
                   onChange={(e) => handleEnvChange('pressureEnd', e.target.value)}
-                  onBlur={(e) => handleBiomedicalInputBlur(instId, 'pressure', 1, e.target.value)}
+                  onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(instId, 'pressure', 1, e.target.value)}
                   placeholder="Enter pressure end"
                 />
                 <input type="hidden" name="calibrationpoint[]" value={instId} />
@@ -333,7 +418,7 @@ const ObservationDW = ({
                   className="w-full px-2 py-1 border border-gray-300 rounded dark:bg-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={envValues.stabilization}
                   onChange={(e) => handleEnvChange('stabilization', e.target.value)}
-                  onBlur={(e) => handleBiomedicalInputBlur(instId, 'stabilizationtime', 0, e.target.value)}
+                  onBlur={(e) => handleBiomedicalInputBlur && handleBiomedicalInputBlur(instId, 'stabilizationtime', 0, e.target.value)}
                   placeholder="Enter stabilization time"
                 />
                 <input type="hidden" name="calibrationpoint[]" value={instId} />

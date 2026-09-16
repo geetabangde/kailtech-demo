@@ -79,6 +79,7 @@ export default function ViewCMCCalculation() {
   const calibacc = searchParams.get("calibacc") || "Nabl";
 
   const [data, setData] = useState([]);
+  const [electricSafetyData, setElectricSafetyData] = useState([]);
   const [suffix, setSuffix] = useState("");
   const [loading, setLoading] = useState(true);
   const [customLayout, setCustomLayout] = useState(null);
@@ -223,7 +224,37 @@ export default function ViewCMCCalculation() {
           let apiData = [];
 
           if (instrumentSuffix === "biomedical") {
-            apiData = response.data.data?.uncertainty?.original?.performance_test || [];
+            // Load both electric safety and performance test data
+            const electricSafety = response.data.data?.uncertainty?.original?.electric_safety || [];
+            const performanceTest = response.data.data?.uncertainty?.original?.performance_test || [];
+
+            // Process electric safety data
+            if (electricSafety.length > 0) {
+              const mappedElectricData = electricSafety.map((item) => ({
+                srNo: item.sr_no,
+                unitType: item.unit_type,
+                mode: item.mode,
+                values: safeGetArrayValue(item.readings),
+                unitDesc: item.unit_desc,
+                calibrationPoint: item.calibration_point,
+                average: item.average,
+                stdDeviation: item.std_deviation,
+                typeA: item.type_a,
+                accuracyCalibrator: item.accuracy_calibrator_value,
+                uncertaintyMaster: item.uncertainty_master_percent,
+                leastCount: item.least_count,
+                combinedUnc: item.combined_uncertainty,
+                dof: item.degree_of_freedom,
+                coverageFactor: item.coverage_factor,
+                expandedUncValue: item.expanded_uncertainty_value,
+                expandedUncPercent: item.expanded_uncertainty_percent,
+                cmcTaken: item.cmc_taken,
+                cmcScope: item.cmc_scope,
+              }));
+              setElectricSafetyData(mappedElectricData);
+            }
+
+            apiData = performanceTest;
           } else if (instrumentSuffix === "mm") {
             // For multimeter, data is in nested structure
             apiData = response.data.data?.uncertainty?.original?.data || [];
@@ -3610,7 +3641,7 @@ export default function ViewCMCCalculation() {
     </div>
   );
 
-  const renderBiomedicalTable = () => {
+  const renderBiomedicalTableWithData = (tableData) => {
     const formatAccuracy = (value) => {
       const numericValue = Number(value);
       return Number.isFinite(numericValue) ? numericValue.toFixed(3) : value ?? '';
@@ -3638,7 +3669,7 @@ export default function ViewCMCCalculation() {
             </tr>
           </thead>
           <tbody>
-            {data.map((row, index) => {
+            {tableData.map((row, index) => {
               const values = Array.from({ length: 5 }, (_, readingIndex) => row.values?.[readingIndex] ?? '');
               const cells = [
                 row.srNo, row.unitType, row.mode, ...values, row.unitDesc,
@@ -3658,6 +3689,10 @@ export default function ViewCMCCalculation() {
         </table>
       </div>
     );
+  };
+
+  const renderBiomedicalTable = () => {
+    return renderBiomedicalTableWithData(data);
   };
 
   // ========================= MAIN COMPONENT RENDER ========================= //
@@ -3722,7 +3757,22 @@ export default function ViewCMCCalculation() {
             {suffix === "wb" && renderWbTable()}
             {suffix === "es" && renderEsTable()}
             {suffix === "observationuc" && renderObservationucTable()}
-            {suffix === "biomedical" && renderBiomedicalTable()}
+            {suffix === "biomedical" && (
+              <>
+                {electricSafetyData.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Electric Safety</h3>
+                    {renderBiomedicalTableWithData(electricSafetyData)}
+                  </div>
+                )}
+                {data.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Performance Test</h3>
+                    {renderBiomedicalTable()}
+                  </div>
+                )}
+              </>
+            )}
             {suffix === "wbn" && renderWbnTable()}
             {suffix === "th" && renderThTable()}
             {suffix === "ts" && renderTsTable()}

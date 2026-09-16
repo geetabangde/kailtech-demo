@@ -103,6 +103,9 @@ export const useObservations = (observationTemplate, instId, inwardId) => {
       case 'observationtswoi':
         processTSWOIData(data);
         break;
+      case 'observationdw':
+        processDWData(data);
+        break;
       default:
         setObservations([]);
     }
@@ -432,6 +435,41 @@ export const useObservations = (observationTemplate, instId, inwardId) => {
     }
   };
 
+  // VC - Vernier Caliper
+  const processVCData = (data) => {
+    const vcData = data.data || data;
+    const vcPoints = vcData.calibration_points || (Array.isArray(vcData) ? vcData : []);
+
+    if (Array.isArray(vcPoints) && vcPoints.length > 0) {
+      console.log('✅ VC calibration_points found:', vcPoints);
+      setObservations(vcPoints);
+
+      // Extract least count data if available
+      const leastCountMap = {};
+      vcPoints.forEach((point) => {
+        const pointId = point.id || point.calibration_point_id;
+        if (pointId && point.least_count) {
+          leastCountMap[pointId] = parseFloat(point.least_count);
+        }
+      });
+      if (Object.keys(leastCountMap).length > 0) {
+        setLeastCountData(leastCountMap);
+      }
+
+      const thermal = vcData.thermal_coefficients || vcData.thermal_coeff;
+      if (thermal) {
+        setThermalCoeff({
+          uuc: thermal.uuc || thermal.thermal_coeff_uuc || '',
+          master: thermal.master || thermal.thermal_coeff_master || '',
+          thickness_of_graduation: thermal.thickness_of_graduation || ''
+        });
+      }
+    } else {
+      console.log('❌ No VC calibration_points found');
+      setObservations([]);
+    }
+  };
+
   // TSWOI - Temperature Sensor Without Indicator
   const processTSWOIData = (data) => {
     const tswoiData = data.data || data;
@@ -450,6 +488,25 @@ export const useObservations = (observationTemplate, instId, inwardId) => {
       setObservations(tswoiData.observations);
     } else {
       console.log('❌ No TSWOI observations found');
+      setObservations([]);
+    }
+  };
+
+  // DW - Dead Weight Tester
+  const processDWData = (data) => {
+    const dwData = data.data || data;
+
+    if (Array.isArray(dwData)) {
+      console.log('✅ DW data array found:', dwData);
+      setObservations(dwData);
+    } else if (dwData.observations && Array.isArray(dwData.observations)) {
+      console.log('✅ DW observations found:', dwData.observations);
+      setObservations(dwData.observations);
+    } else if (dwData.calibration_points && Array.isArray(dwData.calibration_points)) {
+      console.log('✅ DW calibration_points found:', dwData.calibration_points);
+      setObservations(dwData.calibration_points);
+    } else {
+      console.log('❌ No DW observations found');
       setObservations([]);
     }
   };

@@ -2,7 +2,7 @@
 
 export const mapDataBySuffix = (suffix, apiData) => {
   console.log("🗺️ mapDataBySuffix called with:", { suffix, apiData });
-  
+
   const mappers = {
     ctg: mapCtgData,
     exm: mapExmData,
@@ -28,7 +28,7 @@ export const mapDataBySuffix = (suffix, apiData) => {
     console.error(`❌ Unsupported instrument suffix: ${suffix}`);
     return [];
   }
-  
+
   try {
     const result = mapper(apiData);
     console.log("✅ Mapping successful:", result);
@@ -46,7 +46,7 @@ const mapCtgData = (apiData) => {
     console.error("❌ mapCtgData: apiData is not an array", apiData);
     return [];
   }
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     typeOfMeasurement: item.type_of_measurement,
@@ -74,7 +74,7 @@ const mapCtgData = (apiData) => {
 
 const mapExmData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     typeOfMeasurement: item.type_of_measurement,
@@ -103,7 +103,7 @@ const mapExmData = (apiData) => {
 
 const mapDgData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     readingInc1: item.reading_inc_1,
@@ -137,7 +137,7 @@ const mapDgData = (apiData) => {
 
 const mapGtmData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     values: [item.uuc_0, item.uuc_1, item.uuc_2, item.uuc_3, item.uuc_4],
@@ -164,7 +164,7 @@ const mapGtmData = (apiData) => {
 
 const mapRtdwiData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     values: [item.uuc_0, item.uuc_1, item.uuc_2, item.uuc_3, item.uuc_4],
@@ -191,7 +191,7 @@ const mapRtdwiData = (apiData) => {
 
 const mapMsrData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     typeOfMeasurement: item.type_of_measurement,
@@ -222,15 +222,15 @@ const mapMsrData = (apiData) => {
 // ⚠️ SPECIAL CASE: AVG expects nested data structure
 const mapAvgData = (apiData) => {
   console.log("🔍 mapAvgData received:", apiData);
-  
+
   // Handle nested data structure
   const dataArray = apiData.data || apiData;
-  
+
   if (!Array.isArray(dataArray)) {
     console.error("❌ mapAvgData: data is not an array", dataArray);
     return [];
   }
-  
+
   return dataArray.map((item) => ({
     srNo: item.sr_no,
     setPressure: item.set_pressure_uuc,
@@ -255,7 +255,7 @@ const mapAvgData = (apiData) => {
 
 const mapDpgData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     setPressure: item.set_pressure,
@@ -279,7 +279,7 @@ const mapDpgData = (apiData) => {
 
 const mapMmData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     unitType: item.unit_type,
@@ -309,7 +309,7 @@ const mapMmData = (apiData) => {
 
 const mapOdfmData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     master0: item.master0,
@@ -341,14 +341,14 @@ const mapOdfmData = (apiData) => {
 // ⚠️ SPECIAL CASE: PPG expects nested data structure
 const mapPpgData = (apiData) => {
   console.log("🔍 mapPpgData received:", apiData);
-  
+
   const dataArray = apiData.data || apiData;
-  
+
   if (!Array.isArray(dataArray)) {
     console.error("❌ mapPpgData: data is not an array", dataArray);
     return [];
   }
-  
+
   return dataArray.map((item) => ({
     srNo: item.sr_no,
     setPressure: item.set_pressure_uuc,
@@ -378,7 +378,7 @@ const mapPpgData = (apiData) => {
 
 const mapItData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     matrixType: item.matrixtype,
@@ -407,7 +407,7 @@ const mapItData = (apiData) => {
 
 const mapMtData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     values: [item.master_0, item.master_1, item.master_2, item.master_3, item.master_4],
@@ -435,7 +435,7 @@ const mapMtData = (apiData) => {
 
 const mapHgData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     typeOfMeasurement: item.type_of_measurement,
@@ -466,14 +466,14 @@ const mapHgData = (apiData) => {
 // ⚠️ SPECIAL CASE: MG expects nested data structure
 const mapMgData = (apiData) => {
   console.log("🔍 mapMgData received:", apiData);
-  
+
   const dataArray = apiData.data || apiData;
-  
+
   if (!Array.isArray(dataArray)) {
     console.error("❌ mapMgData: data is not an array", dataArray);
     return [];
   }
-  
+
   return dataArray.map((item) => ({
     srNo: item.sr_no,
     setPressure: item.set_pressure_uuc,
@@ -497,7 +497,7 @@ const mapMgData = (apiData) => {
 
 const mapFgData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => ({
     srNo: item.sr_no,
     values: [item.master_0, item.master_1, item.master_2, item.master_3, item.master_4],
@@ -541,7 +541,7 @@ const safeGetArrayValue = (val) => {
 
 const mapDwData = (apiData) => {
   if (!Array.isArray(apiData)) return [];
-  
+
   return apiData.map((item) => {
     let uuca = [];
     let mastera = [];
@@ -555,6 +555,12 @@ const mapDwData = (apiData) => {
       masterb = item.repeatable_data.map((r) => r.u2 ?? r.masterb);
       uucb = item.repeatable_data.map((r) => r.s2 ?? r.uucb);
       deltai = item.repeatable_data.map((r) => r.deltai ?? r.diff);
+    } else if (Array.isArray(item.cycles) && item.cycles.length > 0) {
+      uuca = item.cycles.map((c) => c.S1 ?? c.s1 ?? c.uuca);
+      mastera = item.cycles.map((c) => c.U1 ?? c.u1 ?? c.mastera);
+      masterb = item.cycles.map((c) => c.U2 ?? c.u2 ?? c.masterb);
+      uucb = item.cycles.map((c) => c.S2 ?? c.s2 ?? c.uucb);
+      deltai = item.cycles.map((c) => c.Delta ?? c.deltai ?? c.diff);
     } else {
       uuca = safeGetArrayValue(item.uuca ?? item.s1);
       mastera = safeGetArrayValue(item.mastera ?? item.u1);
@@ -566,7 +572,7 @@ const mapDwData = (apiData) => {
     return {
       srNo: item.sr_no,
       unit: item.unit,
-      calibrationPoint: item.calibration_point ?? item.point,
+      calibrationPoint: item.calibration_point ?? item.point ?? item.nominal_value,
       uuca,
       mastera,
       masterb,
@@ -578,7 +584,7 @@ const mapDwData = (apiData) => {
       densityofair: item.densityofair ?? item.density_of_air,
       densityofairref: item.densityofairref ?? item.reference_air_density ?? item.density_of_air_ref ?? 0.0012,
       densityofmaster: item.densityofmaster ?? item.density_of_master,
-      densityuuc: item.densityuuc ?? item.density_of_uuc ?? item.density_uuc,
+      densityuuc: item.densityuuc ?? item.density_of_uuc ?? item.density_uuc ?? item.density,
       refweightmass: item.refweightmass ?? item.reference_weight_mass ?? item.ref_weight_mass,
       volumofref: item.volumofref ?? item.volume_of_reference ?? item.volume_of_ref,
       volumeoftestweight: item.volumeoftestweight ?? item.volume_of_test_weight,
