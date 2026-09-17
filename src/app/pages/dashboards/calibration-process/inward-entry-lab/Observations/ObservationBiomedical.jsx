@@ -47,8 +47,15 @@ const ObservationBiomedical = ({
 
     let sum = 0;
     let validCount = 0;
+    let maxReadingDec = 0;
+
     readings.forEach(val => {
-      const num = parseFloat(val);
+      const s = String(val).trim();
+      if (s.includes('.')) {
+        const dec = s.split('.')[1].length;
+        if (dec > maxReadingDec) maxReadingDec = dec;
+      }
+      const num = parseFloat(s);
       if (!isNaN(num)) {
         sum += num;
         validCount++;
@@ -75,49 +82,20 @@ const ObservationBiomedical = ({
       }
     }
 
+    targetDec = Math.max(targetDec, maxReadingDec);
+
+    if (targetDec === 0 && raw % 1 !== 0) {
+      return String(parseFloat(raw.toFixed(4)));
+    }
+
     return raw.toFixed(targetDec);
   };
 
-  // Dynamically determine effective least count based on value and instrument ranges
+  // Determine least count directly from point object (matching ViewRawData logic)
   const getEffectiveLeastCount = (value, point, isMaster) => {
-    const defaultLc = isMaster
+    return isMaster
       ? (point?.master_least_count ?? point?.masterleastcount ?? '1')
       : (point?.least_count ?? point?.leastcount ?? '0.1');
-
-    if (value === '' || value === null || value === undefined) return defaultLc;
-
-    const strVal = String(value).trim();
-    if (strVal.endsWith('.') || strVal === '-' || strVal === 'NA' || strVal === 'N.A' || strVal.includes('/')) {
-      return defaultLc;
-    }
-
-    const numVal = parseFloat(strVal);
-    if (isNaN(numVal)) return defaultLc;
-
-    // Check backend matrices array if present on point object
-    const matrices = isMaster
-      ? (point?.master_matrices || point?.matrices || [])
-      : (point?.uuc_matrices || point?.matrices || []);
-
-    if (Array.isArray(matrices) && matrices.length > 0) {
-      const pParam = (point?.parameter || '').trim().toLowerCase();
-      for (const m of matrices) {
-        const mParam = (m.parameter || '').trim().toLowerCase();
-        
-        // If the matrix specifies a parameter and it doesn't match the point's parameter, skip it
-        if (mParam && pParam && mParam !== pParam) {
-          continue;
-        }
-
-        const min = parseFloat(m.minrange ?? m.min_range ?? m.calibrated_min);
-        const max = parseFloat(m.maxrange ?? m.max_range ?? m.calibrated_max);
-        if (!isNaN(min) && !isNaN(max) && numVal >= min && numVal <= max) {
-          if (m.leastcount || m.least_count) return String(m.leastcount || m.least_count);
-        }
-      }
-    }
-
-    return defaultLc;
   };
 
   // Least count validation function (checks decimal places and divisibility)

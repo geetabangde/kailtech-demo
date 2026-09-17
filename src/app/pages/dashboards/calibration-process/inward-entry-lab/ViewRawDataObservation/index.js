@@ -440,7 +440,7 @@ export const createViewObservationRows = (observationData, template, currentRawd
   } else if (template === 'observationavg') {
     dataArray.forEach((point) => {
       if (!point) return;
-      const lc = point.least_count_uuc || '0.1';
+      const lc = point.least_count || point.least_count_uuc || point.leastcount || '0.1';
       const row = [
         point.sr_no?.toString() || '',
         formatValueByLc(point.set_point_uuc, null, lc),
@@ -457,7 +457,7 @@ export const createViewObservationRows = (observationData, template, currentRawd
     dataArray.forEach((point) => {
       if (!point) return;
       const observations = safeGetArray(point.observations, 5);
-      const lc = point.least_count_uuc || '0.01';
+      const lc = point.least_count || point.least_count_uuc || point.leastcount || '0.01';
 
       while (observations.length < 5) {
         observations.push('');
@@ -562,6 +562,9 @@ export const createViewObservationRows = (observationData, template, currentRawd
         const repeatableCycle = isMaxPoint ? 5 : 3;
 
         const observations = safeGetArray(point.observations, 5);
+        const pointLc = point?.least_count ?? point?.least_count_uuc ?? point?.leastcount;
+        const pointLcDec = point?.lc_decimals;
+
         const row = [
           point.sr_no?.toString() || point.sequence_number?.toString() || (pointIndex + 1).toString(),
           safeGetValue(
@@ -570,10 +573,10 @@ export const createViewObservationRows = (observationData, template, currentRawd
               : (point.nominal_value ?? point.point ?? point.test_point)
           ),
           ...Array.from({ length: 5 }, (_, index) =>
-            index < repeatableCycle ? formatValueByLc(observations[index], point?.lc_decimals, point?.least_count) : ''
+            index < repeatableCycle ? formatValueByLc(observations[index], pointLcDec, pointLc) : ''
           ),
-          formatValueByLc(point.average || point.average_master, point?.lc_decimals, point?.least_count),
-          formatValueByLc(point.error, point?.lc_decimals, point?.least_count),
+          formatValueByLc(point.average || point.average_master, pointLcDec, pointLc),
+          formatValueByLc(point.error, pointLcDec, pointLc),
         ];
 
         while (row.length < 9) row.push('');

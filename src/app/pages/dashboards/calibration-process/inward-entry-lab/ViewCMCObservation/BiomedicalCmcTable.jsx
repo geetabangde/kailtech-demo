@@ -1,9 +1,4 @@
 export const BiomedicalTableWithData = ({ tableData = [] }) => {
-  const formatAccuracy = (value) => {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue.toFixed(3) : value ?? '';
-  };
-
   const headers = [
     'Sr No', 'Unit Type', 'Mode', '1', '2', '3', '4', '5', 'Unit',
     'Calibration Point', 'Average', 'Std Deviation', 'Type A',
@@ -32,7 +27,7 @@ export const BiomedicalTableWithData = ({ tableData = [] }) => {
             const cells = [
               row.srNo, row.unitType, row.mode, ...values, row.unitDesc,
               row.calibrationPoint, row.average, row.stdDeviation, row.typeA,
-              formatAccuracy(row.accuracyCalibrator), typeof row.uncertaintyMaster === 'number' ? row.uncertaintyMaster.toFixed(5) : row.uncertaintyMaster, row.leastCount,
+              row.accuracyCalibrator, row.uncertaintyMaster, row.leastCount,
               row.combinedUnc, row.dof, row.coverageFactor, row.expandedUncValue,
               row.expandedUncPercent, row.cmcTaken, row.cmcScope
             ];

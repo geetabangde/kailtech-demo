@@ -1,9 +1,16 @@
+import { useState } from 'react';
+
 const ObservationEXM = ({
   selectedTableData,
   tableInputValues,
   setTableInputValues,
+  observations,
+  handleInputChange,
+  handleObservationBlur,
   validateDecimalPlaces,
 }) => {
+  const [inputErrors, setInputErrors] = useState({});
+
   if (selectedTableData?.id !== 'observationexm') return null;
 
   const formatValueByLc = (val, decimals, leastCount) => {
@@ -32,9 +39,9 @@ const ObservationEXM = ({
         const remainder = quotient - floored;
 
         let rounded;
-        if (remainder < 0.5) {
+        if (remainder < 0.499999) {
           rounded = floored;
-        } else if (remainder > 0.5) {
+        } else if (remainder > 0.500001) {
           rounded = floored + 1;
         } else {
           rounded = (floored % 2 === 0) ? floored : floored + 1;
@@ -49,27 +56,14 @@ const ObservationEXM = ({
     }
 
     if (d !== null) {
-      const multiplier = Math.pow(10, d);
-      const scaled = n * multiplier;
-      const floored = Math.floor(scaled);
-      const remainder = scaled - floored;
-
-      let rounded;
-      if (remainder < 0.5) {
-        rounded = floored;
-      } else if (remainder > 0.5) {
-        rounded = floored + 1;
-      } else {
-        rounded = (floored % 2 === 0) ? floored : floored + 1;
-      }
-
-      return (rounded / multiplier).toFixed(d);
+      return n.toFixed(d);
     }
     return strVal;
   };
 
   const calculateAverage = (readings, lc_decimals, leastCount) => {
-    const values = readings.filter(r => r !== '' && r !== null && r !== undefined)
+    const values = readings
+      .filter(r => r !== '' && r !== null && r !== undefined)
       .map(r => parseFloat(r))
       .filter(r => !isNaN(r));
 
@@ -80,7 +74,7 @@ const ObservationEXM = ({
   };
 
   const calculateError = (avgUuc, masterReading, decimals) => {
-    if (avgUuc === '' || masterReading === '') return '';
+    if (avgUuc === '' || masterReading === '' || avgUuc === null || masterReading === null) return '';
     const avg = parseFloat(avgUuc);
     const master = parseFloat(masterReading);
     if (isNaN(avg) || isNaN(master)) return '';
@@ -91,66 +85,48 @@ const ObservationEXM = ({
   };
 
   const getDecimalPlaces = (leastCount) => {
-    if (!leastCount || leastCount === 'NA') return 0;
+    if (!leastCount || leastCount === 'NA') return 3;
     const s = String(leastCount).trim();
     if (s.includes('.')) return s.split('.')[1].length;
-    return 0;
+    return 3;
   };
 
-  const renderThermalCoeffSection = () => {
-    return (
-      <div className="mb-8">
-        <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 uppercase">Thermal Coefficients</h3>
-        <div className="overflow-x-auto border border-gray-200 dark:border-gray-600">
-          <table className="w-full text-sm border-collapse">
-            <tbody className="bg-white dark:bg-gray-800">
-              <tr className="border-b border-gray-200 dark:border-gray-600">
-                <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600" style={{ width: '30%' }}>
-                  Thermal Coefficient of UUC
-                </td>
-                <td className="px-4 py-2 border-r border-gray-200 dark:border-gray-600" style={{ width: '20%' }}>
-                  <input
-                    type="number"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tableInputValues['thermalcoffuuc'] ?? ''}
-                    onChange={(e) => setTableInputValues({ ...tableInputValues, thermalcoffuuc: e.target.value })}
-                    onBlur={(e) => {
-                      if (validateDecimalPlaces) {
-                        validateDecimalPlaces('thermalcoffuuc', e.target.value, 0.001);
-                      }
-                    }}
-                    placeholder="Enter value"
-                  />
-                </td>
-                <td className="px-4 py-2 font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600" style={{ width: '30%' }}>
-                  Thermal Coefficient of Master
-                </td>
-                <td className="px-4 py-2" style={{ width: '20%' }}>
-                  <input
-                    type="number"
-                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={tableInputValues['thermalcoffmaster'] ?? ''}
-                    onChange={(e) => setTableInputValues({ ...tableInputValues, thermalcoffmaster: e.target.value })}
-                    onBlur={(e) => {
-                      if (validateDecimalPlaces) {
-                        validateDecimalPlaces('thermalcoffmaster', e.target.value, 0.001);
-                      }
-                    }}
-                    placeholder="Enter value"
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+  const handleInputChangeWithValidation = (key, val, leastCount, rowIndex, colIndex) => {
+    const lcStr = String(leastCount || '0.001').trim();
+    const maxDecimals = lcStr.includes('.') ? lcStr.split('.')[1].length : 3;
+
+    if (val && val.includes('.')) {
+      const decimals = val.split('.')[1].length;
+      if (decimals > maxDecimals) {
+        setInputErrors((prev) => ({
+          ...prev,
+          [key]: `Max ${maxDecimals} decimal places allowed for least count ${leastCount}`
+        }));
+      } else {
+        setInputErrors((prev) => ({ ...prev, [key]: null }));
+      }
+    } else {
+      setInputErrors((prev) => ({ ...prev, [key]: null }));
+    }
+
+    if (handleInputChange && rowIndex !== undefined && colIndex !== undefined) {
+      handleInputChange(rowIndex, colIndex, val);
+    } else {
+      setTableInputValues((prev) => ({
+        ...prev,
+        [key]: val
+      }));
+    }
+
+    if (validateDecimalPlaces) {
+      validateDecimalPlaces(val, leastCount);
+    }
   };
 
   if (!selectedTableData.staticRows || selectedTableData.staticRows.length === 0) {
     return (
-      <div className="p-4 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded">
-        <p className="text-yellow-800 dark:text-yellow-200">No calibration points available for EXM Observation</p>
+      <div className="p-4 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded mb-6">
+        <p className="text-yellow-800 dark:text-yellow-200 font-medium">No calibration points available for EXM Observation</p>
       </div>
     );
   }
@@ -159,9 +135,7 @@ const ObservationEXM = ({
     <div className="mb-8">
       <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 uppercase">External Micrometer (EXM) Observations</h3>
 
-      {renderThermalCoeffSection()}
-
-      <div className="overflow-x-auto border border-gray-200 dark:border-gray-600">
+      <div className="overflow-x-auto border border-gray-200 dark:border-gray-600 rounded">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600">
@@ -183,17 +157,20 @@ const ObservationEXM = ({
           </thead>
           <tbody className="bg-white dark:bg-gray-800">
             {selectedTableData.staticRows.map((row, rowIndex) => {
-              const lc_dec = getDecimalPlaces(row[0]?.least_count || row[0]);
-              const masterReading = row[1];
-              const readings = [row[2], row[3], row[4], row[5], row[6]];
+              const isLastRow = rowIndex === selectedTableData.staticRows.length - 1;
+              const point = observations?.[rowIndex] || {};
+              const leastCount = point.least_count || point.master_least_count || '0.001';
+              const lc_dec = getDecimalPlaces(leastCount);
+              const masterReading = tableInputValues[`${rowIndex}-1`] ?? row[1] ?? point.nominal_value ?? point.master_value ?? point.test_point ?? '';
+              const readings = [2, 3, 4, 5, 6].map((colIdx, i) => {
+                return tableInputValues[`${rowIndex}-${colIdx}`] ?? point.observations?.[i] ?? row[colIdx] ?? '';
+              });
 
-              const avgUuc = calculateAverage(
-                readings.map(r => tableInputValues[`${rowIndex}-${readings.indexOf(r) + 2}`] ?? r),
-                lc_dec,
-                row[0]?.least_count || row[0]
-              );
+              const calculatedAvg = calculateAverage(readings, lc_dec, leastCount);
+              const avgUuc = calculatedAvg !== '' ? calculatedAvg : (tableInputValues[`${rowIndex}-7`] ?? point.average ?? '');
 
-              const error = calculateError(avgUuc, masterReading, lc_dec);
+              const calculatedErr = calculateError(avgUuc, masterReading, lc_dec);
+              const error = calculatedErr !== '' ? calculatedErr : (tableInputValues[`${rowIndex}-8`] ?? point.error ?? '');
 
               return (
                 <tr key={rowIndex} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -204,29 +181,44 @@ const ObservationEXM = ({
                     <input
                       type="text"
                       className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                      value={row[1] ?? ''}
+                      value={masterReading}
                       readOnly
                     />
                   </td>
-                  {[2, 3, 4, 5, 6].map((colIndex) => (
-                    <td key={colIndex} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
-                      <input
-                        type="number"
-                        step="any"
-                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={tableInputValues[`${rowIndex}-${colIndex}`] ?? row[colIndex] ?? ''}
-                        onChange={(e) => setTableInputValues({
-                          ...tableInputValues,
-                          [`${rowIndex}-${colIndex}`]: e.target.value
-                        })}
-                        onBlur={(e) => {
-                          if (validateDecimalPlaces) {
-                            validateDecimalPlaces(`${rowIndex}-${colIndex}`, e.target.value, row[0]?.least_count);
-                          }
-                        }}
-                      />
-                    </td>
-                  ))}
+                  {[2, 3, 4, 5, 6].map((colIndex) => {
+                    const isObs4or5 = colIndex === 5 || colIndex === 6;
+                    const showInput = !isObs4or5 || isLastRow || (point.observations && point.observations.length >= 5) || (point.repeatable_cycle >= 5);
+                    const fieldKey = `${rowIndex}-${colIndex}`;
+                    const hasError = !!inputErrors[fieldKey];
+                    const obsIndex = colIndex - 2;
+                    const inputValue = tableInputValues[fieldKey] ?? point.observations?.[obsIndex] ?? row[colIndex] ?? '';
+
+                    return (
+                      <td key={colIndex} className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-white dark:bg-gray-800">
+                        {showInput ? (
+                          <div>
+                            <input
+                              type="number"
+                              step="any"
+                              className={`w-full px-2 py-1 border ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'} rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
+                              value={inputValue}
+                              onChange={(e) => handleInputChangeWithValidation(fieldKey, e.target.value, leastCount)}
+                              onBlur={(e) => {
+                                if (handleObservationBlur) {
+                                  handleObservationBlur(rowIndex, colIndex, e.target.value);
+                                }
+                              }}
+                            />
+                            {hasError && (
+                              <span className="text-xs text-red-500 block mt-1 font-normal">
+                                {inputErrors[fieldKey]}
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
+                      </td>
+                    );
+                  })}
                   <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
                     <input
                       type="text"
@@ -253,18 +245,29 @@ const ObservationEXM = ({
   );
 };
 
-// Exported calculation functions for use in CalibrateStep3
-export const calculateEXMValues = (rowData) => {
-  const result = {};
+export const calculateEXMValues = (rowData, rowIndex, selectedTableData, leastCountData, observations) => {
+  const result = { average: '', error: '' };
+  if (!rowData || !Array.isArray(rowData)) return result;
+
   const validReadings = rowData.slice(2, 7).filter((val) => val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val)));
   const obsNumbers = validReadings.map((val) => parseFloat(val));
-  result.average = obsNumbers.length
-    ? (obsNumbers.reduce((sum, val) => sum + val, 0) / obsNumbers.length).toFixed(3)
-    : '';
-  const nominalValue = parseFloat(rowData[1]);
-  result.error = result.average && nominalValue !== undefined && !isNaN(nominalValue)
-    ? (parseFloat(result.average) - nominalValue).toFixed(3)
-    : '';
+
+  if (obsNumbers.length > 0) {
+    const avg = obsNumbers.reduce((sum, val) => sum + val, 0) / obsNumbers.length;
+    const point = observations?.[rowIndex] || {};
+    const leastCount = point.least_count || point.master_least_count || '0.001';
+    let decimals = 3;
+    if (leastCount && String(leastCount).includes('.')) {
+      decimals = String(leastCount).split('.')[1].length;
+    }
+    result.average = avg.toFixed(decimals);
+
+    const nominalValue = parseFloat(rowData[1]);
+    if (!isNaN(nominalValue)) {
+      result.error = (avg - nominalValue).toFixed(decimals);
+    }
+  }
+
   return result;
 };
 

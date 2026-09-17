@@ -120,6 +120,33 @@ const CalibrateStep3 = () => {
     stabilizationtime: '',
   });
 
+  const seedTableInputsFromPoints = (points) => {
+    if (!Array.isArray(points) || points.length === 0) return;
+    setTableInputValues(prev => {
+      const updated = { ...prev };
+      points.forEach((point, idx) => {
+        const nominal = point.nominal_value ?? point.master_value ?? point.test_point;
+        if (nominal !== undefined && nominal !== null && nominal !== '') {
+          updated[`${idx}-1`] = String(nominal);
+        }
+        if (Array.isArray(point.observations)) {
+          point.observations.forEach((obs, obsIdx) => {
+            if (obs !== undefined && obs !== null && obs !== '') {
+              updated[`${idx}-${obsIdx + 2}`] = String(obs);
+            }
+          });
+        }
+        if (point.average !== undefined && point.average !== null && point.average !== '') {
+          updated[`${idx}-7`] = String(point.average);
+        }
+        if (point.error !== undefined && point.error !== null && point.error !== '') {
+          updated[`${idx}-8`] = String(point.error);
+        }
+      });
+      return updated;
+    });
+  };
+
   // Helper to sanitize sieve observation inputs (strips letters, multiple dots, extra decimals)
   const sanitizeSieveVal = (val, maxDec = 2) => {
     if (val === undefined || val === null) return '';
@@ -796,6 +823,17 @@ const CalibrateStep3 = () => {
         firstErrorKey: errorKeys[0] || null,
         errorCount: errorKeys.length,
       };
+    }
+
+    if (selectedTableData?.structure?.thermalCoeff) {
+      if (!thermalCoeff.uuc || String(thermalCoeff.uuc).trim() === '') {
+        toast.error('UUC Thermal Coefficient is required.');
+        return { isValid: false, errors: { uucThermalCoeff: 'Required' }, firstErrorKey: null, errorCount: 1 };
+      }
+      if (!thermalCoeff.master || String(thermalCoeff.master).trim() === '') {
+        toast.error('Master Thermal Coefficient is required.');
+        return { isValid: false, errors: { masterThermalCoeff: 'Required' }, firstErrorKey: null, errorCount: 1 };
+      }
     }
 
     if (selectedTableData?.id === 'observationwb' && !diagram) {
@@ -1592,6 +1630,7 @@ const CalibrateStep3 = () => {
             if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
               console.log('✅ EXM calibration_points found:', observationData.calibration_points);
               setObservations(observationData.calibration_points);
+              seedTableInputsFromPoints(observationData.calibration_points);
 
               // Handle thermal coefficients and additional measurements
               const addl = response.data.additional_measurements || observationData?.additional_measurements || {};
@@ -1606,12 +1645,20 @@ const CalibrateStep3 = () => {
               setObservations([]);
             }
           } else if (observationTemplate === 'observationvc') {
-            const vcPoints = response.data.calibration_points || observationData?.calibration_points || (Array.isArray(observationData) ? observationData : []);
+            let vcPoints = response.data.calibration_points || observationData?.calibration_points;
+            if (!vcPoints && observationData?.matrix_groups && Array.isArray(observationData.matrix_groups)) {
+              vcPoints = observationData.matrix_groups.flatMap(g => g.points || []);
+            }
+            if (!vcPoints && Array.isArray(observationData)) {
+              vcPoints = observationData;
+            }
+            if (!vcPoints) vcPoints = [];
             console.log('Setting VC observations:', vcPoints);
 
             if (Array.isArray(vcPoints) && vcPoints.length > 0) {
               console.log('✅ VC calibration_points found:', vcPoints.length, 'points');
               setObservations(vcPoints);
+              seedTableInputsFromPoints(vcPoints);
             } else {
               console.log('❌ No VC calibration_points found');
               setObservations([]);
@@ -2610,7 +2657,7 @@ const CalibrateStep3 = () => {
       Object.assign(result, calculateVCValues(rowData));
     }
     else if (template === 'observationexm') {
-      Object.assign(result, calculateEXMValues(rowData));
+      Object.assign(result, calculateEXMValues(rowData, rowIndex, selectedTableData, leastCountData, observations));
     }
     else if (template === 'observationrtdwi') {
       Object.assign(result, calculateRTDWIValues(rowData));
@@ -4395,7 +4442,7 @@ const CalibrateStep3 = () => {
         newValues[`${rowIndex}-7`] = calculated.average;
         newValues[`${rowIndex}-8`] = calculated.error;
       }
-      else if (selectedTableData.id === 'observationexm') {
+      else if (selectedTableData.id === 'observationexm' || selectedTableData.id === 'observationvc') {
         newValues[`${rowIndex}-7`] = calculated.average;
         newValues[`${rowIndex}-8`] = calculated.error;
       }
@@ -4543,17 +4590,24 @@ const CalibrateStep3 = () => {
       values: [],
     };
 
-    const calibrationPointId = hiddenInputs.calibrationPoints[rowIndex];
-    console.log('DEBUG handleObservationBlur:', { rowIndex, colIndex, value, id: selectedTableData?.id, calibrationPoints: hiddenInputs.calibrationPoints });
+    const calibrationPointId =
+      hiddenInputs?.calibrationPoints?.[rowIndex] ||
+      observations?.[rowIndex]?.point_id ||
+      observations?.[rowIndex]?.id ||
+      selectedTableData?.calibration_points?.[rowIndex]?.point_id ||
+      selectedTableData?.calibration_points?.[rowIndex]?.id;
+
+    console.log('DEBUG handleObservationBlur:', { rowIndex, colIndex, value, id: selectedTableData?.id, calibrationPoints: hiddenInputs.calibrationPoints, calibrationPointId });
     if (!calibrationPointId) {
       toast.error('Calibration point ID not found');
       return;
     }
 
-    const rowData = selectedTableData.staticRows[rowIndex].map((cell, idx) => {
+    const staticRow = selectedTableData?.staticRows?.[rowIndex] || [];
+    const rowData = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
       if (idx === colIndex) return (value !== undefined && value !== null ? value.toString().trim() : '');
       const inputKey = `${rowIndex}-${idx}`;
-      return tableInputValues[inputKey] ?? (cell?.toString() || '');
+      return tableInputValues[inputKey] ?? (staticRow[idx]?.toString() || '');
     });
 
     const calculated = calculateRowValues(rowData, selectedTableData.id, rowIndex);
@@ -6853,6 +6907,7 @@ const CalibrateStep3 = () => {
           if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
             console.log('✅ Refetched EXM calibration_points:', observationData.calibration_points.length, 'points');
             setObservations(observationData.calibration_points);
+            seedTableInputsFromPoints(observationData.calibration_points);
 
             // Handle thermal coefficients and additional measurements
             const addl = response.data.additional_measurements || observationData?.additional_measurements || {};
@@ -6867,12 +6922,20 @@ const CalibrateStep3 = () => {
             setObservations([]);
           }
         } else if (observationTemplate === 'observationvc') {
-          const vcPoints = response.data.calibration_points || observationData?.calibration_points || (Array.isArray(observationData) ? observationData : []);
+          let vcPoints = response.data.calibration_points || observationData?.calibration_points;
+          if (!vcPoints && observationData?.matrix_groups && Array.isArray(observationData.matrix_groups)) {
+            vcPoints = observationData.matrix_groups.flatMap(g => g.points || []);
+          }
+          if (!vcPoints && Array.isArray(observationData)) {
+            vcPoints = observationData;
+          }
+          if (!vcPoints) vcPoints = [];
           console.log('🔄 Refetching VC observations:', vcPoints);
 
           if (Array.isArray(vcPoints) && vcPoints.length > 0) {
             console.log('✅ Refetched VC calibration_points:', vcPoints.length, 'points');
             setObservations(vcPoints);
+            seedTableInputsFromPoints(vcPoints);
           } else {
             console.log('❌ No VC calibration_points found after refetch');
             setObservations([]);
@@ -7996,7 +8059,7 @@ const CalibrateStep3 = () => {
           <div className={`grid ${selectedTableData.id === 'observationmt' || selectedTableData.id === 'observationexm' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                UUC Thermal Coefficient:
+                UUC Thermal Coefficient: <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -8009,13 +8072,13 @@ const CalibrateStep3 = () => {
                   }
                 }}
                 onBlur={(e) => handleThermalCoeffBlur('thermalcoffuuc', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                className={`w-full px-3 py-2 border ${!thermalCoeff.uuc?.toString().trim() ? 'border-red-400 bg-red-50/30 dark:bg-red-950/20' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white`}
                 placeholder="Enter UUC thermal coefficient"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                Master Thermal Coefficient:
+                Master Thermal Coefficient: <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -8028,7 +8091,7 @@ const CalibrateStep3 = () => {
                   }
                 }}
                 onBlur={(e) => handleThermalCoeffBlur('thermalcoffmaster', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white"
+                className={`w-full px-3 py-2 border ${!thermalCoeff.master?.toString().trim() ? 'border-red-400 bg-red-50/30 dark:bg-red-950/20' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-white`}
                 placeholder="Enter master thermal coefficient"
               />
             </div>
@@ -10367,6 +10430,9 @@ const CalibrateStep3 = () => {
                         selectedTableData={selectedTableData}
                         tableInputValues={tableInputValues}
                         setTableInputValues={setTableInputValues}
+                        observations={observations}
+                        handleInputChange={handleInputChange}
+                        handleObservationBlur={handleObservationBlur}
                         validateDecimalPlaces={validateDecimalPlaces}
                       />
                     ) : selectedTableData.id === 'observationapg' ? (
@@ -10614,21 +10680,25 @@ const CalibrateStep3 = () => {
                                       if (colIndex === 7 || colIndex === 8) {
                                         currentValue = formatValueByLc(currentValue, masterDecimals, masterLc);
                                       }
-                                    } else if (point && point.least_count) {
+                                    } else if (point && (point.least_count || point.master_least_count)) {
+                                      const effectiveLc = (point.least_count && point.least_count !== 'NA' && point.least_count !== 'N.A')
+                                        ? point.least_count
+                                        : (point.master_least_count || point.least_count);
+
                                       // observationexm, observationvc, observationctg, observationmsr: Average at colIndex 7, Error at colIndex 8
                                       if (['observationexm', 'observationvc', 'observationctg', 'observationmsr'].includes(selectedTableData?.id) && (colIndex === 7 || colIndex === 8)) {
-                                        const lc_decimals = getDecimalPlaces(point.least_count);
-                                        currentValue = formatValueByLc(currentValue, lc_decimals, point.least_count);
+                                        const lc_decimals = getDecimalPlaces(effectiveLc);
+                                        currentValue = formatValueByLc(currentValue, lc_decimals, effectiveLc);
                                       }
                                       // observationfg, observationhg: Average at colIndex 7, Error at colIndex 8
                                       else if (['observationfg', 'observationhg'].includes(selectedTableData?.id) && (colIndex === 7 || colIndex === 8)) {
-                                        const lc_decimals = getDecimalPlaces(point.least_count);
-                                        currentValue = formatValueByLc(currentValue, lc_decimals, point.least_count);
+                                        const lc_decimals = getDecimalPlaces(effectiveLc);
+                                        currentValue = formatValueByLc(currentValue, lc_decimals, effectiveLc);
                                       }
                                       // observationit: Average at colIndex 7, Error at colIndex 8
                                       else if (selectedTableData?.id === 'observationit' && (colIndex === 7 || colIndex === 8)) {
-                                        const lc_decimals = getDecimalPlaces(point.least_count);
-                                        currentValue = formatValueByLc(currentValue, lc_decimals, point.least_count);
+                                        const lc_decimals = getDecimalPlaces(effectiveLc);
+                                        currentValue = formatValueByLc(currentValue, lc_decimals, effectiveLc);
                                       }
                                     }
 
@@ -10781,7 +10851,7 @@ const CalibrateStep3 = () => {
                                     } else if (selectedTableData.id === 'observationexm' || selectedTableData.id === 'observationvc') {
                                       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationfg') {
-                                      isDisabled = isDisabled || [7, 8].includes(colIndex);
+                                      isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationhg') {
                                       isDisabled = isDisabled || [1, 7, 8].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationmt') {

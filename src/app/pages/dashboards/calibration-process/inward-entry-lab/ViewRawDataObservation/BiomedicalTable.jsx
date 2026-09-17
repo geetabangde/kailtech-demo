@@ -25,15 +25,30 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
     if (!Array.isArray(readings) || readings.length === 0) return null;
     let sum = 0;
     let count = 0;
+    let maxReadingDec = 0;
+
     readings.forEach((r) => {
       const v = typeof r === 'object' && r !== null ? r.value : r;
-      const n = parseFloat(v);
-      if (!isNaN(n)) { sum += n; count++; }
+      if (v !== null && v !== undefined && v !== '') {
+        const str = String(v).trim();
+        if (str.includes('.')) {
+          const dec = str.split('.')[1].length;
+          if (dec > maxReadingDec) maxReadingDec = dec;
+        }
+        const n = parseFloat(str);
+        if (!isNaN(n)) { sum += n; count++; }
+      }
     });
     if (count === 0) return null;
     const avg = sum / count;
-    const d = (decimals != null && decimals !== 'NA' && decimals !== '') ? parseInt(decimals, 10) : null;
-    return d !== null && !isNaN(d) ? avg.toFixed(d) : String(avg);
+    let d = (decimals != null && decimals !== 'NA' && decimals !== '') ? parseInt(decimals, 10) : null;
+    if (d === null || isNaN(d)) {
+      d = maxReadingDec;
+    } else {
+      d = Math.max(d, maxReadingDec);
+    }
+
+    return d > 0 ? avg.toFixed(d) : (avg % 1 === 0 ? String(avg) : String(parseFloat(avg.toFixed(4))));
   };
 
   return (

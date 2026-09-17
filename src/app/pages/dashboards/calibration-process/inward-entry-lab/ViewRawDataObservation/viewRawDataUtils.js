@@ -18,13 +18,19 @@ export const safeGetArray = (item, defaultLength = 0) => {
 export const formatValueByLc = (val, decimals, leastCount) => {
   const raw = safeGetValue(val);
   if (raw === null || raw === undefined || raw === '' || raw === 'NA' || raw === 'na') return raw;
+
+  let lcVal = leastCount;
+  if (typeof leastCount === 'object' && leastCount !== null) {
+    lcVal = leastCount.least_count ?? leastCount.least_count_uuc ?? leastCount.uuc_least_count ?? leastCount.leastcount ?? leastCount.master_least_count ?? leastCount.masterleastcount ?? null;
+  }
+
   let d = null;
   if (decimals !== null && decimals !== undefined && decimals !== 'NA' && decimals !== '') {
     const parsed = parseInt(decimals, 10);
     if (!isNaN(parsed)) d = parsed;
   }
-  if (d === null && leastCount !== null && leastCount !== undefined && leastCount !== 'NA' && leastCount !== '') {
-    const str = String(leastCount).trim();
+  if (d === null && lcVal !== null && lcVal !== undefined && lcVal !== 'NA' && lcVal !== '') {
+    const str = String(lcVal).trim();
     const match = str.match(/\.([0-9]+)/);
     if (match) {
       d = match[1].length;

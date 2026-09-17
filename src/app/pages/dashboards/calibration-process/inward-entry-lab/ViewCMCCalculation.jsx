@@ -198,16 +198,85 @@ export default function ViewCMCCalculation() {
             const electricSafety = response.data.data?.uncertainty?.original?.electric_safety || [];
             const performanceTest = response.data.data?.uncertainty?.original?.performance_test || [];
 
-            // Process electric safety data
-            if (electricSafety.length > 0) {
-              const mappedElectricData = electricSafety.map((item) => ({
+            const processBiomedicalItem = (item) => {
+              const readings = safeGetArrayValue(item.readings);
+              let calcAvg = item.average;
+
+              if ((calcAvg === null || calcAvg === undefined || calcAvg === "") && readings.length > 0) {
+                const isSlash = readings.some((val) => String(val).includes("/"));
+                if (isSlash) {
+                  const sysVals = [];
+                  const diaVals = [];
+                  readings.forEach((val) => {
+                    if (val) {
+                      const parts = String(val).split("/");
+                      if (parts[0] !== undefined) sysVals.push(parseFloat(parts[0]));
+                      if (parts[1] !== undefined) diaVals.push(parseFloat(parts[1]));
+                    }
+                  });
+                  const validSys = sysVals.filter((v) => !isNaN(v));
+                  const validDia = diaVals.filter((v) => !isNaN(v));
+
+                  const avgSys = validSys.length ? (validSys.reduce((a, b) => a + b, 0) / validSys.length).toFixed(1) : "";
+                  const avgDia = validDia.length ? (validDia.reduce((a, b) => a + b, 0) / validDia.length).toFixed(1) : "";
+                  calcAvg = `${avgSys}/${avgDia}`;
+                } else {
+                  let sum = 0;
+                  let count = 0;
+                  let maxReadingDec = 0;
+
+                  readings.forEach((val) => {
+                    if (val !== null && val !== undefined && val !== "") {
+                      const str = String(val).trim();
+                      if (str.includes(".")) {
+                        const dec = str.split(".")[1].length;
+                        if (dec > maxReadingDec) maxReadingDec = dec;
+                      }
+                      const num = parseFloat(str);
+                      if (!isNaN(num)) {
+                        sum += num;
+                        count++;
+                      }
+                    }
+                  });
+
+                  if (count > 0) {
+                    const rawAvg = sum / count;
+                    let targetDec = maxReadingDec;
+
+                    const lcStr = String(item.least_count || "").trim();
+                    if (lcStr && lcStr.includes(".")) {
+                      const lcDec = lcStr.split(".")[1].length;
+                      if (lcDec > targetDec) targetDec = lcDec;
+                    }
+
+                    const itemDec = item.lc_decimals ?? item.mlc_decimals;
+                    if (itemDec != null && itemDec !== "NA" && itemDec !== "") {
+                      const parsed = parseInt(itemDec, 10);
+                      if (!isNaN(parsed) && parsed > targetDec) {
+                        targetDec = parsed;
+                      }
+                    }
+
+                    if (targetDec > 0) {
+                      calcAvg = rawAvg.toFixed(targetDec);
+                    } else if (maxReadingDec > 0) {
+                      calcAvg = rawAvg.toFixed(maxReadingDec);
+                    } else {
+                      calcAvg = rawAvg % 1 === 0 ? String(rawAvg) : String(parseFloat(rawAvg.toFixed(4)));
+                    }
+                  }
+                }
+              }
+
+              return {
                 srNo: item.sr_no,
                 unitType: item.unit_type,
                 mode: item.mode,
-                values: safeGetArrayValue(item.readings),
+                values: readings,
                 unitDesc: item.unit_desc,
                 calibrationPoint: item.calibration_point,
-                average: item.average,
+                average: calcAvg,
                 stdDeviation: item.std_deviation,
                 typeA: item.type_a,
                 accuracyCalibrator: item.accuracy_calibrator_value,
@@ -220,11 +289,17 @@ export default function ViewCMCCalculation() {
                 expandedUncPercent: item.expanded_uncertainty_percent,
                 cmcTaken: item.cmc_taken,
                 cmcScope: item.cmc_scope,
-              }));
+              };
+            };
+
+            // Process electric safety data
+            if (electricSafety.length > 0) {
+              const mappedElectricData = electricSafety.map(processBiomedicalItem);
               setElectricSafetyData(mappedElectricData);
             }
 
-            apiData = performanceTest;
+            const mappedData = performanceTest.map(processBiomedicalItem);
+            setData(mappedData);
           } else if (instrumentSuffix === "mm") {
             // For multimeter, data is in nested structure
             apiData = response.data.data?.uncertainty?.original?.data || [];
@@ -256,28 +331,7 @@ export default function ViewCMCCalculation() {
 
 
           if (instrumentSuffix === "biomedical") {
-            const mappedData = apiData.map((item) => ({
-              srNo: item.sr_no,
-              unitType: item.unit_type,
-              mode: item.mode,
-              values: safeGetArrayValue(item.readings),
-              unitDesc: item.unit_desc,
-              calibrationPoint: item.calibration_point,
-              average: item.average,
-              stdDeviation: item.std_deviation,
-              typeA: item.type_a,
-              accuracyCalibrator: item.accuracy_calibrator_value,
-              uncertaintyMaster: item.uncertainty_master_percent,
-              leastCount: item.least_count,
-              combinedUnc: item.combined_uncertainty,
-              dof: item.degree_of_freedom,
-              coverageFactor: item.coverage_factor,
-              expandedUncValue: item.expanded_uncertainty_value,
-              expandedUncPercent: item.expanded_uncertainty_percent,
-              cmcTaken: item.cmc_taken,
-              cmcScope: item.cmc_scope,
-            }));
-            setData(mappedData);
+            // Already handled above for Biomedical (both electric safety & performance test)
           } else if (instrumentSuffix === "ctg") {
             const mappedData = apiData.map((item) => ({
               srNo: item.sr_no,
