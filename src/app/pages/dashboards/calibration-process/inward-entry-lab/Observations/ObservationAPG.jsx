@@ -245,4 +245,94 @@ const ObservationAPG = ({
   );
 };
 
+/**
+ * Calculation logic for Air Pressure Gauge (APG) Observation row
+ */
+export const calculateAPGValues = (rowData) => {
+  const result = { average: '', error: '', hysteresis: '' };
+  if (!rowData || !Array.isArray(rowData)) return result;
+
+  const parsedValues = rowData.map((val) => (val === '' || val === null || val === undefined ? 0 : parseFloat(val) || 0));
+  const m1 = parsedValues[3];
+  const m2 = parsedValues[4];
+  const validReadings = [m1, m2].filter((val) => val !== 0);
+
+  result.average = validReadings.length
+    ? (validReadings.reduce((sum, val) => sum + val, 0) / validReadings.length).toFixed(2)
+    : '';
+
+  const setPressureBar = parsedValues[2];
+  result.error = result.average && setPressureBar
+    ? (result.average - setPressureBar).toFixed(2)
+    : '';
+
+  result.hysteresis = validReadings.length
+    ? (Math.max(...validReadings) - Math.min(...validReadings)).toFixed(2)
+    : '';
+
+  return result;
+};
+
+/**
+ * Row generator for APG Observation
+ */
+export const createAPGRows = (dataArray) => {
+  const rows = [];
+  const calibrationPoints = [];
+  const types = [];
+  const repeatables = [];
+  const values = [];
+
+  const safeVal = (item) => {
+    if (item === undefined || item === null || item === '') return '';
+    if (typeof item === 'object' && item !== null) {
+      const val = item.value !== null && item.value !== undefined ? item.value : (item.val ?? item.reading ?? '');
+      return (val !== undefined && val !== null) ? val.toString() : '';
+    }
+    return item.toString();
+  };
+
+  (dataArray || []).forEach((obs) => {
+    if (!obs) return;
+    const row = [
+      obs.sr_no?.toString() || '',
+      safeVal(obs.uuc ?? obs.nominal_value ?? obs.set_pressure_uuc),
+      safeVal(obs.calculated_uuc ?? obs.converted_nominal_value ?? obs.set_pressure_master),
+      safeVal(obs.m1 ?? obs.master_readings?.[0]),
+      safeVal(obs.m2 ?? obs.master_readings?.[1]),
+      safeVal(obs.mean ?? obs.average_master),
+      safeVal(obs.error),
+      safeVal(obs.hysterisis ?? obs.hysteresis),
+    ];
+    rows.push(row);
+    calibrationPoints.push(obs.calibration_point_id?.toString() || '');
+    types.push('input');
+    repeatables.push('1');
+    values.push(safeVal(obs.uuc ?? obs.nominal_value ?? obs.set_pressure_uuc) || '0');
+  });
+
+  return { rows, hiddenInputs: { calibrationPoints, types, repeatables, values } };
+};
+
+/**
+ * Table config for APG Observation
+ */
+export const getAPGTableConfig = (observations) => {
+  const { rows, hiddenInputs } = createAPGRows(observations);
+  return {
+    id: 'observationapg',
+    name: 'Observation APG',
+    category: 'Pressure',
+    structure: {
+      singleHeaders: ['Sr no', 'Set Pressure on UUC (kg/cm²)', 'Set Pressure on UUC (bar)'],
+      subHeaders: {
+        'Observations on Master (bar)': ['M1', 'M2'],
+      },
+      remainingHeaders: ['Mean (bar)', 'Error (bar)', 'Hysterisis (bar)'],
+    },
+    staticRows: rows,
+    hiddenInputs: hiddenInputs,
+  };
+};
+
 export default ObservationAPG;

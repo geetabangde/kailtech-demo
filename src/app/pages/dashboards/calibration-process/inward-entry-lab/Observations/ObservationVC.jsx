@@ -315,4 +315,27 @@ const ObservationVC = ({
   );
 };
 
+/**
+ * Calculation logic for Vernier Caliper (VC) Observation row
+ */
+export const calculateVCValues = (rowData) => {
+  const result = { average: '', error: '' };
+  if (!rowData || !Array.isArray(rowData)) return result;
+
+  const parsedValues = rowData.map((val) => (val === '' || val === null || val === undefined ? 0 : parseFloat(val) || 0));
+  const validReadings = rowData.slice(2, 7).filter((val) => val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val)));
+  const obsNumbers = validReadings.map((val) => parseFloat(val));
+
+  result.average = obsNumbers.length
+    ? (obsNumbers.reduce((sum, val) => sum + val, 0) / obsNumbers.length).toFixed(3)
+    : '';
+
+  const nominalValue = parsedValues[1];
+  result.error = result.average && nominalValue !== undefined && !isNaN(nominalValue)
+    ? (parseFloat(result.average) - nominalValue).toFixed(3)
+    : '';
+
+  return result;
+};
+
 export default ObservationVC;

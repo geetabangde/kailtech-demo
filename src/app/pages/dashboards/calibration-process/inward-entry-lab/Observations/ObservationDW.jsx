@@ -445,4 +445,104 @@ const ObservationDW = ({
   );
 };
 
+/**
+ * Calculation logic for Dead Weight (DW) Observation row
+ * Formula: ∆m = {(U1-S1) + (U2-S2)} / 2
+ */
+export const calculateDWValues = (rowData) => {
+  if (!rowData || !Array.isArray(rowData)) {
+    return { diff: '' };
+  }
+  const parsedValues = rowData.map(val => (val === '' || val === null || val === undefined ? 0 : parseFloat(val) || 0));
+  const s1 = parsedValues[4] || 0;
+  const u1 = parsedValues[5] || 0;
+  const u2 = parsedValues[6] || 0;
+  const s2 = parsedValues[7] || 0;
+  const SIGDIG = 100000000;
+
+  if (parsedValues[4] !== 0 || parsedValues[5] !== 0 || parsedValues[6] !== 0 || parsedValues[7] !== 0) {
+    const tempa = Math.floor((u1 - s1) * SIGDIG) / SIGDIG;
+    const tempb = Math.floor((u2 - s2) * SIGDIG) / SIGDIG;
+    const delta = (tempa + tempb) / 2;
+    return {
+      diff: parseFloat(delta.toFixed(8)).toString()
+    };
+  }
+  return {
+    diff: ''
+  };
+};
+
+/**
+ * Row generator for DW Observation
+ */
+export const createDWRows = (dataArray) => {
+  const rows = [];
+  const calibrationPoints = [];
+  const types = [];
+  const repeatables = [];
+  const values = [];
+
+  const safeVal = (item) => {
+    if (item === undefined || item === null || item === '') return '';
+    if (typeof item === 'object' && item !== null) {
+      const val = item.value !== null && item.value !== undefined ? item.value : (item.val ?? item.reading ?? '');
+      return (val !== undefined && val !== null) ? val.toString() : '';
+    }
+    return item.toString();
+  };
+
+  (dataArray || []).forEach((point) => {
+    if (!point) return;
+    const cycles = point.repeatable_cycle ? parseInt(point.repeatable_cycle) : 3;
+    for (let cycle = 0; cycle < cycles; cycle++) {
+      const row = [
+        point.sr_no?.toString() || '',
+        (cycle + 1).toString(),
+        safeVal(point.nominal_value || point.test_point),
+        safeVal(point.density),
+        safeVal(point.s1?.[cycle]), // uuca -> S1
+        safeVal(point.u1?.[cycle]), // mastera -> U1
+        safeVal(point.u2?.[cycle]), // masterb -> U2
+        safeVal(point.s2?.[cycle]), // uucb -> S2
+        safeVal(point.deltai?.[cycle]), // Diff
+        safeVal(point.average_diff), // Avg.Diff
+      ];
+      rows.push(row);
+      calibrationPoints.push(point.point_id?.toString() || '');
+      types.push('input'); // Will be overridden dynamically in handleSubmit
+      repeatables.push(cycle.toString());
+      values.push(safeVal(point.nominal_value || point.test_point) || '0');
+    }
+  });
+
+  return { rows, hiddenInputs: { calibrationPoints, types, repeatables, values } };
+};
+
+/**
+ * Table config for DW Observation
+ */
+export const getDWTableConfig = (observations) => {
+  const { rows, hiddenInputs } = createDWRows(observations);
+  return {
+    id: 'observationdw',
+    name: 'Observation DW',
+    category: 'Dead Weight',
+    structure: {
+      singleHeaders: [
+        'Sr no',
+        'cycle no',
+        'Nominal Value Of UUC(g)',
+        'Density of UUC Weight, ρr (g/cm³)'
+      ],
+      subHeaders: {
+        'Measured mass value(gm)': ['S1(g)', 'U1(g)', 'U2(g)', 'S2(g)']
+      },
+      remainingHeaders: ['Diff.,∆m{(U1-S1)+U2-S2)}/2', 'Avg.Diff.(g)'],
+    },
+    staticRows: rows,
+    hiddenInputs: hiddenInputs,
+  };
+};
+
 export default ObservationDW;

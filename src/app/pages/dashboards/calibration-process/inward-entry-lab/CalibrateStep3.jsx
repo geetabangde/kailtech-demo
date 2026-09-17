@@ -13,14 +13,27 @@ import { JWT_HOST_API } from "configs/auth.config";
 import { Flatpickr } from "components/shared/form/Flatpickr";
 import "flatpickr/dist/themes/light.css";
 import ObservationBiomedical from './Observations/ObservationBiomedical';
-import ObservationVC from './Observations/ObservationVC';
-import ObservationAPG from './Observations/ObservationAPG';
+import ObservationVC, { calculateVCValues } from './Observations/ObservationVC';
+import ObservationAPG, { calculateAPGValues, createAPGRows, getAPGTableConfig } from './Observations/ObservationAPG';
 import ObservationUTM, { calculateUTMValues } from './Observations/ObservationUTM';
 import ObservationCustom, { calculateCustomValues } from './Observations/ObservationCustom';
 import ObservationEXM, { calculateEXMValues } from './Observations/ObservationEXM';
 import ObservationWBN, { calculateWBNValues } from './Observations/ObservationWBN';
 import ObservationWB, { calculateWBValues } from './Observations/ObservationWB';
-import ObservationDW from './Observations/ObservationDW';
+import ObservationDW, { calculateDWValues, createDWRows, getDWTableConfig } from './Observations/ObservationDW';
+import { calculateTSValues, createTSRows, getTSTableConfig } from './Observations/ObservationTS';
+import { calculateDPGValues, createDPGRows, getDPGTableConfig } from './Observations/ObservationDPG';
+import { calculateTHValues, createTHRows, getTHTableConfig } from './Observations/ObservationTH';
+import { calculateMTValues, createMTRows, getMTTableConfig } from './Observations/ObservationMT';
+import { calculateCTGValues, createCTGRows, getCTGTableConfig } from './Observations/ObservationCTG';
+import { calculateFGValues, createFGRows, getFGTableConfig } from './Observations/ObservationFG';
+import { calculateMSRValues, createMSRRows, getMSRTableConfig } from './Observations/ObservationMSR';
+import { calculateHGValues, createHGRows, getHGTableConfig } from './Observations/ObservationHG';
+import { calculateITValues, createITRows, getITTableConfig } from './Observations/ObservationIT';
+import { calculateTMValues, createTMRows, getTMTableConfig } from './Observations/ObservationTM';
+import { calculateUCValues, createUCRows, getUCTableConfig } from './Observations/ObservationUC';
+import { calculateMMValues, createMMRows, getMMTableConfig } from './Observations/ObservationMM';
+import { calculateRTDWIValues, createRTDWIRows, getRTDWITableConfig } from './Observations/ObservationRTDWI';
 
 const CalibrateStep3 = () => {
   const navigate = useNavigate();
@@ -1979,16 +1992,22 @@ const CalibrateStep3 = () => {
                       }
                     });
                   }
-                  // Extract average for each row formatted as per least count
-                  if (r.average !== undefined && r.average !== null && r.average !== '') {
-                    const masterLc = point.master_matrix?.leastcount ?? point.least_count ?? point.masterleastcount ?? 0.01;
-                    const masterLcStr = String(masterLc);
-                    const decPlaces = (masterLcStr.split('.')[1] || '').length || 2;
+                  // Calculate average from readings if available, else fallback to r.average
+                  let rowAvg = '';
+                  if (r.values && Array.isArray(r.values) && r.values.length > 0) {
+                    const nums = r.values.map(v => parseFloat(v.value)).filter(n => !isNaN(n));
+                    if (nums.length > 0) {
+                      rowAvg = (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2);
+                    }
+                  }
+                  if (!rowAvg && r.average !== undefined && r.average !== null && r.average !== '') {
                     const numAvg = parseFloat(r.average);
-                    const formattedAvg = !isNaN(numAvg) ? numAvg.toFixed(decPlaces) : String(r.average);
-                    averages.push({ repeatable: idx.toString(), value: formattedAvg });
-                    seededValues[`${globalRowIdx}-9`] = formattedAvg;
-                    console.log(`Added average: repeatable="${idx}", value="${formattedAvg}"`);
+                    rowAvg = !isNaN(numAvg) ? numAvg.toFixed(2) : String(r.average);
+                  }
+                  if (rowAvg) {
+                    averages.push({ repeatable: idx.toString(), value: rowAvg });
+                    seededValues[`${globalRowIdx}-9`] = rowAvg;
+                    console.log(`Added average: repeatable="${idx}", value="${rowAvg}"`);
                   }
                 });
               }
@@ -2072,13 +2091,11 @@ const CalibrateStep3 = () => {
                   }
                 });
               }
-              // Average master / average uuc / deviation — API returns these even when individual readings are null
-              if (p.average_master !== null && p.average_master !== undefined) {
-                seeded[`${pid}-averagemaster`] = p.average_master;
-              }
-              if (p.average_uuc !== null && p.average_uuc !== undefined) {
-                seeded[`${pid}-averageuuc`] = p.average_uuc;
-              }
+              // NOTE: average_master and average_uuc are intentionally NOT seeded into
+              // tableInputValues. The backend may store LC-rounded (incorrect) values.
+              // ObservationBiomedical.jsx recalculates these fresh from individual readings via
+              // calculateAverage(), and CalibrateStep3 submit also recalculates from readings.
+              // Seeding them here would cause the stale stored value to override the fresh calculation.
               if (p.deviation !== null && p.deviation !== undefined) {
                 seeded[`${pid}-error`] = p.deviation;
               }
@@ -2098,9 +2115,12 @@ const CalibrateStep3 = () => {
             try {
               const cacheKey = `bio_obs_${inwardId}_${instId}`;
               const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-              // Cache wins for individual readings; API wins for averages (backend computes them)
+              // Cache wins for individual readings only.
+              // averagemaster/averageuuc are intentionally skipped — they are recalculated fresh.
               Object.entries(cached).forEach(([k, v]) => {
                 const isIndividual = /-master-\d+$/.test(k) || /-uuc-\d+$/.test(k);
+                const isAverage = /-averagemaster$/.test(k) || /-averageuuc$/.test(k);
+                if (isAverage) return; // always recalculate, never use stale cached average
                 if (isIndividual) {
                   seeded[k] = v; // local cache overrides null from API
                 } else if (seeded[k] === undefined || seeded[k] === null || seeded[k] === '') {
@@ -2108,6 +2128,7 @@ const CalibrateStep3 = () => {
                 }
               });
             } catch { /* ignore storage errors */ }
+
 
             if (Object.keys(seeded).length > 0) {
               setTableInputValues(prev => ({ ...prev, ...seeded }));
@@ -2407,13 +2428,6 @@ const CalibrateStep3 = () => {
   };
 
   const calculateRowValues = (rowData, template, rowIndex) => {
-    const getDecimalPlaces = (val) => {
-      if (val === undefined || val === null || val === 'NA' || isNaN(val)) return 3;
-      const str = val.toString();
-      const parts = str.split('.');
-      return parts.length > 1 ? parts[1].length : 0;
-    };
-
     const parsedValues = rowData.map((val) => {
       const num = parseFloat(val);
       return isNaN(num) ? 0 : num;
@@ -2445,142 +2459,19 @@ const CalibrateStep3 = () => {
       }
     }
     else if (template === 'observationuc') {
-      const obsValues = parsedValues.slice(5, 10).filter((val, idx) => {
-        return rowData[idx + 5] !== '' && !isNaN(val);
-      });
-      result.average = obsValues.length
-        ? (obsValues.reduce((sum, val) => sum + val, 0) / obsValues.length).toFixed(4)
-        : '';
-
-      const allPoints = [
-        ...observations.filter(p => p && (p.mode || '').toLowerCase() === 'measure'),
-        ...observations.filter(p => p && (p.mode || '').toLowerCase() === 'source')
-      ];
-      const point = allPoints[rowIndex];
-      const isMeasure = (point?.mode || '').toLowerCase() === 'measure';
-      const referenceVal = parsedValues[4];
-
-      if (result.average !== '' && !isNaN(referenceVal)) {
-        if (isMeasure) {
-          result.error = (parseFloat(result.average) - referenceVal).toFixed(4);
-        } else {
-          result.error = (referenceVal - parseFloat(result.average)).toFixed(4);
-        }
-      }
+      Object.assign(result, calculateUCValues(rowData, rowIndex, observations));
     }
     else if (template === 'observationth') {
-      const obsValues = parsedValues.slice(5, 10).filter((val, idx) => {
-        return rowData[idx + 5] !== '' && !isNaN(val);
-      });
       const calibPointId = selectedTableData?.hiddenInputs?.calibrationPoints?.[rowIndex] || selectedTableData?.calibrationPoints?.[rowIndex];
-      const lcs = leastCountData[calibPointId];
-      const rowType = rowData[1];
-      let lc = 0.001;
-      if (rowType === 'UUC') {
-        lc = lcs?.uuc ?? 0.001;
-      } else if (rowType === 'Master') {
-        lc = lcs?.master ?? 0.001;
-      }
-      const decPlaces = getDecimalPlaces(lc);
-      result.average = obsValues.length
-        ? (obsValues.reduce((sum, val) => sum + val, 0) / obsValues.length).toFixed(decPlaces)
-        : '';
+      Object.assign(result, calculateTHValues(rowData, calibPointId, leastCountData));
     }
     else if (template === 'observationts') {
-      const readings = parsedValues.slice(1, 9);
-      const validReadings = readings.filter((val, idx) => {
-        const raw = rowData[idx + 1];
-        return raw !== undefined && raw !== null && String(raw).trim() !== '' && !isNaN(val);
-      });
-
-      // ✅ CORRECTED: Use proper decimal places from least count
-      const calibPointId = selectedTableData?.hiddenInputs?.calibrationPoints?.[rowIndex] || selectedTableData?.calibrationPoints?.[rowIndex];
-      const lcs = leastCountData[calibPointId] || leastCountData[String(calibPointId)];
-      const pointIndex = Math.floor(rowIndex / 5);
-      const obsPoint = (Array.isArray(observations) && observations[pointIndex])
-        ? observations[pointIndex]
-        : (Array.isArray(observations) ? observations.find(p => String(p.calibration_point_id || p.point_id || p.id) === String(calibPointId)) : null);
-
-      let masterLc = null;
-      if (lcs && typeof lcs === 'object' && lcs?.masterLeastCountStr) {
-        masterLc = lcs.masterLeastCountStr;
-      } else if (lcs && typeof lcs === 'object' && lcs?.master) {
-        masterLc = lcs.master;
-      } else if (lcs && typeof lcs !== 'object') {
-        masterLc = lcs;
-      } else if (obsPoint) {
-        masterLc = obsPoint.master_matrix?.leastcount ?? obsPoint.least_count ?? obsPoint.masterleastcount ?? obsPoint.least_count_master ?? obsPoint.least_count_uuc;
-      } else if (instrument?.leastcount) {
-        masterLc = instrument.leastcount;
-      }
-
-      let decPlaces = 2; // Default fallback
-      if (masterLc !== null && masterLc !== undefined && masterLc !== '') {
-        decPlaces = getDecimalPlaces(masterLc);
-      }
-
-      result.average = validReadings.length
-        ? (validReadings.reduce((sum, val) => sum + val, 0) / validReadings.length).toFixed(decPlaces)
-        : '';
+      Object.assign(result, calculateTSValues(rowData));
     } else if (template === 'observationwbn') {
       Object.assign(result, calculateWBNValues(rowData));
     } else if (template === 'observationdpg') {
       const point = observations?.[rowIndex];
-      const masterLc = point?.least_counts?.master || point?.master_least_count || point?.masterleastcount || instrument?.leastcount;
-      const uucLc = point?.least_counts?.uuc || point?.uuc_least_count || point?.least_count || point?.leastcount || instrument?.leastcount;
-
-      const rM1 = rowData[3] !== undefined && rowData[3] !== null ? String(rowData[3]).trim() : '';
-      const rM2 = rowData[4] !== undefined && rowData[4] !== null ? String(rowData[4]).trim() : '';
-      const rM3 = rowData[5] !== undefined && rowData[5] !== null ? String(rowData[5]).trim() : '';
-
-      let mlc = 3;
-      if (rM1.includes('.')) {
-        mlc = rM1.split('.')[1].length;
-      } else if (masterLc && String(masterLc).includes('.')) {
-        mlc = String(masterLc).split('.')[1].length;
-      } else {
-        mlc = getDecimalPlaces(masterLc || '0.001');
-      }
-
-      let errorlc = mlc;
-      if (uucLc && String(uucLc).includes('.')) {
-        errorlc = Math.max(mlc, String(uucLc).split('.')[1].length);
-      }
-
-      const hasM1 = rM1 !== '';
-      const hasM2 = rM2 !== '';
-      const hasM3 = rM3 !== '';
-
-      const m1 = parseFloat(rM1);
-      const m2 = parseFloat(rM2);
-      const m3 = parseFloat(rM3);
-
-      const validEntries = [];
-      if (hasM1 && !isNaN(m1)) validEntries.push(m1);
-      if (hasM2 && !isNaN(m2)) validEntries.push(m2);
-      if (hasM3 && !isNaN(m3)) validEntries.push(m3);
-
-      // Mean = (M1 + M2 + M3) / 3 formatted to mlc
-      result.average = validEntries.length === 3
-        ? ((m1 + m2 + m3) / 3).toFixed(mlc)
-        : '';
-
-      // Error = (uuc - averagemaster) formatted to errorlc
-      const rSet = (rowData[2] !== undefined && rowData[2] !== '' && rowData[2] !== null) ? rowData[2] : rowData[1];
-      const setPressure = parseFloat(rSet);
-      result.error = (result.average !== '' && !isNaN(setPressure) && rSet !== undefined && rSet !== '')
-        ? (setPressure - parseFloat(result.average)).toFixed(errorlc)
-        : '';
-
-      // Repeatability = |M3 - M1| (per legacy PHP abssubstractminus('maste2r', 'maste0r', 'repeatability', mlc))
-      result.repeatability = (hasM1 && hasM3 && !isNaN(m1) && !isNaN(m3))
-        ? Math.abs(m3 - m1).toFixed(mlc)
-        : '';
-
-      // Hysteresis = |M2 - M1| (per legacy PHP abssubstractminus('maste1r', 'maste0r', 'hysterisis', mlc))
-      result.hysteresis = (hasM1 && hasM2 && !isNaN(m1) && !isNaN(m2))
-        ? Math.abs(m2 - m1).toFixed(mlc)
-        : '';
+      Object.assign(result, calculateDPGValues(rowData, point, instrument));
     } else if (template === 'observationppg') {
       const m1 = parsedValues[3];
       const m2 = parsedValues[4];
@@ -2618,27 +2509,37 @@ const CalibrateStep3 = () => {
       // Nominal Value (Master Unit) - col 1
       const nominalValue = parsedValues[1];
 
+      // Dynamic decimals based on least count
+      const point = observations?.[rowIndex];
+      const lc = point?.least_count || instrument?.least_count || inwardEntry?.least_count || '0.01';
+      let d = 2;
+      if (lc) {
+        const match = String(lc).match(/\.([0-9]+)/);
+        if (match) d = match[1].length;
+        else if (!isNaN(parseFloat(lc))) d = 0;
+      }
+
       // Average Forward Reading = (Set1Forward + Set2Forward) / 2
       const avgForward = (set1Forward + set2Forward) / 2;
-      result.averageForward = avgForward ? avgForward.toFixed(3) : '';
+      result.averageForward = !isNaN(avgForward) && (rowData[2] || rowData[4]) ? avgForward.toFixed(d) : '';
 
       // Average Backward Reading = (Set1Backward + Set2Backward) / 2
       const avgBackward = (set1Backward + set2Backward) / 2;
-      result.averageBackward = avgBackward ? avgBackward.toFixed(3) : '';
+      result.averageBackward = !isNaN(avgBackward) && (rowData[3] || rowData[5]) ? avgBackward.toFixed(d) : '';
 
       // Error Forward = Average Forward - Nominal Value
-      result.errorForward = result.averageForward && nominalValue
-        ? (avgForward - nominalValue).toFixed(3)
+      result.errorForward = result.averageForward !== '' && nominalValue !== undefined && !isNaN(nominalValue)
+        ? (avgForward - nominalValue).toFixed(d)
         : '';
 
       // Error Backward = Average Backward - Nominal Value
-      result.errorBackward = result.averageBackward && nominalValue
-        ? (avgBackward - nominalValue).toFixed(3)
+      result.errorBackward = result.averageBackward !== '' && nominalValue !== undefined && !isNaN(nominalValue)
+        ? (avgBackward - nominalValue).toFixed(d)
         : '';
 
       // Hysterisis = Average Forward - Average Backward
-      result.hysteresis = result.averageForward && result.averageBackward
-        ? (avgForward - avgBackward).toFixed(3)
+      result.hysteresis = result.averageForward !== '' && result.averageBackward !== ''
+        ? (avgForward - avgBackward).toFixed(d)
         : '';
 
       console.log('DG Calculation:', {
@@ -2651,14 +2552,7 @@ const CalibrateStep3 = () => {
         hysteresis: result.hysteresis
       });
     } else if (template === 'observationmsr') {
-      const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue
-        ? (nominalValue - parseFloat(result.average)).toFixed(3)
-        : '';
+      Object.assign(result, calculateMSRValues(rowData));
     } else if (template === 'observationavg') {
       const m1 = parsedValues[3]; // M1 value
       const m2 = parsedValues[4]; // M2 value
@@ -2684,23 +2578,9 @@ const CalibrateStep3 = () => {
         hysteresis: result.hysteresis
       });
     } else if (template === 'observationfg') {
-      const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue
-        ? (parseFloat(result.average) - nominalValue).toFixed(3)
-        : '';
+      Object.assign(result, calculateFGValues(rowData));
     } else if (template === 'observationhg') {
-      const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue
-        ? (parseFloat(result.average) - nominalValue).toFixed(3)
-        : '';
+      Object.assign(result, calculateHGValues(rowData));
     } else if (template === 'observationmg') {
       const m1 = parsedValues[3]; // M1 value
       const m2 = parsedValues[4]; // M2 value
@@ -2727,56 +2607,16 @@ const CalibrateStep3 = () => {
       });
     }
     else if (template === 'observationvc') {
-      const validReadings = rowData.slice(2, 7).filter((val) => val !== '' && val !== null && val !== undefined && !isNaN(parseFloat(val)));
-      const obsNumbers = validReadings.map((val) => parseFloat(val));
-      result.average = obsNumbers.length
-        ? (obsNumbers.reduce((sum, val) => sum + val, 0) / obsNumbers.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue !== undefined && !isNaN(nominalValue)
-        ? (parseFloat(result.average) - nominalValue).toFixed(3)
-        : '';
+      Object.assign(result, calculateVCValues(rowData));
     }
     else if (template === 'observationexm') {
       Object.assign(result, calculateEXMValues(rowData));
     }
     else if (template === 'observationrtdwi') {
-      const rowType = rowData[2]; // 'UUC' or 'Master'
-
-      if (rowType === 'UUC') {
-        // UUC calculations: Calculate average and error from observations
-        const observations = parsedValues.slice(5, 10).filter((val) => val !== 0);
-
-        result.average = observations.length
-          ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-          : '';
-
-        result.error = '';
-      } else if (rowType === 'Master') {
-        // Master calculations remain the same
-        const observations = parsedValues.slice(5, 10).filter((val) => val !== 0);
-        const ambient = parsedValues[11] ? parseFloat(parsedValues[11]) : 0;
-
-        result.average = observations.length
-          ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-          : '';
-
-        if (result.average) {
-          result.correctedAverage = (parseFloat(result.average) + ambient).toFixed(3);
-        } else {
-          result.correctedAverage = '';
-        }
-      }
+      Object.assign(result, calculateRTDWIValues(rowData));
     }
     else if (template === 'observationmm') {
-      const observations = parsedValues.slice(5, 10).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[4];
-      result.error = result.average && nominalValue
-        ? (parseFloat(result.average) - nominalValue).toFixed(3)
-        : '';
+      Object.assign(result, calculateMMValues(rowData));
     } else if (template === 'observationodfm') {
       const observations = parsedValues.slice(3, 8).filter((val) => val !== 0);
       result.average = observations.length
@@ -2787,61 +2627,13 @@ const CalibrateStep3 = () => {
         ? (parseFloat(result.average) - nominalValue).toFixed(2)
         : '';
     } else if (template === 'observationapg') {
-      const m1 = parsedValues[3];
-      const m2 = parsedValues[4];
-      const validReadings = [m1, m2].filter((val) => val !== 0);
-      result.average = validReadings.length
-        ? (validReadings.reduce((sum, val) => sum + val, 0) / validReadings.length).toFixed(2)
-        : '';
-      const setPressureBar = parsedValues[2];
-      result.error = result.average && setPressureBar
-        ? (result.average - setPressureBar).toFixed(2)
-        : '';
-      result.hysteresis = validReadings.length
-        ? (Math.max(...validReadings) - Math.min(...validReadings)).toFixed(2)
-        : '';
+      Object.assign(result, calculateAPGValues(rowData));
     } else if (template === 'observationit') {
-      const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue
-        ? (parseFloat(result.average) - nominalValue).toFixed(3)
-        : '';
+      Object.assign(result, calculateITValues(rowData));
     } else if (template === 'observationmt') {
-      const calibPointId = selectedTableData?.hiddenInputs?.calibrationPoints?.[rowIndex];
-      const lcs = leastCountData[calibPointId] || leastCountData[String(calibPointId)];
-      const point = observations?.[rowIndex];
-      const masterLc = (typeof lcs === 'object' ? lcs?.master : null) ?? point?.metadata?.master_least_count;
-      const masterDecimals = (typeof lcs === 'object' ? lcs?.master_decimals : null) ?? point?.metadata?.master_decimal_places ?? getDecimalPlaces(masterLc);
-      const repeatableCycle = parseInt(selectedTableData?.hiddenInputs?.repeatables?.[rowIndex] || point?.metadata?.repeatable_cycle, 10) || 5;
-
-      const validObs = [];
-      for (let i = 0; i < repeatableCycle; i++) {
-        const raw = rowData[i + 2];
-        if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
-          const num = parseFloat(raw);
-          if (!isNaN(num)) validObs.push(num);
-        }
-      }
-
-      result.average = validObs.length
-        ? (validObs.reduce((sum, val) => sum + val, 0) / validObs.length).toFixed(masterDecimals)
-        : '';
-      const nominalValue = parseFloat(rowData[1]);
-      result.error = result.average !== '' && !isNaN(nominalValue)
-        ? (parseFloat(result.average) - nominalValue).toFixed(masterDecimals)
-        : '';
+      Object.assign(result, calculateMTValues(rowData, rowIndex, selectedTableData, leastCountData, observations));
     } else if (template === 'observationctg') {
-      const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-      result.average = observations.length
-        ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(2)
-        : '';
-      const nominalValue = parsedValues[1];
-      result.error = result.average && nominalValue
-        ? (result.average - nominalValue).toFixed(2)
-        : '';
+      Object.assign(result, calculateCTGValues(rowData));
     }
     else if (template === 'observationgtm') {
       const rowType = rowData[2];
@@ -2872,41 +2664,11 @@ const CalibrateStep3 = () => {
       }
     }
     else if (template === 'observationtm') {
-      const uucObservations = parsedValues.slice(4, 14).filter(val => val !== 0);
-      const masterObservations = parsedValues.slice(14, 24).filter(val => val !== 0);
-
-      result.averageUUC = uucObservations.length
-        ? (uucObservations.reduce((sum, val) => sum + val, 0) / uucObservations.length).toFixed(4)
-        : '';
-
-      result.averageMaster = masterObservations.length
-        ? (masterObservations.reduce((sum, val) => sum + val, 0) / masterObservations.length).toFixed(4)
-        : '';
-
-      const uucAvgNum = parseFloat(result.averageUUC);
-      const masterAvgNum = parseFloat(result.averageMaster);
-
-      result.error = (!isNaN(uucAvgNum) && !isNaN(masterAvgNum))
-        ? (uucAvgNum - masterAvgNum).toFixed(4)
-        : '';
+      Object.assign(result, calculateTMValues(rowData));
     }
-    // ✅ DW calculation — must be top-level, NOT inside GTM branch
+    // ✅ DW calculation — isolated in ObservationDW.jsx
     else if (template === 'observationdw') {
-      const s1 = parsedValues[4] || 0;
-      const u1 = parsedValues[5] || 0;
-      const u2 = parsedValues[6] || 0;
-      const s2 = parsedValues[7] || 0;
-      const SIGDIG = 100000000;
-
-      if (parsedValues[4] !== 0 || parsedValues[5] !== 0 || parsedValues[6] !== 0 || parsedValues[7] !== 0) {
-        // Formula: ∆m = {(U1-S1) + (U2-S2)} / 2  (matches PHP calculatedeltai)
-        const tempa = Math.floor((u1 - s1) * SIGDIG) / SIGDIG;
-        const tempb = Math.floor((u2 - s2) * SIGDIG) / SIGDIG;
-        const delta = (tempa + tempb) / 2;
-        result.diff = parseFloat(delta.toFixed(8)).toString();
-      } else {
-        result.diff = '';
-      }
+      Object.assign(result, calculateDWValues(rowData));
     }
     else if (template === 'observationutm') {
       Object.assign(result, calculateUTMValues(rowData, rowIndex, selectedTableData));
@@ -3035,92 +2797,7 @@ const CalibrateStep3 = () => {
         values.push(safeGetValue(point.nominal_value || point.test_point || point.point) || '0');
       });
     } else if (template === 'observationdpg') {
-      dataArray.forEach((obs) => {
-        if (!obs) return;
-
-        const m1Str = safeGetValue(obs.master_readings?.m1 || obs.m1);
-        const m2Str = safeGetValue(obs.master_readings?.m2 || obs.m2);
-        const m3Str = safeGetValue(obs.master_readings?.m3 || obs.m3);
-
-        const masterLc = obs?.least_counts?.master || obs?.master_least_count || obs?.masterleastcount || instrument?.leastcount;
-        const uucLc = obs?.least_counts?.uuc || obs?.least_count || obs?.leastcount || instrument?.leastcount;
-
-        let mlc = 3;
-        if (m1Str.includes('.')) {
-          mlc = m1Str.split('.')[1].length;
-        } else if (masterLc && String(masterLc).includes('.')) {
-          mlc = String(masterLc).split('.')[1].length;
-        }
-
-        let errorlc = mlc;
-        if (uucLc && String(uucLc).includes('.')) {
-          errorlc = Math.max(mlc, String(uucLc).split('.')[1].length);
-        }
-
-        const m1 = parseFloat(m1Str);
-        const m2 = parseFloat(m2Str);
-        const m3 = parseFloat(m3Str);
-
-        const hasM1 = m1Str !== '' && !isNaN(m1);
-        const hasM2 = m2Str !== '' && !isNaN(m2);
-        const hasM3 = m3Str !== '' && !isNaN(m3);
-
-        // Mean (col 6)
-        let meanVal = '';
-        if (hasM1 && hasM2 && hasM3) {
-          meanVal = ((m1 + m2 + m3) / 3).toFixed(mlc);
-        } else {
-          const rawAvg = safeGetValue(obs.average_master || obs.mean);
-          meanVal = rawAvg !== '' && !isNaN(parseFloat(rawAvg)) ? parseFloat(rawAvg).toFixed(mlc) : rawAvg;
-        }
-
-        // Error (col 7)
-        const rSet = safeGetValue(obs.converted_uuc_value || obs.set_pressure_master) || safeGetValue(obs.uuc_value || obs.set_pressure_uuc);
-        const setPressure = parseFloat(rSet);
-        let errorVal = '';
-        if (meanVal !== '' && !isNaN(setPressure) && rSet !== '') {
-          errorVal = (setPressure - parseFloat(meanVal)).toFixed(errorlc);
-        } else {
-          const rawErr = safeGetValue(obs.error);
-          errorVal = rawErr !== '' && !isNaN(parseFloat(rawErr)) ? parseFloat(rawErr).toFixed(errorlc) : rawErr;
-        }
-
-        // Repeatability (col 8)
-        let repVal = '';
-        if (hasM1 && hasM3) {
-          repVal = Math.abs(m3 - m1).toFixed(mlc);
-        } else {
-          const rawRep = safeGetValue(obs.repeatability);
-          repVal = rawRep !== '' && !isNaN(parseFloat(rawRep)) ? parseFloat(rawRep).toFixed(mlc) : rawRep;
-        }
-
-        // Hysterisis (col 9)
-        let hystVal = '';
-        if (hasM1 && hasM2) {
-          hystVal = Math.abs(m2 - m1).toFixed(mlc);
-        } else {
-          const rawHyst = safeGetValue(obs.hysterisis || obs.hysteresis);
-          hystVal = rawHyst !== '' && !isNaN(parseFloat(rawHyst)) ? parseFloat(rawHyst).toFixed(mlc) : rawHyst;
-        }
-
-        const row = [
-          obs.sr_no?.toString() || '',
-          safeGetValue(obs.uuc_value || obs.set_pressure_uuc),
-          safeGetValue(obs.converted_uuc_value || obs.set_pressure_master),
-          m1Str,
-          m2Str,
-          m3Str,
-          meanVal,
-          errorVal,
-          repVal,
-          hystVal,
-        ];
-        rows.push(row);
-        calibrationPoints.push(obs.calibration_point_id?.toString() || '');
-        types.push('uuc');
-        repeatables.push('0');
-        values.push(safeGetValue(obs.uuc_value || obs.set_pressure_uuc) || '0');
-      });
+      return createDPGRows(dataArray, instrument);
     }
     else if (template === 'observationdg') {
       dataArray.forEach((point) => {
@@ -3172,38 +2849,7 @@ const CalibrateStep3 = () => {
         values.push(safeGetValue(obs.uuc_value) || '0');
       });
     } else if (template === 'observationmsr') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        // Extract observations safely - ensure we have exactly 5 observations
-        const observations = safeGetArray(point.observations, 5);
-
-        // Ensure we have exactly 5 observation values
-        while (observations.length < 5) {
-          observations.push('');
-        }
-
-        const row = [
-          point.sr_no?.toString() || '',
-          safeGetValue(point.nominal_value || point.uuc_value),
-          ...observations.slice(0, 5).map(obs => safeGetValue(obs)),
-          safeGetValue(point.average),
-          safeGetValue(point.error),
-        ];
-
-        // Ensure consistent row length
-        while (row.length < 8) {
-          row.push('');
-        }
-
-        console.log('✅ MSR Row created:', row);
-
-        rows.push(row);
-        calibrationPoints.push(point.point_id?.toString() || '');
-        types.push('uuc');
-        repeatables.push(point.repeatable_cycle?.toString() || '5');
-        values.push(safeGetValue(point.nominal_value || point.uuc_value) || '0');
-      });
+      return createMSRRows(dataArray);
     }
     else if (template === 'observationgtm') {
       dataArray.forEach((point) => {
@@ -3255,40 +2901,7 @@ const CalibrateStep3 = () => {
       });
     }
     else if (template === 'observationtm') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        const srNo = point.sr_no?.toString() || '';
-        const parameter = safeGetValue(point.parameter || point.unittype);
-        const setPoint = safeGetValue(point.point || point.nominal_value || point.nominal_set_value);
-        const range = safeGetValue(point.range);
-
-        // UUC Row and Master Row flattened for custom rendering
-        const uucReadings = safeGetArray(point.uuc_values || point.observations || point.uuc_observations, 10);
-        const masterReadings = safeGetArray(point.master_values || point.master_observations, 10);
-
-        const row = [
-          srNo,                                            // 0: Sr. No.
-          parameter,                                       // 1: Parameter
-          setPoint,                                        // 2: Set Point
-          range,                                           // 3: Range
-          ...uucReadings.slice(0, 10).map(val => safeGetValue(val)),     // 4-13: UUC Observations 1-10
-          ...masterReadings.slice(0, 10).map(val => safeGetValue(val)),  // 14-23: Master Observations 1-10
-          safeGetValue(point.average_uuc),                 // 24: Average UUC
-          safeGetValue(point.error_uuc || point.error),    // 25: Error
-          safeGetValue(point.average_master)               // 26: Average Master
-        ];
-        rows.push(row);
-        calibrationPoints.push(
-          point.calibration_point_id?.toString() ||
-          point.point_id?.toString() ||
-          point.id?.toString() ||
-          "1"
-        );
-        types.push('uuc');
-        repeatables.push('0');
-        values.push(range || "0");
-      });
+      return createTMRows(dataArray);
     }
     else if (template === 'observationavg') {
       dataArray.forEach((point) => {
@@ -3314,114 +2927,10 @@ const CalibrateStep3 = () => {
         values.push(safeGetValue(point.set_point_uuc) || '0');
       });
     }
-    else if (observationTemplate === 'observationrtdwi') {
-      let pointsToProcess = [];
-
-      if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
-        pointsToProcess = observationData.calibration_points;
-      } else if (dataArray.length > 0) {
-        pointsToProcess = dataArray;
-      }
-
-      pointsToProcess.forEach((point) => {
-        if (!point) return;
-
-        const srNo = point.sr_no?.toString() || '';
-        const setPoint = safeGetValue(point.set_point);
-
-        // UUC Row
-        const uucReadings = safeGetArray(point.uuc_values, 5);
-        const uucRow = [
-          srNo,                                           // 0: Sr. No.
-          setPoint,                                       // 1: Set Point
-          'UUC',                                         // 2: Value Of
-          safeGetValue(point.unit),                      // 3: Unit
-          '-',                                           // 4: Sensitivity Coefficient
-          ...uucReadings.slice(0, 5).map(val => safeGetValue(val)), // 5-9: Observations 1-5
-          '-',                                            // 10: Average (dash for UUC)
-          '-',                                            // 11: mV generated On ambient (dash for UUC)
-          '-',                                            // 12: Average with corrected mv (dash for UUC)
-          safeGetValue(point.average_uuc),               // 13: Average (°C) - CALCULATED
-          safeGetValue(point.error),                     // 14: Deviation (°C) - EDITABLE (changed from dash)
-        ];
-        rows.push(uucRow);
-        calibrationPoints.push(point.point_id?.toString() || "1");
-        types.push('uuc');
-        repeatables.push('1');
-        values.push(setPoint || "0");
-
-        // Master Row
-        const masterReadings = safeGetArray(point.master_values, 5);
-        const masterRow = [
-          '-',                                           // 0: Sr. No.
-          '-',                                           // 1: Set Point
-          'Master',                                      // 2: Value Of
-          'UNIT_SELECT',                                 // 3: Unit (ReactSelect marker)
-          safeGetValue(point.sensitivity_coefficient),   // 4: Sensitivity Coefficient
-          ...masterReadings.slice(0, 5).map(val => safeGetValue(val)), // 5-9: Observations 1-5
-          safeGetValue(point.average_master),            // 10: Average (mV) - EDITABLE
-          safeGetValue(point.ambient_master),            // 11: mV generated On ambient (EDITABLE)
-          safeGetValue(point.s_average_master),          // 12: Average with corrected mv (CALCULATED)
-          safeGetValue(point.c_average_master),          // 13: Average (°C) - MOVED HERE
-          '-',                                           // 14: Deviation (°C) (dash for Master)
-        ];
-        rows.push(masterRow);
-        calibrationPoints.push(point.point_id?.toString() || "1");
-        types.push('master');
-        repeatables.push('1');
-        values.push(setPoint || "0");
-      });
+    else if (observationTemplate === 'observationrtdwi' || template === 'observationrtdwi') {
+      return createRTDWIRows(dataArray, observationData);
     } else if (template === 'observationth') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        const srNo = point.sr_no?.toString() || '';
-        const calibPointId = point.calibration_point_id?.toString() || point.point_id?.toString() || "1";
-        const range = safeGetValue(point.value_shown_on?.uuc?.range || point.uucrange || point.range);
-        const setPoint = safeGetValue(point.value_shown_on?.uuc?.nominal_value || point.set_point || point.nominal_value || point.point);
-        const uucUnit = safeGetValue(point.value_shown_on?.uuc?.unit || point.unit);
-        const masterUnit = safeGetValue(point.value_shown_on?.master?.unit || point.unit);
-
-        // UUC Row
-        const uucReadings = safeGetArray(point.value_shown_on?.uuc?.observations || point.uuc_values || point.observations || point.uuc_observations, 5);
-        const uucRow = [
-          srNo,
-          'UUC',
-          range,
-          setPoint,
-          uucUnit,
-          ...uucReadings.slice(0, 5).map(obs => safeGetValue(obs.value !== undefined ? obs.value : obs)),
-          safeGetValue(point.value_shown_on?.uuc?.average || point.average_uuc || point.averageuuc || point.average),
-          '-'
-        ];
-
-        while (uucRow.length < 12) uucRow.push('');
-        rows.push(uucRow);
-        calibrationPoints.push(calibPointId);
-        types.push('uuc');
-        repeatables.push('0');
-        values.push(setPoint || '0');
-
-        // Master Row
-        const masterReadings = safeGetArray(point.value_shown_on?.master?.observations || point.master_values || point.master_observations, 5);
-        const masterRow = [
-          '-',
-          'Master',
-          '-',
-          '-',
-          masterUnit,
-          ...masterReadings.slice(0, 5).map(obs => safeGetValue(obs.value !== undefined ? obs.value : obs)),
-          safeGetValue(point.value_shown_on?.master?.average || point.average_master || point.averagemaster),
-          safeGetValue(point.error)
-        ];
-
-        while (masterRow.length < 12) masterRow.push('');
-        rows.push(masterRow);
-        calibrationPoints.push(calibPointId);
-        types.push('master');
-        repeatables.push('0');
-        values.push(setPoint || '0');
-      });
+      return createTHRows(dataArray);
     }
     else if (template === 'observationmg') {
       dataArray.forEach((point) => {
@@ -3449,200 +2958,15 @@ const CalibrateStep3 = () => {
     }
 
     else if (template === 'observationfg') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        // Extract observations safely - ensure we have exactly 5 observations
-        const observations = safeGetArray(point.observations, 5);
-
-        // Ensure we have exactly 5 observation values
-        while (observations.length < 5) {
-          observations.push('');
-        }
-
-        const row = [
-          point.sr_no?.toString() || '',
-          safeGetValue(point.nominal_value || point.test_point),
-          ...observations.slice(0, 5).map(obs => safeGetValue(obs)),
-          safeGetValue(point.average),
-          safeGetValue(point.error),
-        ];
-
-        // Ensure consistent row length
-        while (row.length < 8) {
-          row.push('');
-        }
-
-        console.log('✅ FG Row created:', row);
-
-        rows.push(row);
-        calibrationPoints.push(point.point_id?.toString() || '');
-        types.push('input');
-        repeatables.push(point.repeatable_cycle?.toString() || '5');
-        values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
-      });
+      return createFGRows(dataArray);
     }
 
     else if (template === 'observationmm') {
-      console.log('🔄 Creating MM observation rows from:', dataArray);
-
-      // For MM, we need to handle multiple unit types
-      const allRows = [];
-      const allCalibrationPoints = [];
-      const allTypes = [];
-      const allRepeatables = [];
-      const allValues = [];
-
-      // Store unit types for rendering
-      const unitTypes = [];
-
-      dataArray.forEach((unitTypeGroup) => {
-        if (!unitTypeGroup || !unitTypeGroup.calibration_points) return;
-
-        console.log('📋 Processing MM unit type group:', unitTypeGroup.unit_type);
-
-        // Store unit type info
-        unitTypes.push(unitTypeGroup);
-
-        unitTypeGroup.calibration_points.forEach((point, pointIndex) => {
-          if (!point) return;
-
-          // Extract observations safely
-          const observations = [];
-          if (point.observations && Array.isArray(point.observations)) {
-            for (let i = 0; i < 5; i++) {
-              observations.push(point.observations[i]?.value || '');
-            }
-          }
-
-          // Ensure we have exactly 5 observations
-          while (observations.length < 5) {
-            observations.push('');
-          }
-
-          const row = [
-            point.sequence_number?.toString() || (pointIndex + 1).toString(),
-            point.mode || 'Measure',
-            point.range || '',
-            // Calculated master value with unit
-            (point.nominal_values?.calculated_master?.value || '') +
-            (point.nominal_values?.calculated_master?.unit ? ' ' + point.nominal_values.calculated_master.unit : ''),
-            // Master value with unit
-            (point.nominal_values?.master?.value || '') +
-            (point.nominal_values?.master?.unit ? ' ' + point.nominal_values.master.unit : ''),
-            ...observations,
-            point.calculations?.average || '',
-            point.calculations?.error || ''
-          ];
-
-          console.log(`✅ MM Row created for ${unitTypeGroup.unit_type}:`, row);
-
-          allRows.push(row);
-          allCalibrationPoints.push(point.point_id?.toString() || (allRows.length).toString());
-          allTypes.push('input');
-          allRepeatables.push('1');
-          allValues.push(point.nominal_values?.master?.value || "0");
-        });
-      });
-
-      console.log('📊 Final MM rows:', allRows.length, 'Unit Types:', unitTypes.length);
-
-      // Return the structure with unit type information
-      return {
-        rows: allRows,
-        hiddenInputs: {
-          calibrationPoints: allCalibrationPoints,
-          types: allTypes,
-          repeatables: allRepeatables,
-          values: allValues
-        },
-        unitTypes: unitTypes // This ensures all unit types are available
-      };
+      return createMMRows(dataArray);
     }
 
-
     else if (template === 'observationuc') {
-      console.log('🔄 Creating UC observation rows from:', dataArray);
-
-      const allRows = [];
-      const allCalibrationPoints = [];
-      const allTypes = [];
-      const allRepeatables = [];
-      const allValues = [];
-
-      const modes = [];
-      const measurePoints = dataArray.filter(p => p && (p.mode || '').toLowerCase() === 'measure');
-      const sourcePoints = dataArray.filter(p => p && (p.mode || '').toLowerCase() === 'source');
-
-      if (measurePoints.length > 0) {
-        modes.push({ mode: 'Measure', calibration_points: measurePoints });
-      }
-      if (sourcePoints.length > 0) {
-        modes.push({ mode: 'Source', calibration_points: sourcePoints });
-      }
-
-      const processPoints = (points) => {
-        points.forEach((point) => {
-          if (!point) return;
-
-          const isMeasure = (point.mode || '').toLowerCase() === 'measure';
-
-          const observations = [];
-          const multiReadings = isMeasure
-            ? (point.uuc_observations || point.uuc_values || point.observations || point.uuc_readings || [])
-            : (point.master_observations || point.master_values || point.observations || point.master_readings || []);
-
-          for (let i = 0; i < 5; i++) {
-            observations.push(multiReadings[i]?.value ?? multiReadings[i] ?? '');
-          }
-          while (observations.length < 5) {
-            observations.push('');
-          }
-
-          const average = isMeasure
-            ? (point.averageuuc || point.average_uuc || '')
-            : (point.averagemaster || point.average_master || '');
-
-          const singleCalculated = isMeasure
-            ? (point.calculatedmaster || point.calculated_master || point.nominal_values?.calculated_master?.value || point.nominal_set_value_on_master_calculated || '')
-            : (point.calculateduuc || point.calculated_uuc || point.nominal_values?.calculated_uuc?.value || point.nominal_set_value_on_uuc_calculated || '');
-
-          const singleReference = isMeasure
-            ? (point.master || point.nominal_values?.master?.value || point.point || point.master_value || '')
-            : (point.uuc || point.nominal_values?.uuc?.value || point.point || point.uuc_value || '');
-
-          const row = [
-            point.sequence_number?.toString() || point.sr_no?.toString() || (allRows.length + 1).toString(),
-            point.unit_type || point.unittype || point.parameter || '',
-            point.range || '',
-            singleCalculated,
-            singleReference,
-            ...observations,
-            average,
-            point.error || ''
-          ];
-
-          allRows.push(row);
-          allCalibrationPoints.push(point.calibration_point_id?.toString() || point.point_id?.toString() || point.id?.toString() || (allRows.length).toString());
-          allTypes.push('input');
-          allRepeatables.push('5');
-          allValues.push(singleReference || '0');
-        });
-      };
-
-      if (measurePoints.length > 0) processPoints(measurePoints);
-      if (sourcePoints.length > 0) processPoints(sourcePoints);
-
-      return {
-        rows: allRows,
-        hiddenInputs: {
-          calibrationPoints: allCalibrationPoints,
-          types: allTypes,
-          repeatables: allRepeatables,
-          values: allValues
-        },
-        modes: modes
-      };
+      return createUCRows(dataArray);
     }
     else if (template === 'observationes') {
       console.log('🔄 Creating ES observation rows from:', dataArray);
@@ -3753,38 +3077,7 @@ const CalibrateStep3 = () => {
         values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
       });
     } else if (template === 'observationhg') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        // Extract observations safely - ensure we have exactly 5 observations
-        const observations = safeGetArray(point.observations, 5);
-
-        // Ensure we have exactly 5 observation values
-        while (observations.length < 5) {
-          observations.push('');
-        }
-
-        const row = [
-          point.sr_no?.toString() || '',
-          safeGetValue(point.nominal_value || point.test_point),
-          ...observations.slice(0, 5).map(obs => safeGetValue(obs)),
-          safeGetValue(point.average),
-          safeGetValue(point.error),
-        ];
-
-        // Ensure consistent row length
-        while (row.length < 8) {
-          row.push('');
-        }
-
-        console.log('✅ HG Row created:', row);
-
-        rows.push(row);
-        calibrationPoints.push(point.point_id?.toString() || '');
-        types.push('uuc'); // CHANGED: Using 'uuc' type as requested
-        repeatables.push(point.repeatable_cycle?.toString() || '5');
-        values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
-      });
+      return createHGRows(dataArray);
     }
     else if (template === 'observationodfm') {
       dataArray.forEach((point) => {
@@ -3806,165 +3099,19 @@ const CalibrateStep3 = () => {
         values.push(safeGetValue(point.nominal_value || point.uuc_value) || '0');
       });
     } else if (template === 'observationapg') {
-      dataArray.forEach((obs) => {
-        if (!obs) return;
-        const row = [
-          obs.sr_no?.toString() || '',
-          safeGetValue(obs.uuc),
-          safeGetValue(obs.calculated_uuc),
-          safeGetValue(obs.m1),
-          safeGetValue(obs.m2),
-          safeGetValue(obs.mean),
-          safeGetValue(obs.error),
-          safeGetValue(obs.hysterisis),
-        ];
-        rows.push(row);
-        calibrationPoints.push(obs.calibration_point_id?.toString() || '');
-        types.push('input');
-        repeatables.push('1');
-        values.push(safeGetValue(obs.uuc) || '0');
-      });
+      return createAPGRows(dataArray);
     } else if (template === 'observationit') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-        const observations = safeGetArray(point.observations, 5);
-        const row = [
-          point.sequence_number?.toString() || point.sr_no?.toString() || '',
-          safeGetValue(point.nominal_value || point.test_point),
-          ...observations.slice(0, 5).map(obs => safeGetValue(obs)),
-          safeGetValue(point.average),
-          safeGetValue(point.error),
-        ];
-        while (row.length < 9) {
-          row.push('');
-        }
-        rows.push(row);
-        calibrationPoints.push(point.point_id?.toString() || '');
-        types.push('input');
-        repeatables.push(point.repeatable_cycle?.toString() || '5');
-        values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
-      });
+      return createITRows(dataArray);
     }
     else if (template === 'observationmt') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-
-        const observations = safeGetArray(point.observations, 5);
-        const repeatableCycle = parseInt(point.metadata?.repeatable_cycle || point.repeatable_cycle || point.repeatablecycle, 10) || 5;
-        const masterLc = point.metadata?.master_least_count ?? point.master_least_count ?? 0.005;
-        const masterDecimals = point.metadata?.master_decimal_places ?? getDecimalPlaces(masterLc);
-
-        const row = [
-          point.sequence_number?.toString() || point.sr_no?.toString() || '',
-          safeGetValue(point.uuc_value || point.nominal_value || point.test_point),
-          ...Array.from({ length: 5 }, (_, index) =>
-            index < repeatableCycle ? safeGetValue(observations[index]) : ''
-          ),
-          formatValueByLc(point.average_master || point.average, masterDecimals, masterLc) || safeGetValue(point.average_master || point.average),
-          formatValueByLc(point.error, masterDecimals, masterLc) || safeGetValue(point.error),
-        ];
-
-        while (row.length < 9) {
-          row.push('');
-        }
-
-        rows.push(row);
-        calibrationPoints.push(point.point_id?.toString() || point.calibration_point_id?.toString() || point.id?.toString() || '');
-        types.push('uuc');
-        repeatables.push(repeatableCycle.toString());
-        values.push(safeGetValue(point.uuc_value || point.nominal_value || point.test_point) || '0');
-      });
+      return createMTRows(dataArray);
     }
-
-
     else if (template === 'observationctg') {
-      dataArray.forEach((point) => {
-        const observations = safeGetArray(point?.observations, 5);
-        const row = [
-          point?.sr_no?.toString() || '',
-          point?.nominal_value || '',
-          ...observations.slice(0, 5).map((obs) => safeGetValue(obs)),
-          safeGetValue(point?.average),
-          safeGetValue(point?.error),
-        ];
-        rows.push(row);
-        calibrationPoints.push(point?.id?.toString() || ''); // ✅ IMPORTANT: Use point.id
-        types.push('uuc');
-        repeatables.push('0');
-        values.push(safeGetValue(point?.nominal_value) || '0');
-      });
+      return createCTGRows(dataArray);
     } else if (template === 'observationdw') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-        const cycles = point.repeatable_cycle ? parseInt(point.repeatable_cycle) : 3;
-        for (let cycle = 0; cycle < cycles; cycle++) {
-          const row = [
-            point.sr_no?.toString() || '',
-            (cycle + 1).toString(),
-            safeGetValue(point.nominal_value || point.test_point),
-            safeGetValue(point.density),
-            safeGetValue(point.s1?.[cycle]), // uuca -> S1
-            safeGetValue(point.u1?.[cycle]), // mastera -> U1
-            safeGetValue(point.u2?.[cycle]), // masterb -> U2
-            safeGetValue(point.s2?.[cycle]), // uucb -> S2
-            safeGetValue(point.deltai?.[cycle]), // Diff
-            safeGetValue(point.average_diff), // Avg.Diff
-          ];
-          rows.push(row);
-          calibrationPoints.push(point.point_id?.toString() || '');
-          types.push('input'); // Will be overridden dynamically in handleSubmit
-          repeatables.push(cycle.toString());
-          values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
-        }
-      });
+      return createDWRows(dataArray);
     } else if (template === 'observationts') {
-      dataArray.forEach((point) => {
-        if (!point) return;
-        const calibPointId = point.point_id?.toString() || point.id?.toString() || point.calibration_point_id?.toString() || "1";
-        const nominalSize = safeGetValue(point.nominal_size || point.point || point.nominal_value || point.test_point || "0");
-
-        for (let rc = 0; rc < 5; rc++) {
-          const rowValues = [];
-          for (let i = 0; i < 8; i++) {
-            // Find observation for this specific row and column from API data
-            let obsValue = '';
-            if (point.observations && Array.isArray(point.observations)) {
-              const obs = point.observations.find(o => o != null && String(o.repeatable) === `${rc}-${i}`);
-              if (obs) obsValue = obs.value;
-            } else if (point.readings && Array.isArray(point.readings)) {
-              const reading = point.readings[rc];
-              if (reading && Array.isArray(reading.values)) {
-                const obs = reading.values.find(o => o != null && String(o.repeatable) === `${rc}-${i}`);
-                if (obs) obsValue = obs.value;
-              }
-            }
-            rowValues.push(safeGetValue(sanitizeSieveVal(obsValue, 2)));
-          }
-
-          let avgValue = '';
-          if (point.averages && Array.isArray(point.averages)) {
-            const avg = point.averages.find(a => a != null && String(a.repeatable) === `${rc}`);
-            if (avg) avgValue = avg.value;
-          } else if (point.readings && Array.isArray(point.readings)) {
-            const reading = point.readings[rc];
-            if (reading && reading.average !== undefined && reading.average !== null) {
-              avgValue = reading.average;
-            }
-          }
-
-          const row = [
-            (rc + 1).toString(), // Row number (1, 2, 3, 4, 5)
-            ...rowValues, // 8 inputs
-            safeGetValue(avgValue) // 1 average
-          ];
-
-          rows.push(row);
-          calibrationPoints.push(calibPointId);
-          types.push('uuc'); // Placeholder, handled in submit
-          repeatables.push(rc.toString());
-          values.push(nominalSize);
-        }
-      });
+      return createTSRows(dataArray);
     } else if (template === 'observationutm') {
       const groups = normalizeUtmGroups(dataArray);
 
@@ -4382,23 +3529,7 @@ const CalibrateStep3 = () => {
   };
 
   const observationTables = [
-    (() => {
-      const { rows, hiddenInputs } = createObservationRows(observations, 'observationth');
-      return {
-        id: 'observationth',
-        name: 'Observation TH',
-        category: 'Thermohydrometer',
-        structure: {
-          singleHeaders: ['Sr no', 'Value Shown on', 'Range', 'nominal Value', 'Unit'],
-          subHeaders: {
-            'Observation on UUC / Master': ['1', '2', '3', '4', '5']
-          },
-          remainingHeaders: ['Mean', 'Error']
-        },
-        staticRows: rows,
-        hiddenInputs: hiddenInputs
-      };
-    })(),
+    getTHTableConfig(observations),
     {
       id: 'observationcustom',
       name: 'Observation Custom',
@@ -4437,95 +3568,10 @@ const CalibrateStep3 = () => {
       repeatabilityCount: createObservationRows(observations, 'observationwbn').rows.length,
       eccentricityCount: createObservationRows(observations, 'observationwbn').rows.length,
     },
-    {
-      id: 'observationuc',
-      name: 'Observation UC',
-      category: 'Uncertainty',
-      structure: {
-        singleHeaders: ['Sr. No.', 'Unit Type', 'Range', 'Nominal/ Set Value (Calculated)', 'Nominal/ Set Value'],
-        subHeaders: {
-          'Observation': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5']
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationuc').rows,
-      hiddenInputs: createObservationRows(observations, 'observationuc').hiddenInputs,
-      modes: createObservationRows(observations, 'observationuc').modes
-    },
-    {
-      id: 'observationdw',
-      name: 'Observation DW',
-      category: 'Dead Weight',
-      structure: {
-        singleHeaders: [
-          'Sr no',
-          'cycle no',
-          'Nominal Value Of UUC(g)',
-          'Density of UUC Weight, ρr (g/cm³)'
-        ],
-        subHeaders: {
-          'Measured mass value(gm)': ['S1(g)', 'U1(g)', 'U2(g)', 'S2(g)']
-        },
-        remainingHeaders: ['Diff.,∆m{(U1-S1)+U2-S2)}/2', 'Avg.Diff.(g)'],
-      },
-      staticRows: createObservationRows(observations, 'observationdw').rows,
-      hiddenInputs: createObservationRows(observations, 'observationdw').hiddenInputs,
-    },
-
-    {
-      id: 'observationts',
-      name: 'Observation TS',
-      category: 'Test Sieve',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr no'],
-        subHeaders: {
-          'Aperture Size on Warp Side (in µm/mm)': ['1', '2', '3', '4'],
-          'Aperture Size on Weft Side (in µm/mm)': ['1', '2', '3', '4'],
-        },
-        remainingHeaders: ['Average Aperture'],
-      },
-      staticRows: createObservationRows(observations, 'observationts').rows,
-      hiddenInputs: createObservationRows(observations, 'observationts').hiddenInputs,
-    },
-    (() => {
-      const firstObs = Array.isArray(observations) && observations.length > 0 ? observations[0] : null;
-      const calcUnit = firstObs?.units?.calculation || firstObs?.calculationunit || '';
-      const masterUnit = firstObs?.units?.master || firstObs?.masterunit_name || '';
-      const uucUnit = firstObs?.units?.test || firstObs?.unit_name || '';
-
-      const singleHeaders = [
-        'SR NO',
-        calcUnit ? `SET PRESSURE ON UUC (${calcUnit.toUpperCase()})` : 'SET PRESSURE ON UUC (CALCULATIONUNIT)',
-        masterUnit ? `SET PRESSURE ON UUC (${masterUnit.toUpperCase()})` : '[SET PRESSURE ON UUC (MASTERUNIT)]',
-      ];
-
-      const obsHeader = masterUnit
-        ? `OBSERVATION ON MASTER (${masterUnit.toUpperCase()})`
-        : 'OBSERVATION ON MASTER';
-
-      const remainingHeaders = [
-        uucUnit ? `MEAN (${uucUnit.toUpperCase()})` : 'MEAN (UUCUNIT)',
-        uucUnit ? `ERROR (${uucUnit.toUpperCase()})` : 'ERROR (UUCUNIT)',
-        uucUnit ? `REPEATABILITY (${uucUnit.toUpperCase()})` : 'REPEATABILITY (UUCUNIT)',
-        uucUnit ? `HYSTERISIS (${uucUnit.toUpperCase()})` : 'HYSTERISIS (UUCUNIT)',
-      ];
-
-      return {
-        id: 'observationdpg',
-        name: 'Observation DPG',
-        category: 'Pressure',
-        structure: {
-          singleHeaders,
-          subHeaders: {
-            [obsHeader]: ['M1', 'M2', 'M3'],
-          },
-          remainingHeaders,
-        },
-        staticRows: createObservationRows(observations, 'observationdpg').rows,
-        hiddenInputs: createObservationRows(observations, 'observationdpg').hiddenInputs,
-      };
-    })(),
+    getUCTableConfig(observations),
+    getDWTableConfig(observations),
+    getTSTableConfig(observations),
+    getDPGTableConfig(observations, instrument),
     {
       id: 'observationgtm',
       name: 'Observation GTM',
@@ -4539,20 +3585,9 @@ const CalibrateStep3 = () => {
       },
       staticRows: createObservationRows(observations, 'observationgtm').rows,
       hiddenInputs: createObservationRows(observations, 'observationgtm').hiddenInputs
-    }, {
-      id: 'observationtm',
-      name: 'Observation TM',
-      category: 'Temperature',
-      structure: {
-        singleHeaders: ['Sr. No.', 'Parameter', 'Nominal/ Set Value', 'Range', 'Value Shown on'],
-        subHeaders: {
-          'Observation': ['1&6', '2&7', '3&8', '4&9', '5&10']
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationtm').rows,
-      hiddenInputs: createObservationRows(observations, 'observationtm').hiddenInputs
-    }, {
+    }, 
+    getTMTableConfig(observations),
+    {
       id: 'observationdg',
       name: 'Observation DG',
       category: 'Digital Gauge',
@@ -4571,35 +3606,8 @@ const CalibrateStep3 = () => {
       hiddenInputs: createObservationRows(observations, 'observationdg').hiddenInputs
     },
 
-    {
-      id: 'observationmsr',
-      name: 'Observation MSR',
-      category: 'Measuring',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr. No.', 'Nominal/ Set Value'],
-        subHeaders: {
-          'Observation on UUC': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5']
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationmsr').rows,
-      hiddenInputs: createObservationRows(observations, 'observationmsr').hiddenInputs
-    },
-    {
-      id: 'observationrtdwi',
-      name: 'Observation RTD WI',
-      category: 'RTD',
-      structure: {
-        singleHeaders: ['Sr. No.', 'Set Point (°C)', 'Value Of', 'Unit', 'Sensitivity Coefficient'],
-        subHeaders: {
-          'Observation': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5']
-        },
-        remainingHeaders: ['Average', 'mV generated On ambient', 'Average with corrected mv', 'Average (°C)', 'Deviation (°C)'] // REORDERED
-      },
-      staticRows: createObservationRows(observations, 'observationrtdwi').rows,
-      hiddenInputs: createObservationRows(observations, 'observationrtdwi').hiddenInputs
-    }, {
+    getMSRTableConfig(observations),
+    getRTDWITableConfig(observations), {
       id: 'observationppg',
       name: 'Observation PPG',
       category: 'Pressure',
@@ -4637,58 +3645,11 @@ const CalibrateStep3 = () => {
       },
       staticRows: createObservationRows(observations, 'observationavg').rows,
       hiddenInputs: createObservationRows(observations, 'observationavg').hiddenInputs
-    }, {
-      id: 'observationhg',
-      name: 'Observation HG',
-      category: 'Height Gauge',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr. No.', 'Nominal/ Set Value'],
-        subHeaders: {
-          'Observation on UUC': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5']
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationhg').rows,
-      hiddenInputs: createObservationRows(observations, 'observationhg').hiddenInputs
-    },
+    }, 
+    getHGTableConfig(observations),
+    getFGTableConfig(observations),
+    getMMTableConfig(observations),
     {
-      id: 'observationfg',
-      name: 'Observation FG',
-      category: 'Force Gauge',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr. No.', 'Nominal Value'],
-        subHeaders: {
-          'Observation on UUC': [
-            'Observation 1 (Master)',
-            'Observation 2 (Master)',
-            'Observation 3 (Master)',
-            'Observation 4 (Master)',
-            'Observation 5 (Master)'
-          ]
-        },
-        remainingHeaders: ['Average (Master)', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationfg').rows,
-      hiddenInputs: createObservationRows(observations, 'observationfg').hiddenInputs,
-    },
-
-    {
-      id: 'observationmm',
-      name: 'Observation MM',
-      category: 'Multimeter',
-      structure: {
-        singleHeaders: ['Sr. No.', 'Mode', 'Range', 'Nominal/ Set Value on master (Calculated)', 'Nominal/ Set Value on master'],
-        subHeaders: {
-          'Observation on UUC': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5']
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationmm').rows,
-      hiddenInputs: createObservationRows(observations, 'observationmm').hiddenInputs,
-      unitTypes: createObservationRows(observations, 'observationmm').unitTypes // Add this line
-    }, {
       id: 'observationes',
       name: 'Observation ES',
       category: 'Medical/Electrical Safety',
@@ -4778,76 +3739,10 @@ const CalibrateStep3 = () => {
       staticRows: createObservationRows(observations, 'observationodfm').rows,
       hiddenInputs: createObservationRows(observations, 'observationodfm').hiddenInputs,
     },
-    {
-      id: 'observationapg',
-      name: 'Observation APG',
-      category: 'Pressure',
-      structure: {
-        singleHeaders: ['Sr no', 'Set Pressure on UUC (kg/cm²)', 'Set Pressure on UUC (bar)'],
-        subHeaders: {
-          'Observations on Master (bar)': ['M1', 'M2'],
-        },
-        remainingHeaders: ['Mean (bar)', 'Error (bar)', 'Hysterisis (bar)'],
-      },
-      staticRows: createObservationRows(observations, 'observationapg').rows,
-      hiddenInputs: createObservationRows(observations, 'observationapg').hiddenInputs,
-    }, {
-      id: 'observationit',
-      name: 'Observation IT',
-      category: 'Internal Thread',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr. No.', 'Nominal/ Set Value'],
-        subHeaders: {
-          'Observation on UUC': [
-            'Observation 1',
-            'Observation 2',
-            'Observation 3',
-            'Observation 4',
-            'Observation 5'
-          ]
-        },
-        remainingHeaders: ['Average', 'Error']
-      },
-      staticRows: createObservationRows(observations, 'observationit').rows,
-      hiddenInputs: createObservationRows(observations, 'observationit').hiddenInputs,
-    }, {
-      id: 'observationmt',
-      name: 'Observation MT',
-      category: 'Measuring Tool',
-      structure: {
-        thermalCoeff: true,
-        additionalFields: ['Thickness of graduation Line'],
-        singleHeaders: ['Sr. No.', 'Nominal Value in (mm)'],
-        subHeaders: {
-          'Observation on Master in (mm)': [
-            'Observation 1',
-            'Observation 2',
-            'Observation 3',
-            'Observation 4',
-            'Observation 5'
-          ]
-        },
-        remainingHeaders: ['Average in (mm)', 'Error in (mm)']
-      },
-      staticRows: createObservationRows(observations, 'observationmt').rows,
-      hiddenInputs: createObservationRows(observations, 'observationmt').hiddenInputs,
-    },
-    {
-      id: 'observationctg',
-      name: 'Observation CTG',
-      category: 'Temperature',
-      structure: {
-        thermalCoeff: true,
-        singleHeaders: ['Sr. No.', 'Nominal Value'],
-        subHeaders: {
-          'Observation on UUC': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5'],
-        },
-        remainingHeaders: ['Average', 'Error'],
-      },
-      staticRows: createObservationRows(observations, 'observationctg').rows,
-      hiddenInputs: createObservationRows(observations, 'observationctg').hiddenInputs,
-    },
+    getAPGTableConfig(observations),
+    getITTableConfig(observations),
+    getMTTableConfig(observations),
+    getCTGTableConfig(observations),
     {
       id: 'observationutm',
       name: 'Observation UTM',
@@ -8155,8 +7050,19 @@ const CalibrateStep3 = () => {
                 if (r.values && Array.isArray(r.values)) {
                   observations.push(...r.values);
                 }
-                if (r.average !== undefined && r.average !== null) {
-                  averages.push({ repeatable: idx.toString(), value: r.average });
+                let rowAvg = '';
+                if (r.values && Array.isArray(r.values) && r.values.length > 0) {
+                  const nums = r.values.map(v => parseFloat(v.value)).filter(n => !isNaN(n));
+                  if (nums.length > 0) {
+                    rowAvg = (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2);
+                  }
+                }
+                if (!rowAvg && r.average !== undefined && r.average !== null) {
+                  const numAvg = parseFloat(r.average);
+                  rowAvg = !isNaN(numAvg) ? numAvg.toFixed(2) : String(r.average);
+                }
+                if (rowAvg) {
+                  averages.push({ repeatable: idx.toString(), value: rowAvg });
                 }
               });
             }
@@ -10877,7 +9783,7 @@ const CalibrateStep3 = () => {
           console.log(`  📊 Reading ${rc}-${i}: ${readingValue}`);
         }
 
-        const avgValue = tableInputValues[`${rowIndex}-9`] ?? calculated.average ?? rowData[9] ?? '0';
+        const avgValue = calculated.average || tableInputValues[`${rowIndex}-9`] || rowData[9] || '0';
         calibrationPoints.push(calibPointId);
         types.push('averageuuc');
         repeatables.push(rc.toString());
@@ -10957,8 +9863,13 @@ const CalibrateStep3 = () => {
             values.push(mVal !== null && mVal !== undefined ? String(mVal) : '');
           }
 
-          // 4. Average Master
-          const avgMasterVal = tableInputValues[`${pointId}-averagemaster`] ?? row.average_master;
+          // 4. Average Master — use value stored by computeBiomedicalAverages when user entered readings
+          // If not in state (page just loaded, no edits), compute fresh from readings via same function
+          let avgMasterVal = tableInputValues[`${pointId}-averagemaster`];
+          if (avgMasterVal === undefined || avgMasterVal === null || avgMasterVal === '') {
+            const computed = computeBiomedicalAverages(pointId, 'master', 0, '', masterCount, uucCount, tableInputValues);
+            avgMasterVal = computed.avgMaster || null;
+          }
           if (avgMasterVal !== null && avgMasterVal !== undefined && avgMasterVal !== '') {
             calibrationPoints.push(pointId);
             types.push('averagemaster');
@@ -10978,8 +9889,12 @@ const CalibrateStep3 = () => {
             values.push(uVal !== null && uVal !== undefined ? String(uVal) : '');
           }
 
-          // 6. Average UUC
-          const avgUucVal = tableInputValues[`${pointId}-averageuuc`] ?? row.average_uuc;
+          // 6. Average UUC — use value stored by computeBiomedicalAverages when user entered readings
+          let avgUucVal = tableInputValues[`${pointId}-averageuuc`];
+          if (avgUucVal === undefined || avgUucVal === null || avgUucVal === '') {
+            const computed = computeBiomedicalAverages(pointId, 'uuc', 0, '', masterCount, uucCount, tableInputValues);
+            avgUucVal = computed.avgUuc || null;
+          }
           if (avgUucVal !== null && avgUucVal !== undefined && avgUucVal !== '') {
             calibrationPoints.push(pointId);
             types.push('averageuuc');

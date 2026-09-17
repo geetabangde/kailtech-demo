@@ -641,7 +641,7 @@ const ObservationBiomedical = ({
                                   name="value[]"
                                   id={`averageuuc${pointId}`}
                                   className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isWaveform ? 'bg-white dark:bg-gray-600' : 'bg-gray-50 dark:bg-gray-700'}`}
-                                  value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, point.least_count)}
+                                  value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, null)}
                                   readOnly={!isWaveform}
                                   onChange={isWaveform ? (e) => handleBiomedicalInputChange(pointId, 'averageuuc', 0, e.target.value, masterCount, uucCount) : undefined}
                                   onBlur={isWaveform ? (e) => handleBiomedicalInputBlur(pointId, 'averageuuc', 0, e.target.value, masterCount, uucCount) : undefined}
@@ -664,7 +664,7 @@ const ObservationBiomedical = ({
                                   name="value[]"
                                   id={`averagemaster${pointId}`}
                                   className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-                                  value={formatValueByLc(displayAvg, point.mlc_decimals, point.master_least_count)}
+                                  value={formatValueByLc(displayAvg, point.mlc_decimals, null)}
                                   readOnly
                                 />
                                 <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
@@ -688,7 +688,7 @@ const ObservationBiomedical = ({
                                   name="value[]"
                                   id={`averagemaster${pointId}`}
                                   className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
-                                  value={formatValueByLc(displayAvg, point.mlc_decimals, point.master_least_count)}
+                                  value={formatValueByLc(displayAvg, point.mlc_decimals, null)}
                                   readOnly
                                 />
                                 <span className="ml-1 text-xs text-gray-500">{point.masterunit || point.set_point_unit || point.unit || ''}</span>
@@ -710,7 +710,7 @@ const ObservationBiomedical = ({
                                   name="value[]"
                                   id={`averageuuc${pointId}`}
                                   className={`w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white ${isWaveform ? 'bg-white dark:bg-gray-600' : 'bg-gray-50 dark:bg-gray-700'}`}
-                                  value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, point.least_count)}
+                                  value={isWaveform ? uucVal : formatValueByLc(uucVal, point.lc_decimals, null)}
                                   readOnly={!isWaveform}
                                   onChange={isWaveform ? (e) => handleBiomedicalInputChange(pointId, 'averageuuc', 0, e.target.value, masterCount, uucCount) : undefined}
                                   onBlur={isWaveform ? (e) => handleBiomedicalInputBlur(pointId, 'averageuuc', 0, e.target.value, masterCount, uucCount) : undefined}
