@@ -314,24 +314,33 @@ const ObservationBiomedical = ({
               </tr>
             </thead>
             <tbody>
-              {list.map((test) => {
-                const val = visualTestInputs[test.id] ?? (test.value ?? '');
+              {list.map((test, index) => {
+                const testKey = (test.id !== undefined && test.id !== null) ? test.id : index;
+                const val = visualTestInputs[testKey] ?? (test.value ?? test.remark ?? '');
                 return (
-                  <tr key={`visual-${test.id}`} className="dark:bg-gray-800">
+                  <tr key={`visual-${testKey}`} className="dark:bg-gray-800">
                     <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
                       {test.description || test.name || ''}
                     </td>
                     <td className="p-2 border border-gray-300 dark:border-gray-600 dark:text-white">
                       <input type="hidden" name="calibrationpoint[]" value={test.instid || test.id} />
-                      <input type="hidden" name="type[]" value={test.type || `visualtest${test.id}`} />
+                      <input type="hidden" name="type[]" value={test.type || `visualtest${test.id || index + 1}`} />
                       <input type="hidden" name="repeatable[]" value="0" />
                       <input
                         type="text"
                         name="value[]"
-                        id={`visualtest${test.id}`}
+                        id={`visualtest${test.id || index + 1}`}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={val}
-                        onChange={(e) => setVisualTestInputs && setVisualTestInputs({ ...visualTestInputs, [test.id]: e.target.value })}
+                        onChange={(e) => {
+                          const newString = e.target.value;
+                          if (setVisualTestInputs) {
+                            setVisualTestInputs(prev => ({
+                              ...prev,
+                              [testKey]: newString
+                            }));
+                          }
+                        }}
                         placeholder="Enter observation / remark"
                       />
                     </td>
@@ -367,25 +376,34 @@ const ObservationBiomedical = ({
               </tr>
             </thead>
             <tbody>
-              {list.map((test) => {
-                const val = safetyTestInputs[test.id] ?? (test.value ?? '');
+              {list.map((test, index) => {
+                const testKey = (test.id !== undefined && test.id !== null) ? test.id : index;
+                const val = safetyTestInputs[testKey] ?? (test.value ?? '');
 
                 return (
-                  <tr key={`safety-${test.id}`} className="dark:bg-gray-800">
+                  <tr key={`safety-${testKey}`} className="dark:bg-gray-800">
                     <td className={`${tdCls} bg-gray-50 dark:bg-gray-700`}>
                       {test.description || test.name || ''}
                     </td>
                     <td className={tdCls}>
                       <input type="hidden" name="calibrationpoint[]" value={test.instid || test.id} />
-                      <input type="hidden" name="type[]" value={test.type || `electricalsafety${test.id}`} />
+                      <input type="hidden" name="type[]" value={test.type || `electricalsafety${test.id || index + 1}`} />
                       <input type="hidden" name="repeatable[]" value="0" />
                       <input
                         type="text"
                         name="value[]"
-                        id={`electricalsafety${test.id}`}
+                        id={`electricalsafety${test.id || index + 1}`}
                         className="w-32 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={val}
-                        onChange={(e) => setSafetyTestInputs && setSafetyTestInputs({ ...safetyTestInputs, [test.id]: e.target.value })}
+                        onChange={(e) => {
+                          const newString = e.target.value;
+                          if (setSafetyTestInputs) {
+                            setSafetyTestInputs(prev => ({
+                              ...prev,
+                              [testKey]: newString
+                            }));
+                          }
+                        }}
                         placeholder="Enter value"
                       />
                       <span className="ml-1 text-xs text-gray-500">{test.unit || ''}</span>

@@ -50,9 +50,8 @@ export const parseBiomedicalDynamicData = (observationData) => {
           const mlcDec = (point.mlc_decimals != null && point.mlc_decimals !== 'NA' && point.mlc_decimals !== '') ? parseInt(point.mlc_decimals, 10) : null;
 
           if (mlc && mlc !== 'NA') {
-            const numMlc = parseFloat(mlc);
             const numLc = parseFloat(effectiveLc);
-            if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc) || (effectiveLcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+            if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc)) {
               effectiveLc = mlc;
               effectiveLcDec = mlcDec;
             }

@@ -78,13 +78,13 @@ const CalibrateStep3 = () => {
     biomedicalConfig?.show_visual_test !== undefined
       ? String(biomedicalConfig.show_visual_test).toLowerCase() === 'yes'
       : String(instrument?.showvisualtest || '').toLowerCase() === 'yes'
-  ) && visualTests.length > 0;
+  ) && ((visualTests && visualTests.length > 0) || (selectedTableData?.visual_test && selectedTableData.visual_test.length > 0));
 
   const isBasicSafetyVisible = isBiomedical && (
     biomedicalConfig?.show_basic_safety !== undefined
       ? String(biomedicalConfig.show_basic_safety).toLowerCase() === 'yes'
       : String(instrument?.showbasicsafety || '').toLowerCase() === 'yes'
-  ) && safetyTests.length > 0;
+  ) && ((safetyTests && safetyTests.length > 0) || (selectedTableData?.basic_safety && selectedTableData.basic_safety.length > 0));
 
   const isElectricalSafetyVisible = isBiomedical && (
     biomedicalConfig?.show_electrical_safety !== undefined
@@ -351,8 +351,8 @@ const CalibrateStep3 = () => {
           const initVt = {};
           initVisual.forEach((t, i) => {
             const val = t.value ?? t.remark ?? '';
-            if (t.id !== undefined && t.id !== null) initVt[t.id] = val;
-            initVt[i] = val;
+            const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+            initVt[k] = val;
           });
           setVisualTestInputs(prev => ({ ...initVt, ...prev }));
         }
@@ -363,8 +363,8 @@ const CalibrateStep3 = () => {
           const initSt = {};
           initSafety.forEach((t, i) => {
             const val = typeof t.value === 'object' && t.value !== null ? (t.value.value ?? '') : (t.value ?? '');
-            if (t.id !== undefined && t.id !== null) initSt[t.id] = val;
-            initSt[i] = val;
+            const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+            initSt[k] = val;
           });
           setSafetyTestInputs(prev => ({ ...initSt, ...prev }));
         }
@@ -745,10 +745,11 @@ const CalibrateStep3 = () => {
         : (observations || []);
 
       const activeBioPoints = bioPoints.filter(p => {
-        if (p.is_electrical_safety) return isElectricalSafetyVisible;
+        const isSafety = p.is_electrical_safety || p.biomedical_section === 'Electrical Safety';
+        if (isSafety) return isElectricalSafetyVisible;
         return isPerformanceVisible;
       });
-      const pointsToProcess = activeBioPoints.length > 0 ? activeBioPoints : bioPoints;
+      const pointsToProcess = activeBioPoints;
 
       pointsToProcess.forEach((point) => {
         const pointId = point.calibration_point_id || point.id;
@@ -769,11 +770,8 @@ const CalibrateStep3 = () => {
         let leastCount = point.least_count;
         let masterLeastCount = point.master_least_count;
         if (masterLeastCount && masterLeastCount !== 'NA') {
-          const numMlc = parseFloat(masterLeastCount);
           const numLc = parseFloat(leastCount);
-          const lcDec = (point.lc_decimals != null && point.lc_decimals !== 'NA') ? parseInt(point.lc_decimals, 10) : 0;
-          const mlcDec = (point.mlc_decimals != null && point.mlc_decimals !== 'NA') ? parseInt(point.mlc_decimals, 10) : 0;
-          if (!leastCount || leastCount === 'NA' || isNaN(numLc) || (lcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+          if (!leastCount || leastCount === 'NA' || isNaN(numLc)) {
             leastCount = masterLeastCount;
           }
         }
@@ -2087,9 +2085,8 @@ const CalibrateStep3 = () => {
               const mlcDec = (p.mlc_decimals != null && p.mlc_decimals !== 'NA' && p.mlc_decimals !== '') ? parseInt(p.mlc_decimals, 10) : null;
 
               if (mlc && mlc !== 'NA') {
-                const numMlc = parseFloat(mlc);
                 const numLc = parseFloat(effectiveLc);
-                if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc) || (effectiveLcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+                if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc)) {
                   effectiveLc = mlc;
                   effectiveLcDec = mlcDec;
                 }
@@ -2191,8 +2188,8 @@ const CalibrateStep3 = () => {
               const vtInputs = {};
               visualList.forEach((t, i) => {
                 const val = t.value ?? t.remark ?? '';
-                if (t.id !== undefined && t.id !== null) vtInputs[t.id] = val;
-                vtInputs[i] = val;
+                const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+                vtInputs[k] = val;
               });
               setVisualTestInputs(vtInputs);
             }
@@ -2210,8 +2207,8 @@ const CalibrateStep3 = () => {
               const stInputs = {};
               mappedSafety.forEach((t, i) => {
                 const rawVal = typeof t.value === 'object' && t.value !== null ? (t.value.value ?? '') : (t.value ?? '');
-                if (t.id !== undefined && t.id !== null) stInputs[t.id] = rawVal;
-                stInputs[i] = rawVal;
+                const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+                stInputs[k] = rawVal;
               });
               setSafetyTestInputs(stInputs);
             }
@@ -7154,9 +7151,8 @@ const CalibrateStep3 = () => {
             const mlcDec = (p.mlc_decimals != null && p.mlc_decimals !== 'NA' && p.mlc_decimals !== '') ? parseInt(p.mlc_decimals, 10) : null;
 
             if (mlc && mlc !== 'NA') {
-              const numMlc = parseFloat(mlc);
               const numLc = parseFloat(effectiveLc);
-              if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc) || (effectiveLcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+              if (!effectiveLc || effectiveLc === 'NA' || isNaN(numLc)) {
                 effectiveLc = mlc;
                 effectiveLcDec = mlcDec;
               }
@@ -7190,8 +7186,8 @@ const CalibrateStep3 = () => {
             const vtInputs = {};
             visualList.forEach((t, i) => {
               const val = t.value ?? t.remark ?? '';
-              if (t.id !== undefined && t.id !== null) vtInputs[t.id] = val;
-              vtInputs[i] = val;
+              const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+              vtInputs[k] = val;
             });
             setVisualTestInputs(prev => ({ ...vtInputs, ...prev }));
           }
@@ -7206,8 +7202,8 @@ const CalibrateStep3 = () => {
             const stInputs = {};
             mappedSafety.forEach((t, i) => {
               const rawVal = typeof t.value === 'object' && t.value !== null ? (t.value.value ?? '') : (t.value ?? '');
-              if (t.id !== undefined && t.id !== null) stInputs[t.id] = rawVal;
-              stInputs[i] = rawVal;
+              const k = (t.id !== undefined && t.id !== null) ? t.id : i;
+              stInputs[k] = rawVal;
             });
             setSafetyTestInputs(prev => ({ ...stInputs, ...prev }));
           }
@@ -8623,12 +8619,8 @@ const CalibrateStep3 = () => {
       let masterLeastCount = point?.master_least_count;
 
       if (masterLeastCount && masterLeastCount !== 'NA') {
-        const numMlc = parseFloat(masterLeastCount);
         const numLc = parseFloat(leastCount);
-        const lcDec = (point?.lc_decimals != null && point?.lc_decimals !== 'NA') ? parseInt(point.lc_decimals, 10) : 0;
-        const mlcDec = (point?.mlc_decimals != null && point?.mlc_decimals !== 'NA') ? parseInt(point.mlc_decimals, 10) : 0;
-
-        if (!leastCount || leastCount === 'NA' || isNaN(numLc) || (lcDec === 0 && mlcDec > 0) || numMlc < numLc) {
+        if (!leastCount || leastCount === 'NA' || isNaN(numLc)) {
           leastCount = masterLeastCount;
         }
       }
@@ -9876,10 +9868,11 @@ const CalibrateStep3 = () => {
           : (observations || []);
 
         const activeBioPoints = bioPoints.filter(p => {
-          if (p.is_electrical_safety) return isElectricalSafetyVisible;
+          const isSafety = p.is_electrical_safety || p.biomedical_section === 'Electrical Safety';
+          if (isSafety) return isElectricalSafetyVisible;
           return isPerformanceVisible;
         });
-        const pointsToProcess = activeBioPoints.length > 0 ? activeBioPoints : bioPoints;
+        const pointsToProcess = activeBioPoints;
 
         pointsToProcess.forEach((row) => {
           const pointId = row.calibration_point_id || row.id;
@@ -10023,26 +10016,40 @@ const CalibrateStep3 = () => {
 
     // Build visual_test and basic_safety arrays for biomedical observations
     const isBioObs = selectedTableData?.id === 'observationbiomedical' || isBiomedical;
+    const visual_test_source = (selectedTableData?.visual_test && selectedTableData.visual_test.length > 0)
+      ? selectedTableData.visual_test
+      : visualTests;
+
     const visual_test = (isBioObs && isVisualTestVisible)
-      ? visualTests.map((test, index) => {
-        const rawVal = visualTestInputs[test.id] ?? visualTestInputs[index] ?? test.value ?? test.remark ?? '';
+      ? visual_test_source.map((test, index) => {
+        const testKey = (test.id !== undefined && test.id !== null) ? test.id : index;
+        const rawVal = visualTestInputs[testKey] ?? test.value ?? test.remark ?? '';
         const val = typeof rawVal === 'object' && rawVal !== null ? (rawVal.value ?? '') : String(rawVal);
         return {
-          id: test.id,
-          type: test.type || test.test_type || `visualtest${index + 1}`,
-          value: val
+          id: test.id ?? index + 1,
+          type: test.type || test.test_type || `visualtest${test.id || index + 1}`,
+          value: val,
+          remark: val,
+          description: test.description || test.name || ''
         };
       })
       : [];
 
+    const basic_safety_source = (selectedTableData?.basic_safety && selectedTableData.basic_safety.length > 0)
+      ? selectedTableData.basic_safety
+      : safetyTests;
+
     const basic_safety = (isBioObs && isBasicSafetyVisible)
-      ? safetyTests.map((test, index) => {
-        const rawVal = safetyTestInputs[test.id] ?? safetyTestInputs[index] ?? test.value ?? '';
+      ? basic_safety_source.map((test, index) => {
+        const testKey = (test.id !== undefined && test.id !== null) ? test.id : index;
+        const rawVal = safetyTestInputs[testKey] ?? test.value ?? '';
         const val = typeof rawVal === 'object' && rawVal !== null ? (rawVal.value ?? '') : String(rawVal);
         return {
-          id: test.id,
-          type: test.type || test.test_type || `electricalsafety${index + 1}`,
-          value: val
+          id: test.id ?? index + 1,
+          type: test.type || test.test_type || `electricalsafety${test.id || index + 1}`,
+          value: val,
+          remark: val,
+          description: test.description || test.name || ''
         };
       })
       : [];
@@ -10980,7 +10987,7 @@ const CalibrateStep3 = () => {
                   </div>
                 )}
 
-                {observationTemplate && observations.length === 0 && (
+                {observationTemplate && observations.length === 0 && !isVisualTestVisible && !isBasicSafetyVisible && (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <p>No observations found for template: {observationTemplate}</p>
                   </div>

@@ -23,14 +23,70 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
   // Recalculate average from readings array (ignores stored value to avoid backend rounding errors)
   const calcAvgFromReadings = (readings, decimals) => {
     if (!Array.isArray(readings) || readings.length === 0) return null;
+
+    const extractVal = (r) => {
+      if (r === null || r === undefined) return '';
+      return (typeof r === 'object' && r !== null ? r.value : r) ?? '';
+    };
+
+    const hasSlash = readings.some((r) => {
+      const str = String(extractVal(r)).trim();
+      return str.includes('/');
+    });
+
+    if (hasSlash) {
+      let partsCount = 0;
+      const sums = [];
+      const counts = [];
+      const maxDecs = [];
+
+      readings.forEach((r) => {
+        const str = String(extractVal(r)).trim();
+        if (!str || !str.includes('/')) return;
+        const parts = str.split('/');
+        partsCount = Math.max(partsCount, parts.length);
+
+        parts.forEach((p, idx) => {
+          const pStr = p.trim();
+          if (pStr.includes('.')) {
+            const dec = pStr.split('.')[1].length;
+            maxDecs[idx] = Math.max(maxDecs[idx] || 0, dec);
+          }
+          const num = parseFloat(pStr);
+          if (!isNaN(num)) {
+            sums[idx] = (sums[idx] || 0) + num;
+            counts[idx] = (counts[idx] || 0) + 1;
+          }
+        });
+      });
+
+      if (partsCount === 0 || counts.every((c) => !c)) return null;
+
+      let d = (decimals != null && decimals !== 'NA' && decimals !== '') ? parseInt(decimals, 10) : null;
+
+      const formattedParts = Array.from({ length: partsCount }, (_, idx) => {
+        const cnt = counts[idx] || 0;
+        if (cnt === 0) return '';
+        const avg = sums[idx] / cnt;
+        let partDec = d;
+        if (partDec === null || isNaN(partDec)) {
+          partDec = maxDecs[idx] || 0;
+        } else {
+          partDec = Math.max(partDec, maxDecs[idx] || 0);
+        }
+        return partDec > 0 ? avg.toFixed(partDec) : (avg % 1 === 0 ? String(avg) : String(Math.round(avg)));
+      });
+
+      return formattedParts.join('/');
+    }
+
     let sum = 0;
     let count = 0;
     let maxReadingDec = 0;
 
     readings.forEach((r) => {
-      const v = typeof r === 'object' && r !== null ? r.value : r;
-      if (v !== null && v !== undefined && v !== '') {
-        const str = String(v).trim();
+      const str = String(extractVal(r)).trim();
+      if (str !== '') {
         if (str.includes('.')) {
           const dec = str.split('.')[1].length;
           if (dec > maxReadingDec) maxReadingDec = dec;
