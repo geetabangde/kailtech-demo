@@ -14,6 +14,7 @@ import {
   TMTable,
   WeighingBalanceTable,
   TSTable,
+  ViewObservationAUTM,
 } from './ViewRawDataObservation';
 
 export default function CalibrationReport() {
@@ -130,15 +131,32 @@ export default function CalibrationReport() {
   }, []);
 
 
-  const generateTableStructure = useCallback((selectedTableData, unitInfo) => {
+  const generateTableStructure = useCallback((selectedTableData, unitInfo, observationsList = []) => {
     if (!selectedTableData || !selectedTableData.structure) return null;
     const structure = selectedTableData.structure;
     if (!structure.singleHeaders || !Array.isArray(structure.singleHeaders)) return null;
     const headers = [];
     const subHeadersRow = [];
 
-    const uucUnit = unitInfo?.uuc_unit?.description || unitInfo?.uuc_unit || unitInfo?.calculation || unitInfo?.test || '';
-    const masterUnit = unitInfo?.master_unit?.description || unitInfo?.master_unit || unitInfo?.master || '';
+    const uucUnit = unitInfo?.unit_description
+      || unitInfo?.description
+      || unitInfo?.uuc_unit?.description
+      || unitInfo?.uuc_unit
+      || unitInfo?.unit
+      || unitInfo?.calculation
+      || unitInfo?.test
+      || observationsList?.[0]?.unit
+      || observationsList?.[0]?.unit_description
+      || (typeof unitInfo === 'string' ? unitInfo : '')
+      || (selectedTableData?.id === 'observationgtm' ? '°C' : '');
+
+    const masterUnit = unitInfo?.master_unit_description
+      || unitInfo?.master_unit?.description
+      || unitInfo?.master_unit
+      || unitInfo?.master
+      || observationsList?.[0]?.master_unit_description
+      || observationsList?.[0]?.master_unit
+      || (selectedTableData?.id === 'observationgtm' ? 'Ω' : '');
 
     const formatHeader = (text) => {
       if (typeof text !== 'string') return text;
@@ -234,8 +252,15 @@ export default function CalibrationReport() {
           if (observationTemplate === 'observationcustom' && observationData.instrument_settings) {
             selectedTable.structure = getObservationCustomStructure(observationData.instrument_settings);
           }
-          const units = observationData?.units || observationData?.unit_info || observationData?.data?.units || observationData?.observations?.[0]?.units || processedObservations?.[0]?.units;
-          setTableStructure(generateTableStructure(selectedTable, units));
+          const units = observationData?.observation_data?.unit_info
+            || observationData?.observation_data?.data?.unit_info
+            || observationData?.unit_info
+            || observationData?.units
+            || observationData?.data?.units
+            || observationData?.observations?.[0]?.units
+            || processedObservations?.[0]?.units
+            || processedObservations?.[0]?.unit;
+          setTableStructure(generateTableStructure(selectedTable, units, processedObservations));
         }
         return observationData;
       } else {
@@ -718,11 +743,14 @@ export default function CalibrationReport() {
     repeatabilityCount: 0,
     eccentricityCount: 0,
   };
-  const isBiomedicalEnabled = (value) => String(value || '').toLowerCase() === 'yes';
+  const isYes = (val) => String(val || '').trim().toLowerCase() === 'yes';
   const biomedicalConfig = biomedicalRawData?.config || {};
-  const hasBiomedicalContent = observationTemplate === 'observationbiomedical' && (
-    (isBiomedicalEnabled(biomedicalConfig.show_visual_test) && biomedicalRawData?.visual_test?.length > 0) ||
-    (isBiomedicalEnabled(biomedicalConfig.show_basic_safety) && biomedicalRawData?.basic_safety?.length > 0) ||
+  const isBiomedicalActive = isYes(biomedicalConfig.biomedical ?? 'Yes');
+  const hasBiomedicalContent = observationTemplate === 'observationbiomedical' && isBiomedicalActive && (
+    (isYes(biomedicalConfig.show_visual_test) && biomedicalRawData?.visual_test?.length > 0) ||
+    (isYes(biomedicalConfig.show_basic_safety) && biomedicalRawData?.basic_safety?.length > 0) ||
+    (isYes(biomedicalConfig.show_electrical_safety) && (biomedicalRawData?.electrical_safety?.measure?.length > 0 || biomedicalRawData?.electrical_safety?.source?.length > 0)) ||
+    (isYes(biomedicalConfig.show_performance ?? biomedicalConfig.show_performance_test) && (biomedicalRawData?.performance_test?.measure?.length > 0 || biomedicalRawData?.performance_test?.source?.length > 0)) ||
     (observationRows?.rows?.length || 0) > 0
   );
 
@@ -976,6 +1004,12 @@ export default function CalibrationReport() {
                 <BiomedicalTable biomedicalRawData={biomedicalRawData} dynamicObservations={dynamicObservations} />
               ) : observationTemplate === 'observationts' ? (
                 <TSTable observationRows={observationRows} />
+              ) : observationTemplate === 'observationautm' ? (
+                <ViewObservationAUTM
+                  rawdata={rawdata}
+                  observationRows={observationRows}
+                  dynamicObservations={dynamicObservations}
+                />
               ) : observationTemplate === 'observationmm' && observationRows?.unitTypes && observationRows.unitTypes.length > 0 ? (
                 observationRows.unitTypes.map((unitTypeGroup, groupIndex) => {
                   if (!unitTypeGroup || !unitTypeGroup.calibration_points) return null;
@@ -1089,63 +1123,85 @@ export default function CalibrationReport() {
                       )}
                     </thead>
                     <tbody>
-                      {(observationRows?.rows || []).map((row, rowIndex) => (
-                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          {row.map((cell, colIndex) => {
-                            let rowSpanVal = undefined;
-                            if (observationTemplate === 'observationdw') {
-                              const isSpanCol = [0, 2, 3, 9].includes(colIndex);
-                              if (isSpanCol) {
-                                if (row[1] !== '1') {
-                                  return null;
-                                }
-                                // Scan ahead to count cycles for this calibration point
-                                let count = 1;
-                                for (let i = rowIndex + 1; i < (observationRows?.rows?.length || 0); i++) {
-                                  if (observationRows?.rows?.[i]?.[1] === '1') {
-                                    break;
-                                  }
-                                  count++;
-                                }
-                                rowSpanVal = count;
-                              }
-                            }
+                      {(observationRows?.rows || []).map((row, rowIndex) => {
+                        const isGtm = observationTemplate === 'observationgtm';
+                        const rowBgClass = isGtm
+                          ? (Math.floor(rowIndex / 2) % 2 === 0 ? 'bg-white' : 'bg-gray-50')
+                          : (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50');
 
-                            // ADDED: Special handling for observationrtdwi and observationth static text and dashes
-                            if ((observationTemplate === 'observationrtdwi' || observationTemplate === 'observationth') && (cell === '-' || cell === 'UUC' || cell === 'Master')) {
+                        return (
+                          <tr key={rowIndex} className={rowBgClass}>
+                            {row.map((cell, colIndex) => {
+                              let rowSpanVal = undefined;
+                              if (observationTemplate === 'observationdw') {
+                                const isSpanCol = [0, 2, 3, 9].includes(colIndex);
+                                if (isSpanCol) {
+                                  if (row[1] !== '1') {
+                                    return null;
+                                  }
+                                  // Scan ahead to count cycles for this calibration point
+                                  let count = 1;
+                                  for (let i = rowIndex + 1; i < (observationRows?.rows?.length || 0); i++) {
+                                    if (observationRows?.rows?.[i]?.[1] === '1') {
+                                      break;
+                                    }
+                                    count++;
+                                  }
+                                  rowSpanVal = count;
+                                }
+                              }
+
+                              // GTM rowSpan handling matching rawdatagtm.php (rowspan=2 for Sr. No., Set Point, Range, Average (Ω), Deviation)
+                              let cellContent = cell;
+                              if (observationTemplate === 'observationgtm') {
+                                const isSpanCol = [0, 1, 2, 11, 13].includes(colIndex);
+                                if (isSpanCol) {
+                                  if (rowIndex % 2 !== 0) {
+                                    return null; // Master row omits spanned cells
+                                  }
+                                  rowSpanVal = 2; // UUC row spans 2 rows
+                                  // For Average (Ω) (col 11), pull from Master row if UUC row has '-' or empty
+                                  if (colIndex === 11 && (cellContent === '-' || !cellContent)) {
+                                    cellContent = observationRows?.rows?.[rowIndex + 1]?.[11] || cellContent;
+                                  }
+                                }
+                              }
+                              // ADDED: Special handling for observationrtdwi and observationth static text and dashes
+                              if ((observationTemplate === 'observationrtdwi' || observationTemplate === 'observationth') && (cellContent === '-' || cellContent === 'UUC' || cellContent === 'Master')) {
+                                return (
+                                  <td key={colIndex} className="border border-gray-300 px-3 py-2 text-center font-medium">
+                                    {cellContent}
+                                  </td>
+                                );
+                              }
+                              // ADDED: Special handling for observationgtm static text and dashes
+                              if (observationTemplate === 'observationgtm' && (cellContent === '-' || cellContent === 'UUC' || cellContent === 'Master')) {
+                                return (
+                                  <td key={colIndex} rowSpan={rowSpanVal} className="border border-gray-300 px-3 py-2 text-center font-medium align-middle">
+                                    {cellContent}
+                                  </td>
+                                );
+                              }
+                              // NEW: ADDED Special handling for observationdg calculated/static fields (e.g., averages, errors, hysteresis are display-only, no special static text but ensure proper rendering)
+                              if (observationTemplate === 'observationdg' && [6, 7, 8, 9, 10].includes(colIndex)) {
+                                // These are calculated fields (Average Forward/Backward, Error Forward/Backward, Hysterisis) - just display as-is
+                                return (
+                                  <td key={colIndex} className="border border-gray-300 px-3 py-2 font-medium text-center">
+                                    {cellContent || ''}
+                                  </td>
+                                );
+                              }
+                              // For UNIT_SELECT in Master row, display the unit label (assuming we have unitsList or fetch it)
+                              // But since read-only and no unitsList here, just display the value
                               return (
-                                <td key={colIndex} className="border border-gray-300 px-3 py-2 text-center font-medium">
-                                  {cell}
+                                <td key={colIndex} rowSpan={rowSpanVal} className={`border border-gray-300 px-3 py-2 align-middle ${rowSpanVal ? 'text-center font-medium' : ''}`}>
+                                  {cellContent || ''}
                                 </td>
                               );
-                            }
-                            // ADDED: Special handling for observationgtm static text and dashes
-                            if (observationTemplate === 'observationgtm' && (cell === '-' || cell === 'UUC' || cell === 'Master')) {
-                              return (
-                                <td key={colIndex} className="border border-gray-300 px-3 py-2 text-center font-medium">
-                                  {cell}
-                                </td>
-                              );
-                            }
-                            // NEW: ADDED Special handling for observationdg calculated/static fields (e.g., averages, errors, hysteresis are display-only, no special static text but ensure proper rendering)
-                            if (observationTemplate === 'observationdg' && [6, 7, 8, 9, 10].includes(colIndex)) {
-                              // These are calculated fields (Average Forward/Backward, Error Forward/Backward, Hysterisis) - just display as-is
-                              return (
-                                <td key={colIndex} className="border border-gray-300 px-3 py-2 font-medium text-center">
-                                  {cell || ''}
-                                </td>
-                              );
-                            }
-                            // For UNIT_SELECT in Master row, display the unit label (assuming we have unitsList or fetch it)
-                            // But since read-only and no unitsList here, just display the value
-                            return (
-                              <td key={colIndex} rowSpan={rowSpanVal} className="border border-gray-300 px-3 py-2 align-middle">
-                                {cell || ''}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                            })}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

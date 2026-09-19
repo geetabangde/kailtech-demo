@@ -1,11 +1,18 @@
 import { safeGetValue, formatValueByLc } from './viewRawDataUtils';
 
+const isYes = (val) => String(val || '').trim().toLowerCase() === 'yes';
+
 export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
   const config = biomedicalRawData?.config || {};
-  const isEnabled = (value) => String(value || '').toLowerCase() === 'yes';
-  const showElectricalSafety = isEnabled(config.show_electrical_safety);
-  const visualTests = isEnabled(config.show_visual_test) ? biomedicalRawData?.visual_test || [] : [];
-  const basicSafety = isEnabled(config.show_basic_safety) ? biomedicalRawData?.basic_safety || [] : [];
+  const isBiomedical = isYes(config.biomedical ?? 'Yes');
+
+  const showVisualTest = isBiomedical && isYes(config.show_visual_test) && (biomedicalRawData?.visual_test?.length > 0);
+  const showBasicSafety = isBiomedical && isYes(config.show_basic_safety) && (biomedicalRawData?.basic_safety?.length > 0);
+  const showElectricalSafety = isBiomedical && isYes(config.show_electrical_safety);
+  const showPerformanceTest = isBiomedical && isYes(config.show_performance ?? config.show_performance_test);
+
+  const visualTests = showVisualTest ? (biomedicalRawData?.visual_test || []) : [];
+  const basicSafety = showBasicSafety ? (biomedicalRawData?.basic_safety || []) : [];
   const groups = [
     ['Electrical Safety', 'Measure'],
     ['Electrical Safety', 'Source'],
@@ -114,7 +121,7 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
           <table className="w-full border border-gray-300 text-sm">
             <thead>
               <tr className="bg-gray-100">
-                <th colSpan="2" className="border border-gray-300 px-3 py-2 text-left">VISUAL INSPECTION</th>
+                <th colSpan="2" className="border border-gray-300 px-3 py-2 text-left font-bold">1. VISUAL INSPECTION</th>
               </tr>
               <tr className="bg-gray-50">
                 <th className="border border-gray-300 px-3 py-2 text-left">Description</th>
@@ -137,7 +144,7 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
           <table className="w-full border border-gray-300 text-sm">
             <thead>
               <tr className="bg-gray-100">
-                <th colSpan="2" className="border border-gray-300 px-3 py-2 text-left">BASIC SAFETY TEST</th>
+                <th colSpan="2" className="border border-gray-300 px-3 py-2 text-left font-bold">2. BASIC SAFETY TEST</th>
               </tr>
               <tr className="bg-gray-50">
                 <th className="border border-gray-300 px-3 py-2 text-left">Description</th>
@@ -156,21 +163,25 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
         </div>
       )}
       {groups.map(([section, mode]) => {
+        const isElectricalGroup = section === 'Electrical Safety';
+        const sectionVisible = isElectricalGroup ? showElectricalSafety : showPerformanceTest;
+
+        if (!sectionVisible) return null;
+
         const points = (dynamicObservations || []).filter(
           (point) => point.biomedical_section === section && point.mode === mode
         );
         if (points.length === 0) return null;
 
         const isMeasure = mode === 'Measure';
-        const isElectricalGroup = section === 'Electrical Safety';
-        const showSetPointAndDeviation = !isElectricalGroup || !showElectricalSafety;
-        const showUncertaintyAndRemark = isElectricalGroup && mode === 'Source' && !showElectricalSafety;
+        const showSetPointAndDeviation = !isElectricalGroup;
+        const showUncertaintyAndRemark = false;
         const masterCount = isMeasure ? 1 : 5;
-        const uucCount = isMeasure ? 5 : 1;
+        const uucCount = isElectricalGroup ? 0 : (isMeasure ? 5 : 1);
 
         const tableTitle = isElectricalGroup
-          ? (showElectricalSafety ? 'ELECTRICAL SAFETY TEST' : ' PERFORMANCE TESTING')
-          : 'PERFORMANCE TESTING';
+          ? (mode === 'Source' ? '3. ELECTRICAL SAFETY TEST (Source)' : '3. ELECTRICAL SAFETY TEST')
+          : (mode === 'Source' ? '4. PERFORMANCE TESTING (Source)' : '4. PERFORMANCE TESTING');
 
         return (
           <div key={`${section}-${mode}`} className="overflow-x-auto">
@@ -188,26 +199,30 @@ export const BiomedicalTable = ({ biomedicalRawData, dynamicObservations }) => {
                   )}
                   {isMeasure ? (
                     <>
-                      {showSetPointAndDeviation && (
+                      {masterCount > 0 && (
                         <th colSpan={masterCount} className="border border-gray-300 px-3 py-2 text-center">Reading on Master</th>
                       )}
                       {masterCount > 1 && (
                         <th className="border border-gray-300 px-3 py-2 text-left">Average on Master</th>
                       )}
-                      <th colSpan={uucCount} className="border border-gray-300 px-3 py-2 text-center">Reading on UUC</th>
+                      {uucCount > 0 && (
+                        <th colSpan={uucCount} className="border border-gray-300 px-3 py-2 text-center">Reading on UUC</th>
+                      )}
                       {uucCount > 1 && (
                         <th className="border border-gray-300 px-3 py-2 text-left">Average on UUC</th>
                       )}
                     </>
                   ) : (
                     <>
-                      {showSetPointAndDeviation && (
+                      {uucCount > 0 && (
                         <th colSpan={uucCount} className="border border-gray-300 px-3 py-2 text-center">Reading on UUC</th>
                       )}
-                      {showSetPointAndDeviation && uucCount > 1 && (
+                      {uucCount > 1 && (
                         <th className="border border-gray-300 px-3 py-2 text-left">Average on UUC</th>
                       )}
-                      <th colSpan={masterCount} className="border border-gray-300 px-3 py-2 text-center">Reading on Master</th>
+                      {masterCount > 0 && (
+                        <th colSpan={masterCount} className="border border-gray-300 px-3 py-2 text-center">Reading on Master</th>
+                      )}
                       {masterCount > 1 && (
                         <th className="border border-gray-300 px-3 py-2 text-left">Average on Master</th>
                       )}

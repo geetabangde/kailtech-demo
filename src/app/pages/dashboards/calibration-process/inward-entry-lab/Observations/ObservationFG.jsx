@@ -3,19 +3,69 @@ import { safeGetValue, safeGetArray } from './observationUtils';
 /**
  * Calculation logic for Feeler Gauge (FG) Observation
  */
-export const calculateFGValues = (rowData) => {
+export const calculateFGValues = (rowData, calibPointId, leastCountData) => {
   const result = {};
   if (!rowData || !Array.isArray(rowData)) return result;
 
-  const parsedValues = rowData.map((val) => (val === '' || val === null || val === undefined ? 0 : parseFloat(val) || 0));
-  const observations = parsedValues.slice(2, 7).filter((val) => val !== 0);
-  result.average = observations.length
-    ? (observations.reduce((sum, val) => sum + val, 0) / observations.length).toFixed(3)
-    : '';
-  const nominalValue = parsedValues[1];
-  result.error = result.average && nominalValue
-    ? (parseFloat(result.average) - nominalValue).toFixed(3)
-    : '';
+  const nominalValStr = rowData[1] !== undefined && rowData[1] !== null ? String(rowData[1]).trim() : '';
+
+  let mlcDec = 3;
+  let lcDec = 3;
+
+  if (calibPointId && leastCountData) {
+    const lcInfo = leastCountData[calibPointId] || leastCountData[String(calibPointId)];
+    if (lcInfo) {
+      if (typeof lcInfo === 'object') {
+        if (lcInfo.master_decimals != null) mlcDec = lcInfo.master_decimals;
+        else if (lcInfo.master) {
+          const s = String(lcInfo.master).trim();
+          if (s.includes('.')) mlcDec = s.split('.')[1].length;
+        }
+        if (lcInfo.uuc_decimals != null) lcDec = lcInfo.uuc_decimals;
+        else if (lcInfo.uuc) {
+          const s = String(lcInfo.uuc).trim();
+          if (s.includes('.')) lcDec = s.split('.')[1].length;
+        }
+      } else if (!isNaN(parseFloat(lcInfo))) {
+        const s = String(lcInfo).trim();
+        if (s.includes('.')) mlcDec = s.split('.')[1].length;
+      }
+    }
+  }
+
+  // Extract non-empty Master observation numbers (cols 2 to 6)
+  const validObservations = [];
+  for (let i = 2; i <= 6; i++) {
+    const raw = rowData[i];
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+      const num = parseFloat(String(raw).trim());
+      if (!isNaN(num)) {
+        validObservations.push(num);
+      }
+    }
+  }
+
+  if (validObservations.length > 0) {
+    const sum = validObservations.reduce((acc, v) => acc + v, 0);
+    const avg = sum / validObservations.length;
+    result.average = avg.toFixed(mlcDec);
+
+    if (nominalValStr !== '') {
+      const nom = parseFloat(nominalValStr);
+      if (!isNaN(nom)) {
+        const errorDec = Math.max(mlcDec, lcDec);
+        const err = parseFloat(result.average) - nom;
+        result.error = err.toFixed(errorDec);
+      } else {
+        result.error = '';
+      }
+    } else {
+      result.error = '';
+    }
+  } else {
+    result.average = '';
+    result.error = '';
+  }
 
   return result;
 };
@@ -40,7 +90,7 @@ export const createFGRows = (dataArray) => {
 
     const row = [
       point.sr_no?.toString() || '',
-      safeGetValue(point.nominal_value || point.test_point),
+      safeGetValue(point.nominal_value || point.test_point || point.point),
       ...observations.slice(0, 5).map(obs => safeGetValue(obs)),
       safeGetValue(point.average),
       safeGetValue(point.error),
@@ -51,10 +101,10 @@ export const createFGRows = (dataArray) => {
     }
 
     rows.push(row);
-    calibrationPoints.push(point.point_id?.toString() || '');
-    types.push('input');
-    repeatables.push(point.repeatable_cycle?.toString() || '5');
-    values.push(safeGetValue(point.nominal_value || point.test_point) || '0');
+    calibrationPoints.push((point.point_id || point.id || point.calibration_point_id)?.toString() || '');
+    types.push('uuc');
+    repeatables.push('0');
+    values.push(safeGetValue(point.nominal_value || point.test_point || point.point) || '0');
   });
 
   return { rows, hiddenInputs: { calibrationPoints, types, repeatables, values } };

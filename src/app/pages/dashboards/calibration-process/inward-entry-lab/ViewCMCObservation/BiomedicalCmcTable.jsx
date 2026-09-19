@@ -1,3 +1,12 @@
+const formatAverageDisplay = (val) => {
+  if (val === null || val === undefined || val === '') return '-';
+  const num = parseFloat(val);
+  if (!isNaN(num)) {
+    return num.toString(); // Automatically strips trailing .0 while preserving actual decimals
+  }
+  return val; // Fallback to raw string if non-numeric
+};
+
 export const BiomedicalTableWithData = ({ tableData = [] }) => {
   const headers = [
     'Sr No', 'Unit Type', 'Mode', '1', '2', '3', '4', '5', 'Unit',
@@ -26,7 +35,7 @@ export const BiomedicalTableWithData = ({ tableData = [] }) => {
             const values = Array.from({ length: 5 }, (_, readingIndex) => row.values?.[readingIndex] ?? '');
             const cells = [
               row.srNo, row.unitType, row.mode, ...values, row.unitDesc,
-              row.calibrationPoint, row.average, row.stdDeviation, row.typeA,
+              row.calibrationPoint, formatAverageDisplay(row.average), row.stdDeviation, row.typeA,
               row.accuracyCalibrator, row.uncertaintyMaster, row.leastCount,
               row.combinedUnc, row.dof, row.coverageFactor, row.expandedUncValue,
               row.expandedUncPercent, row.cmcTaken, row.cmcScope

@@ -200,74 +200,6 @@ export default function ViewCMCCalculation() {
 
             const processBiomedicalItem = (item) => {
               const readings = safeGetArrayValue(item.readings);
-              let calcAvg = item.average;
-
-              if ((calcAvg === null || calcAvg === undefined || calcAvg === "") && readings.length > 0) {
-                const isSlash = readings.some((val) => String(val).includes("/"));
-                if (isSlash) {
-                  const sysVals = [];
-                  const diaVals = [];
-                  readings.forEach((val) => {
-                    if (val) {
-                      const parts = String(val).split("/");
-                      if (parts[0] !== undefined) sysVals.push(parseFloat(parts[0]));
-                      if (parts[1] !== undefined) diaVals.push(parseFloat(parts[1]));
-                    }
-                  });
-                  const validSys = sysVals.filter((v) => !isNaN(v));
-                  const validDia = diaVals.filter((v) => !isNaN(v));
-
-                  const avgSys = validSys.length ? (validSys.reduce((a, b) => a + b, 0) / validSys.length).toFixed(1) : "";
-                  const avgDia = validDia.length ? (validDia.reduce((a, b) => a + b, 0) / validDia.length).toFixed(1) : "";
-                  calcAvg = `${avgSys}/${avgDia}`;
-                } else {
-                  let sum = 0;
-                  let count = 0;
-                  let maxReadingDec = 0;
-
-                  readings.forEach((val) => {
-                    if (val !== null && val !== undefined && val !== "") {
-                      const str = String(val).trim();
-                      if (str.includes(".")) {
-                        const dec = str.split(".")[1].length;
-                        if (dec > maxReadingDec) maxReadingDec = dec;
-                      }
-                      const num = parseFloat(str);
-                      if (!isNaN(num)) {
-                        sum += num;
-                        count++;
-                      }
-                    }
-                  });
-
-                  if (count > 0) {
-                    const rawAvg = sum / count;
-                    let targetDec = maxReadingDec;
-
-                    const lcStr = String(item.least_count || "").trim();
-                    if (lcStr && lcStr.includes(".")) {
-                      const lcDec = lcStr.split(".")[1].length;
-                      if (lcDec > targetDec) targetDec = lcDec;
-                    }
-
-                    const itemDec = item.lc_decimals ?? item.mlc_decimals;
-                    if (itemDec != null && itemDec !== "NA" && itemDec !== "") {
-                      const parsed = parseInt(itemDec, 10);
-                      if (!isNaN(parsed) && parsed > targetDec) {
-                        targetDec = parsed;
-                      }
-                    }
-
-                    if (targetDec > 0) {
-                      calcAvg = rawAvg.toFixed(targetDec);
-                    } else if (maxReadingDec > 0) {
-                      calcAvg = rawAvg.toFixed(maxReadingDec);
-                    } else {
-                      calcAvg = rawAvg % 1 === 0 ? String(rawAvg) : String(parseFloat(rawAvg.toFixed(4)));
-                    }
-                  }
-                }
-              }
 
               return {
                 srNo: item.sr_no,
@@ -276,7 +208,7 @@ export default function ViewCMCCalculation() {
                 values: readings,
                 unitDesc: item.unit_desc,
                 calibrationPoint: item.calibration_point,
-                average: calcAvg,
+                average: item.average ?? "",
                 stdDeviation: item.std_deviation,
                 typeA: item.type_a,
                 accuracyCalibrator: item.accuracy_calibrator_value,

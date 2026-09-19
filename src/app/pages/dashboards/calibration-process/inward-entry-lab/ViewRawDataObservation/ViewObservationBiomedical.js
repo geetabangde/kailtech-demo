@@ -69,9 +69,9 @@ export const parseBiomedicalDynamicData = (observationData) => {
   );
 
   return [
-    ...formatPoints(observationData.performance_test?.measure, 'Measure', 'Performance Test'),
-    ...formatPoints(observationData.performance_test?.source, 'Source', 'Performance Test'),
-    ...formatPoints(observationData.electrical_safety?.measure, 'Measure', 'Electrical Safety'),
-    ...formatPoints(observationData.electrical_safety?.source, 'Source', 'Electrical Safety'),
+    ...formatPoints(observationData?.performance_test?.measure, 'Measure', 'Performance Test'),
+    ...formatPoints(observationData?.performance_test?.source, 'Source', 'Performance Test'),
+    ...formatPoints(observationData?.electrical_safety?.measure, 'Measure', 'Electrical Safety'),
+    ...formatPoints(observationData?.electrical_safety?.source, 'Source', 'Electrical Safety'),
   ];
 };

@@ -1,3 +1,5 @@
+const isYes = (val) => String(val || '').trim().toLowerCase() === 'yes';
+
 const ObservationBiomedical = ({
   selectedTableData,
   tableInputValues = {},
@@ -17,7 +19,10 @@ const ObservationBiomedical = ({
   handleBiomedicalInputBlur,
   validateDecimalPlaces,
 }) => {
-  if (!isBiomedical) return null;
+  const config = selectedTableData?.config;
+  const isBioActive = config?.biomedical !== undefined ? isYes(config.biomedical) : isBiomedical;
+
+  if (!isBioActive) return null;
 
   // Calculate average from current readings (both state and initial data)
   const calculateAverage = (pointId, readingType, count, point) => {
@@ -300,11 +305,15 @@ const ObservationBiomedical = ({
       ? selectedTableData.visual_test
       : visualTests;
 
-    if (!isVisualTestVisible || !list || list.length === 0) return null;
+    const showVisual = config
+      ? (isYes(config.biomedical) && isYes(config.show_visual_test))
+      : isVisualTestVisible;
+
+    if (!showVisual || !list || list.length === 0) return null;
 
     return (
       <div className="mb-8">
-        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">VISUAL INSPECTION</h2>
+        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">1. VISUAL INSPECTION</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse border border-gray-300 dark:border-gray-600">
             <thead>
@@ -359,14 +368,18 @@ const ObservationBiomedical = ({
       ? selectedTableData.basic_safety
       : safetyTests;
 
-    if (!isBasicSafetyVisible || !list || list.length === 0) return null;
+    const showBasic = config
+      ? (isYes(config.biomedical) && isYes(config.show_basic_safety))
+      : isBasicSafetyVisible;
+
+    if (!showBasic || !list || list.length === 0) return null;
 
     const thCls = 'p-2 border border-gray-300 dark:border-gray-600 font-medium text-gray-800 dark:text-white text-left';
     const tdCls = 'p-2 border border-gray-300 dark:border-gray-600 dark:text-white';
 
     return (
       <div className="mb-8">
-        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">BASIC SAFETY TEST</h2>
+        <h2 className="text-md font-semibold text-gray-800 dark:text-white mb-4">2. BASIC SAFETY TEST</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse border border-gray-300 dark:border-gray-600">
             <thead>
@@ -560,15 +573,15 @@ const ObservationBiomedical = ({
                   {showDevAndUnc && <th className={thCls}>Set Point</th>}
                   {isSource ? (
                     <>
-                      {showDevAndUnc && uucCount > 0 && <th colSpan={uucCount} className={thCls}>Reading on UUC</th>}
-                      {showDevAndUnc && uucCount > 1 && <th className={thCls}>Average On UUC</th>}
+                      {uucCount > 0 && <th colSpan={uucCount} className={thCls}>Reading on UUC</th>}
+                      {uucCount > 1 && <th className={thCls}>Average On UUC</th>}
                       {masterCount > 0 && <th colSpan={masterCount} className={thCls}>Reading on Master</th>}
                       {masterCount > 1 && <th className={thCls}>Average On Master</th>}
                     </>
                   ) : (
                     <>
-                      {showDevAndUnc && masterCount > 0 && <th colSpan={masterCount} className={thCls}>Reading on Master</th>}
-                      {showDevAndUnc && masterCount > 1 && <th className={thCls}>Average On Master</th>}
+                      {masterCount > 0 && <th colSpan={masterCount} className={thCls}>Reading on Master</th>}
+                      {masterCount > 1 && <th className={thCls}>Average On Master</th>}
                       {uucCount > 0 && <th colSpan={uucCount} className={thCls}>Reading on UUC</th>}
                       {uucCount > 1 && <th className={thCls}>Average On UUC</th>}
                     </>
@@ -622,8 +635,8 @@ const ObservationBiomedical = ({
                       {/* Readings */}
                       {isSource ? (
                         <>
-                          {showDevAndUnc && renderUucCells(point, pointId)}
-                          {showDevAndUnc && uucCount > 1 && (() => {
+                          {uucCount > 0 && renderUucCells(point, pointId)}
+                          {uucCount > 1 && (() => {
                             const isWaveform = (point.parameter || point.unittype || '').toLowerCase().includes('waveform');
                             const calculatedAvg = isWaveform ? '' : calculateAverage(pointId, 'uuc', uucCount, point);
                             const uucVal = tableInputValues[`${pointId}-averageuuc`] || calculatedAvg || (point.average_uuc ?? '');
@@ -646,7 +659,7 @@ const ObservationBiomedical = ({
                               </td>
                             );
                           })()}
-                          {renderMasterCells(point, pointId)}
+                          {masterCount > 0 && renderMasterCells(point, pointId)}
                           {masterCount > 1 && (() => {
                             const calculatedAvg = calculateAverage(pointId, 'master', masterCount, point);
                             const displayAvg = tableInputValues[`${pointId}-averagemaster`] || calculatedAvg || point.average_master;
@@ -670,8 +683,8 @@ const ObservationBiomedical = ({
                         </>
                       ) : (
                         <>
-                          {showDevAndUnc && renderMasterCells(point, pointId)}
-                          {showDevAndUnc && masterCount > 1 && (() => {
+                          {masterCount > 0 && renderMasterCells(point, pointId)}
+                          {masterCount > 1 && (() => {
                             const calculatedAvg = calculateAverage(pointId, 'master', masterCount, point);
                             const displayAvg = tableInputValues[`${pointId}-averagemaster`] || calculatedAvg || point.average_master;
                             return (
@@ -691,7 +704,7 @@ const ObservationBiomedical = ({
                               </td>
                             );
                           })()}
-                          {renderUucCells(point, pointId)}
+                          {uucCount > 0 && renderUucCells(point, pointId)}
                           {uucCount > 1 && (() => {
                             const isWaveform = (point.parameter || point.unittype || '').toLowerCase().includes('waveform');
                             const calculatedAvg = isWaveform ? '' : calculateAverage(pointId, 'uuc', uucCount, point);
@@ -824,12 +837,20 @@ const ObservationBiomedical = ({
       );
     };
 
+    const showElectrical = config
+      ? (isYes(config.biomedical) && isYes(config.show_electrical_safety))
+      : isElectricalSafetyVisible;
+
+    const showPerformance = config
+      ? (isYes(config.biomedical) && isYes(config.show_performance ?? config.show_performance_test))
+      : isPerformanceVisible;
+
     return (
       <div className="space-y-6">
-        {isElectricalSafetyVisible && measureSafety.length > 0 && renderTable("ELECTRICAL SAFETY TEST", measureSafety, 1, 5, false, false)}
-        {isElectricalSafetyVisible && sourceSafety.length > 0 && renderTable("ELECTRICAL SAFETY TEST (Source)", sourceSafety, 5, 1, false, true)}
-        {isPerformanceVisible && measurePerf.length > 0 && renderTable("PERFORMANCE TESTING", measurePerf, 1, 5, true, false, false)}
-        {isPerformanceVisible && sourcePerf.length > 0 && renderTable("PERFORMANCE TESTING (Source)", sourcePerf, 5, 1, true, true, false)}
+        {showElectrical && measureSafety.length > 0 && renderTable("3. ELECTRICAL SAFETY TEST", measureSafety, 1, 0, false, false, false)}
+        {showElectrical && sourceSafety.length > 0 && renderTable("3. ELECTRICAL SAFETY TEST (Source)", sourceSafety, 5, 0, false, true, false)}
+        {showPerformance && measurePerf.length > 0 && renderTable("4. PERFORMANCE TESTING", measurePerf, 1, 5, true, false, false)}
+        {showPerformance && sourcePerf.length > 0 && renderTable("4. PERFORMANCE TESTING (Source)", sourcePerf, 5, 1, true, true, false)}
       </div>
     );
   };

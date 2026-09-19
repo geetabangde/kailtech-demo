@@ -34,6 +34,8 @@ import { wbTableConfig, wbnTableConfig, createWBRows, parseWBDynamicData } from 
 import { dgTableConfig, createDGRows, parseDGDynamicData } from './ViewObservationDG';
 import { biomedicalTableConfig, createBiomedicalRows, parseBiomedicalDynamicData } from './ViewObservationBiomedical';
 import { getObservationCustomStructure, createCustomRows, parseCustomDynamicData } from './ViewObservationCustom';
+import { gtmTableConfig, createGTMRows, parseGTMDynamicData } from './ViewObservationGTM';
+import { ViewObservationAUTM, autmTableConfig, createAUTMRows, parseAUTMDynamicData } from './ViewObservationAUTM';
 
 export {
   dpgTableConfig, createDPGRows,
@@ -55,6 +57,8 @@ export {
   wbTableConfig, wbnTableConfig, createWBRows,
   biomedicalTableConfig, createBiomedicalRows,
   getObservationCustomStructure, createCustomRows,
+  gtmTableConfig, createGTMRows, parseGTMDynamicData,
+  ViewObservationAUTM, autmTableConfig, createAUTMRows, parseAUTMDynamicData,
 };
 
 /**
@@ -222,18 +226,7 @@ export const getViewObservationTables = (rawdata) => [
   rtdwiTableConfig,
   msrTableConfig,
   tmTableConfig,
-  {
-    id: 'observationgtm',
-    name: 'Observation GTM',
-    category: 'Temperature',
-    structure: {
-      singleHeaders: ['Sr. No.', 'Set Point (°C)', 'Value Of', 'Range', 'Unit', 'Sensitivity Coefficient'],
-      subHeaders: {
-        'Observation': ['Observation 1', 'Observation 2', 'Observation 3', 'Observation 4', 'Observation 5'],
-      },
-      remainingHeaders: ['Average (Ω)', 'Average (°C)', 'Deviation (°C)'],
-    },
-  },
+  gtmTableConfig,
   {
     id: 'observationutm',
     name: 'Observation UTM',
@@ -251,6 +244,7 @@ export const getViewObservationTables = (rawdata) => [
       remainingHeaders: ['Mean (Fi)', 'Error (q)', '% Error (q)', '% Repeatability Error (q)'],
     },
   },
+  autmTableConfig,
   dgTableConfig,
   tsTableConfig,
   {
@@ -611,43 +605,10 @@ export const createViewObservationRows = (observationData, template, currentRawd
         rows.push(row);
       });
     });
+  } else if (template === 'observationautm') {
+    rows = createAUTMRows(dataArray, currentRawdata);
   } else if (template === 'observationgtm') {
-    dataArray.forEach((point) => {
-      if (!point) return;
-      const srNo = point.sr_no?.toString() || '';
-      const setPoint = safeGetValue(point.set_point);
-      const range = safeGetValue(point.range);
-
-      const uucReadings = safeGetArray(point.uuc_values, 5);
-      const uucRow = [
-        srNo,
-        setPoint,
-        'UUC',
-        range,
-        safeGetValue(point.unit),
-        '-',
-        ...uucReadings.slice(0, 5).map((val) => safeGetValue(val)),
-        '-',
-        safeGetValue(point.average_uuc),
-        safeGetValue(point.error),
-      ];
-      rows.push(uucRow);
-
-      const masterReadings = safeGetArray(point.master_values, 5);
-      const masterRow = [
-        '-',
-        '-',
-        'Master',
-        '-',
-        safeGetValue(point.master_unit || point.master_unit_id || 'UNIT_SELECT'),
-        safeGetValue(point.sensitivity_coefficient),
-        ...masterReadings.slice(0, 5).map((val) => safeGetValue(val)),
-        safeGetValue(point.average_master),
-        safeGetValue(point.converted_average_master),
-        '-',
-      ];
-      rows.push(masterRow);
-    });
+    rows = createGTMRows(dataArray, currentRawdata);
   } else if (template === 'observationdg') {
     rows = createDGRows(dataArray, currentRawdata);
   } else if (template === 'observationsw') {
@@ -811,10 +772,9 @@ export const parseDynamicObservation = (
     }
     return [];
   } else if (template === 'observationgtm') {
-    if (observationData.calibration_points && Array.isArray(observationData.calibration_points)) {
-      return observationData.calibration_points;
-    }
-    return [];
+    return parseGTMDynamicData(observationData);
+  } else if (template === 'observationautm') {
+    return parseAUTMDynamicData(observationData);
   } else if (template === 'observationdg') {
     return parseDGDynamicData(observationData, setThermalCoeff);
   } else if (template === 'observationwwbn') {
