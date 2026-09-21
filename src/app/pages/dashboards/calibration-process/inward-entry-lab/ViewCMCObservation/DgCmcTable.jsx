@@ -1,5 +1,16 @@
 import { formatUncertaintyValue } from "./viewCmcUtils";
 
+const toSciNotation = (val) => {
+  if (val === null || val === undefined || val === '') return val;
+  const num = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(num)) return val;
+  // Only use scientific notation for very small or very large numbers
+  if (Math.abs(num) > 0 && (Math.abs(num) < 0.001 || Math.abs(num) >= 1e7)) {
+    return num.toExponential();
+  }
+  return num;
+};
+
 export const DgCmcTable = ({ data }) => (
   <div className="overflow-x-auto">
     <table className="w-full border-collapse text-[12px] text-gray-700 min-w-max">
@@ -8,10 +19,10 @@ export const DgCmcTable = ({ data }) => (
           <th colSpan="11" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
             Type A Factor
           </th>
-          <th colSpan="8" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+          <th colSpan={data.some(d => d.stdDeviationMaster !== undefined) ? "10" : "8"} className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
             Type B Factor
           </th>
-          <th colSpan="6" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
+          <th colSpan="10" className="border border-gray-300 px-1 py-2 bg-gray-200 font-semibold text-xs">
             Uncertainty Measurement
           </th>
         </tr>
@@ -29,7 +40,15 @@ export const DgCmcTable = ({ data }) => (
           <th className="border border-gray-300 px-1 py-2">Average</th>
           <th className="border border-gray-300 px-1 py-2">Std Deviation</th>
           <th className="border border-gray-300 px-1 py-2">Type A</th>
+          {data.some(d => d.stdDeviationMaster !== undefined) && (
+            <>
+              <th className="border border-gray-300 px-1 py-2">Std Deviation (Master)</th>
+              <th className="border border-gray-300 px-1 py-2">Type A (Master)</th>
+            </>
+          )}
           <th className="border border-gray-300 px-1 py-2">Uncertainty of Slip Gauge in mm</th>
+          <th className="border border-gray-300 px-1 py-2">Accuracy of Slip Gauge Set Ub2</th>
+          <th className="border border-gray-300 px-1 py-2">Flatness of comparator stand in mm Ub3</th>
           <th className="border border-gray-300 px-1 py-2">Least Count of UUC</th>
           <th className="border border-gray-300 px-1 py-2">Thermal Coefficient of Master</th>
           <th className="border border-gray-300 px-1 py-2">Thermal Coefficient of UUC</th>
@@ -61,10 +80,18 @@ export const DgCmcTable = ({ data }) => (
             <td className="border border-gray-300 px-1 py-2">{typeof row.average === 'number' ? row.average.toFixed(3) : row.average}</td>
             <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviation === 'number' ? formatUncertaintyValue(row.stdDeviation, 6) : row.stdDeviation}</td>
             <td className="border border-gray-300 px-1 py-2">{typeof row.typeA === 'number' ? formatUncertaintyValue(row.typeA, 6) : row.typeA}</td>
+            {data.some(d => d.stdDeviationMaster !== undefined) && (
+              <>
+                <td className="border border-gray-300 px-1 py-2">{typeof row.stdDeviationMaster === 'number' ? formatUncertaintyValue(row.stdDeviationMaster, 6) : (row.stdDeviationMaster || '')}</td>
+                <td className="border border-gray-300 px-1 py-2">{typeof row.typeAMaster === 'number' ? formatUncertaintyValue(row.typeAMaster, 6) : (row.typeAMaster || '')}</td>
+              </>
+            )}
             <td className="border border-gray-300 px-1 py-2">{typeof row.uncertaintySlipGauge === 'number' ? row.uncertaintySlipGauge.toFixed(6) : row.uncertaintySlipGauge}</td>
+            <td className="border border-gray-300 px-1 py-2">{typeof row.accuracySlipGauge === 'number' ? row.accuracySlipGauge.toFixed(6) : row.accuracySlipGauge}</td>
+            <td className="border border-gray-300 px-1 py-2">{typeof row.flatnessComparatorStand === 'number' ? row.flatnessComparatorStand.toFixed(6) : row.flatnessComparatorStand}</td>
             <td className="border border-gray-300 px-1 py-2">{row.leastCountUuc}</td>
-            <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffMaster === 'number' ? row.thermalCoeffMaster.toFixed(6) : row.thermalCoeffMaster}</td>
-            <td className="border border-gray-300 px-1 py-2">{typeof row.thermalCoeffUuc === 'number' ? row.thermalCoeffUuc.toFixed(6) : row.thermalCoeffUuc}</td>
+            <td className="border border-gray-300 px-1 py-2">{toSciNotation(row.thermalCoeffMaster)}</td>
+            <td className="border border-gray-300 px-1 py-2">{toSciNotation(row.thermalCoeffUuc)}</td>
             <td className="border border-gray-300 px-1 py-2">{typeof row.uncTempDevice === 'number' ? row.uncTempDevice.toFixed(6) : row.uncTempDevice}</td>
             <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncTher20 === 'number' ? row.stdUncTher20.toFixed(6) : row.stdUncTher20}</td>
             <td className="border border-gray-300 px-1 py-2">{typeof row.stdUncDiff === 'number' ? row.stdUncDiff.toFixed(6) : row.stdUncDiff}</td>

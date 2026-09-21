@@ -314,6 +314,7 @@ export default function ViewCMCCalculation() {
               coverageFactor: item.coverage_factor,
               expandedUnc: item.expanded_uncertainty,
               cmc: item.cmc_taken,
+              cmc_scope: item.cmc_scope
             }));
             setData(mappedData);
           } else if (instrumentSuffix === "exm") {
@@ -345,35 +346,59 @@ export default function ViewCMCCalculation() {
             setData(mappedData);
           } else if (instrumentSuffix === "dg") {
             // For Digital Dial Gauge
-            const mappedData = apiData.map((item) => ({
-              srNo: item.sr_no,
-              readingInc1: item.reading_inc_1,
-              readingDec2: item.reading_dec_2,
-              readingInc3: item.reading_inc_3,
-              readingDec4: item.reading_dec_4,
-              errorInc: item.error_inc,
-              errorDec: item.error_dec,
-              hysterisis: item.hysterisis,
-              unit: item.unit,
-              calibrationPoint: item.calibration_point,
-              average: item.average,
-              stdDeviation: item.std_deviation,
-              typeA: item.type_a,
-              uncertaintySlipGauge: item.uncertainty_slip_gauge,
-              leastCountUuc: item.least_count_uuc,
-              thermalCoeffMaster: item.thermal_coefficient_master,
-              thermalCoeffUuc: item.thermal_coefficient_uuc,
-              uncTempDevice: item.uncertainty_temperature_device,
-              stdUncTher20: item.uncertainty_thermal_coefficient_20,
-              stdUncDiff: item.uncertainty_temperature_difference,
-              uncError: item.uncertainty_master_error,
-              combinedUnc: item.combined_uncertainty,
-              dof: item.degree_of_freedom,
-              coverageFactor: item.coverage_factor,
-              expandedUnc: item.expanded_uncertainty,
-              cmcTaken: item.cmc_taken,
-              cmcScope: item.cmc_scope,
-            }));
+            const mappedData = apiData.map((item) => {
+              const testpoint = parseFloat(item.calibration_point);
+              let slipaccuracy = 0.12;
+              if (testpoint >= 0.5 && testpoint <= 10) {
+                slipaccuracy = 0.12;
+              } else if (testpoint > 10 && testpoint <= 25) {
+                slipaccuracy = 0.14;
+              } else if (testpoint > 25 && testpoint <= 50) {
+                slipaccuracy = 0.20;
+              } else if (testpoint > 50 && testpoint <= 75) {
+                slipaccuracy = 0.25;
+              } else if (testpoint > 75 && testpoint <= 100) {
+                slipaccuracy = 0.30;
+              } else if (testpoint > 100) {
+                slipaccuracy = 0.30;
+              } else if (testpoint < 0.5) {
+                slipaccuracy = 0.12;
+              }
+
+              return {
+                srNo: item.sr_no,
+                readingInc1: item.reading_inc_1,
+                readingDec2: item.reading_dec_2,
+                readingInc3: item.reading_inc_3,
+                readingDec4: item.reading_dec_4,
+                errorInc: item.error_inc,
+                errorDec: item.error_dec,
+                hysterisis: item.hysterisis,
+                unit: item.unit,
+                calibrationPoint: item.calibration_point,
+                average: item.average,
+                stdDeviation: item.std_deviation,
+                typeA: item.type_a,
+                stdDeviationMaster: item.std_deviation_master,
+                typeAMaster: item.type_a_master,
+                uncertaintySlipGauge: item.uncertainty_slip_gauge,
+                accuracySlipGauge: item.accuracy_slip_gauge !== undefined ? item.accuracy_slip_gauge : slipaccuracy,
+                flatnessComparatorStand: item.flatness_comparator_stand_ub3 || item.flatness_comparator_stand,
+                leastCountUuc: item.least_count_uuc,
+                thermalCoeffMaster: item.thermal_coefficient_master,
+                thermalCoeffUuc: item.thermal_coefficient_uuc,
+                uncTempDevice: item.uncertainty_temperature_device,
+                stdUncTher20: item.uncertainty_thermal_coefficient_20,
+                stdUncDiff: item.uncertainty_temperature_difference,
+                uncError: item.uncertainty_master_error,
+                combinedUnc: item.combined_uncertainty,
+                dof: item.degree_of_freedom,
+                coverageFactor: item.coverage_factor,
+                expandedUnc: item.expanded_uncertainty,
+                cmcTaken: item.cmc_taken,
+                cmcScope: item.cmc_scope,
+              };
+            });
             setData(mappedData);
           } else if (instrumentSuffix === "gtm") {
             // For Glass Thermometer - similar to RTDWI structure
@@ -553,6 +578,7 @@ export default function ViewCMCCalculation() {
             })) || [];
             setData(mappedData);
           } else if (instrumentSuffix === "dpg") {
+
             const mappedData = apiData.map((item) => ({
               srNo: item.sr_no,
               setPressure: item.set_pressure,
@@ -1436,6 +1462,7 @@ export default function ViewCMCCalculation() {
               coverageFactor: item.coverage_factor ?? 2,
               expandedUnc: item.expanded_uncertainty ?? "",
               cmc: item.cmc_taken ?? "",
+              cmcScope: item.cmc_scope ?? "",
             }));
             setData(mappedData);
           } else {
@@ -1476,8 +1503,8 @@ export default function ViewCMCCalculation() {
     }, 1000);
   };
 
-  
-// ========================= MAIN COMPONENT RENDER ========================= //
+
+  // ========================= MAIN COMPONENT RENDER ========================= //
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-gray-600">

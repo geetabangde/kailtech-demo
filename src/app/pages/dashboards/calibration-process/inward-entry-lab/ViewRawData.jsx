@@ -15,6 +15,8 @@ import {
   WeighingBalanceTable,
   TSTable,
   ViewObservationAUTM,
+  ViewObservationPR,
+  ViewObservationWBN
 } from './ViewRawDataObservation';
 
 export default function CalibrationReport() {
@@ -408,6 +410,20 @@ export default function CalibrationReport() {
                 const selectedTable = observationTables.find(table => table.id === resolvedTemplate);
                 if (selectedTable) {
                   const units = obsList[0]?.units || observation_data?.units;
+                  setTableStructure(prev => prev || generateTableStructure(selectedTable, units));
+                }
+              }
+            }
+
+            // Handle PR observation data structure (matrices.points)
+            if (resolvedTemplate === 'observationpr' && observation_data?.matrices) {
+              const matrices = observation_data.matrices || observation_data.data?.matrices;
+              if (Array.isArray(matrices) && matrices.length > 0 && matrices[0]?.points) {
+                // Pass the full observation_data structure for PR
+                setDynamicObservations(observation_data);
+                const selectedTable = observationTables.find(table => table.id === resolvedTemplate);
+                if (selectedTable) {
+                  const units = matrices[0]?.header_info?.uuc_unit || matrices[0]?.header_info?.calculation_unit || 'N';
                   setTableStructure(prev => prev || generateTableStructure(selectedTable, units));
                 }
               }
@@ -994,8 +1010,10 @@ export default function CalibrationReport() {
                     </div>
                   </div>
                 ))
-              ) : observationTemplate === 'observationwb' || observationTemplate === 'observationwbn' ? (
+              ) : observationTemplate === 'observationwb' ? (
                 <WeighingBalanceTable observationRows={observationRows} diagram={diagram} />
+              ) : observationTemplate === 'observationwbn' ? (
+                <ViewObservationWBN observations={dynamicObservations} />
               ) : observationTemplate === 'observationtm' ? (
                 <TMTable observationRows={observationRows} />
               ) : observationTemplate === 'observationuc' ? (
@@ -1009,6 +1027,11 @@ export default function CalibrationReport() {
                   rawdata={rawdata}
                   observationRows={observationRows}
                   dynamicObservations={dynamicObservations}
+                />
+              ) : observationTemplate === 'observationpr' ? (
+                <ViewObservationPR
+                  observations={dynamicObservations}
+                  instrument={rawdata?.listInstrument}
                 />
               ) : observationTemplate === 'observationmm' && observationRows?.unitTypes && observationRows.unitTypes.length > 0 ? (
                 observationRows.unitTypes.map((unitTypeGroup, groupIndex) => {

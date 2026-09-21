@@ -206,9 +206,8 @@ const ObservationCustom = ({
                 step="any"
                 id={`obs-cell-${cellKey}`}
                 data-cell-key={cellKey}
-                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                }`}
+                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                  }`}
                 value={tableInputValues[cellKey] ?? row[colIdx] ?? ''}
                 onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
                 onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
@@ -250,9 +249,8 @@ const ObservationCustom = ({
                 step="any"
                 id={`obs-cell-${cellKey}`}
                 data-cell-key={cellKey}
-                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                }`}
+                className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                  }`}
                 value={tableInputValues[cellKey] ?? row[colIdx] ?? ''}
                 onChange={(e) => handleInputChange && handleInputChange(rowIndex, colIdx, e.target.value)}
                 onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, colIdx, e.target.value)}
@@ -307,8 +305,8 @@ const ObservationCustom = ({
                 {instrument.setpoint === 'Master'
                   ? instrument.masterheading || 'Master'
                   : instrument.setpoint === 'UUC'
-                  ? instrument.uucheading || 'UUC'
-                  : instrument.setpointheading || 'Set Point'}
+                    ? instrument.uucheading || 'UUC'
+                    : instrument.setpointheading || 'Set Point'}
               </th>
             )}
 
@@ -367,32 +365,50 @@ const ObservationCustom = ({
                 </td>
 
                 {/* Parameter */}
-                {layout.paramIdx !== -1 && (
-                  <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                    <input
-                      type="text"
-                      id={`obs-cell-${rowIndex}-${layout.paramIdx}`}
-                      data-cell-key={`${rowIndex}-${layout.paramIdx}`}
-                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                      value={row[layout.paramIdx] ?? ''}
-                      readOnly
-                    />
-                  </td>
-                )}
+                {layout.paramIdx !== -1 && (() => {
+                  const cellKey = `${rowIndex}-${layout.paramIdx}`;
+                  const hasError = !!observationErrors[cellKey];
+                  return (
+                    <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
+                      <input
+                        type="text"
+                        id={`obs-cell-${cellKey}`}
+                        data-cell-key={cellKey}
+                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                          }`}
+                        value={tableInputValues[cellKey] ?? row[layout.paramIdx] ?? ''}
+                        onChange={(e) => handleInputChange && handleInputChange(rowIndex, layout.paramIdx, e.target.value, 'text')}
+                        onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, layout.paramIdx, e.target.value)}
+                      />
+                      {hasError && (
+                        <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+                      )}
+                    </td>
+                  );
+                })()}
 
                 {/* Specification */}
-                {layout.specIdx !== -1 && (
-                  <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white bg-gray-50 dark:bg-gray-700">
-                    <input
-                      type="text"
-                      id={`obs-cell-${rowIndex}-${layout.specIdx}`}
-                      data-cell-key={`${rowIndex}-${layout.specIdx}`}
-                      className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed"
-                      value={row[layout.specIdx] ?? ''}
-                      readOnly
-                    />
-                  </td>
-                )}
+                {layout.specIdx !== -1 && (() => {
+                  const cellKey = `${rowIndex}-${layout.specIdx}`;
+                  const hasError = !!observationErrors[cellKey];
+                  return (
+                    <td className="px-3 py-2 text-sm border-r border-gray-200 dark:border-gray-600 dark:text-white">
+                      <input
+                        type="text"
+                        id={`obs-cell-${cellKey}`}
+                        data-cell-key={cellKey}
+                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                          }`}
+                        value={tableInputValues[cellKey] ?? row[layout.specIdx] ?? ''}
+                        onChange={(e) => handleInputChange && handleInputChange(rowIndex, layout.specIdx, e.target.value, 'text')}
+                        onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, layout.specIdx, e.target.value)}
+                      />
+                      {hasError && (
+                        <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
+                      )}
+                    </td>
+                  );
+                })()}
 
                 {/* Setpoint */}
                 {layout.setpointIdx !== -1 && (() => {
@@ -407,13 +423,11 @@ const ObservationCustom = ({
                           step="any"
                           id={`obs-cell-${cellKey}`}
                           data-cell-key={cellKey}
-                          className={`w-full px-2 py-1 border rounded ${
-                            isEditable
-                              ? `bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                                  hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                                }`
+                          className={`w-full px-2 py-1 border rounded ${isEditable
+                              ? `bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                              }`
                               : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white cursor-not-allowed'
-                          }`}
+                            }`}
                           value={tableInputValues[cellKey] ?? row[layout.setpointIdx] ?? ''}
                           readOnly={!isEditable}
                           onChange={(e) => isEditable && handleInputChange && handleInputChange(rowIndex, layout.setpointIdx, e.target.value)}
@@ -465,11 +479,11 @@ const ObservationCustom = ({
                         type="text"
                         id={`obs-cell-${cellKey}`}
                         data-cell-key={cellKey}
-                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                          hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                        }`}
+                        className={`w-full px-2 py-1 border rounded bg-white dark:bg-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${hasError ? 'border-red-500 focus:ring-red-500 ring-1 ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
+                          }`}
                         value={tableInputValues[cellKey] ?? row[layout.remarkIdx] ?? ''}
                         onChange={(e) => handleInputChange && handleInputChange(rowIndex, layout.remarkIdx, e.target.value, 'text')}
+                        onBlur={(e) => handleObservationBlur && handleObservationBlur(rowIndex, layout.remarkIdx, e.target.value)}
                       />
                       {hasError && (
                         <p className="text-xs text-red-500 mt-0.5">{observationErrors[cellKey]}</p>
@@ -632,7 +646,7 @@ export const calculateCustomValues = (rowData, instrument, point = null) => {
         const p = parseFloat(raw);
         if (!isNaN(p)) masterVal = p;
       }
-    } else if (layout.setpointIdx !== -1 && instrument?.setpoint !== "UUC") {
+    } else if (layout.setpointIdx !== -1 && instrument?.setpoint === "Master") {
       const raw = rowData[layout.setpointIdx];
       if (raw !== undefined && raw !== null && raw.toString().trim() !== '') {
         const p = parseFloat(raw);

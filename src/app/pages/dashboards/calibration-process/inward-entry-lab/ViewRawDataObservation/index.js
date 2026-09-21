@@ -31,11 +31,14 @@ import { apgTableConfig, createAPGRows, parseAPGDynamicData } from './ViewObserv
 import { dwTableConfig, createDWRows, parseDWDynamicData } from './ViewObservationDW';
 import { tsTableConfig, createTSRows, parseTSDynamicData } from './ViewObservationTS';
 import { wbTableConfig, wbnTableConfig, createWBRows, parseWBDynamicData } from './ViewObservationWB';
+import { ViewObservationWBN } from './ViewObservationWBN';
 import { dgTableConfig, createDGRows, parseDGDynamicData } from './ViewObservationDG';
 import { biomedicalTableConfig, createBiomedicalRows, parseBiomedicalDynamicData } from './ViewObservationBiomedical';
 import { getObservationCustomStructure, createCustomRows, parseCustomDynamicData } from './ViewObservationCustom';
 import { gtmTableConfig, createGTMRows, parseGTMDynamicData } from './ViewObservationGTM';
 import { ViewObservationAUTM, autmTableConfig, createAUTMRows, parseAUTMDynamicData } from './ViewObservationAUTM';
+import { prTableConfig, createPRRows, ViewObservationPR } from './ViewObservationPR';
+import { ViewObservationUTM } from './ViewObservationUTM';
 
 export {
   dpgTableConfig, createDPGRows,
@@ -54,11 +57,13 @@ export {
   dwTableConfig, createDWRows,
   dgTableConfig, createDGRows, parseDGDynamicData,
   tsTableConfig, createTSRows,
-  wbTableConfig, wbnTableConfig, createWBRows,
+  wbTableConfig, wbnTableConfig, createWBRows, ViewObservationWBN,
   biomedicalTableConfig, createBiomedicalRows,
   getObservationCustomStructure, createCustomRows,
   gtmTableConfig, createGTMRows, parseGTMDynamicData,
   ViewObservationAUTM, autmTableConfig, createAUTMRows, parseAUTMDynamicData,
+  prTableConfig, createPRRows, ViewObservationPR,
+  ViewObservationUTM,
 };
 
 /**
@@ -246,6 +251,7 @@ export const getViewObservationTables = (rawdata) => [
   },
   autmTableConfig,
   dgTableConfig,
+  prTableConfig,
   tsTableConfig,
   {
     id: 'observationsw',
@@ -607,6 +613,17 @@ export const createViewObservationRows = (observationData, template, currentRawd
     });
   } else if (template === 'observationautm') {
     rows = createAUTMRows(dataArray, currentRawdata);
+  } else if (template === 'observationpr') {
+    const prRes = createPRRows(dataArray, currentRawdata);
+    rows = prRes.rows;
+    return {
+      rows,
+      matrixGroups: [],
+      unitTypes: [],
+      modes: [],
+      unit: prRes.unit,
+      note: prRes.note,
+    };
   } else if (template === 'observationgtm') {
     rows = createGTMRows(dataArray, currentRawdata);
   } else if (template === 'observationdg') {

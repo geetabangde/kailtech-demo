@@ -6,6 +6,18 @@ import svgr from 'vite-plugin-svgr'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  esbuild: {
+    loader: 'jsx',
+    include: /src\/.*\.jsx?$/,
+    exclude: [],
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        '.js': 'jsx',
+      },
+    },
+  },
   plugins: [react(), jsconfigPaths(), svgr(), eslint()],
   server: {
     proxy: {
@@ -18,3 +30,4 @@ export default defineConfig({
     }
   }
 })
+

@@ -37,7 +37,7 @@ export const calculateMTValues = (rowData, rowIndex, selectedTableData, leastCou
 
   const nominalValue = parseFloat(rowData[1]);
   result.error = result.average !== '' && !isNaN(nominalValue)
-    ? (parseFloat(result.average) - nominalValue).toFixed(masterDecimals)
+    ? (nominalValue - parseFloat(result.average)).toFixed(masterDecimals)
     : '';
 
   return result;
@@ -61,14 +61,17 @@ export const createMTRows = (dataArray) => {
     const masterLc = point.metadata?.master_least_count ?? point.master_least_count ?? 0.005;
     const masterDecimals = point.metadata?.master_decimal_places ?? getDecimalPlaces(masterLc);
 
+    const avgVal = safeGetValue(point.average_master || point.average);
+    const errVal = safeGetValue(point.error);
+
     const row = [
       point.sequence_number?.toString() || point.sr_no?.toString() || '',
       safeGetValue(point.uuc_value || point.nominal_value || point.test_point),
       ...Array.from({ length: 5 }, (_, index) =>
         index < repeatableCycle ? safeGetValue(observations[index]) : ''
       ),
-      formatValueByLc(point.average_master || point.average, masterDecimals, masterLc) || safeGetValue(point.average_master || point.average),
-      formatValueByLc(point.error, masterDecimals, masterLc) || safeGetValue(point.error),
+      avgVal !== '' ? (formatValueByLc(avgVal, masterDecimals) || avgVal) : '',
+      errVal !== '' ? errVal : '',
     ];
 
     while (row.length < 9) {
