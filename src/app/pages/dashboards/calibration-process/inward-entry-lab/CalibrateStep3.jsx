@@ -7151,8 +7151,8 @@ const CalibrateStep3 = () => {
 
       const isSuccess = response.data.status === true || response.data.staus === true;
 
-      if (isSuccess && (response.data.data || response.data.calibration_points)) {
-        const observationData = response.data.data;
+      if (isSuccess && (response.data.data || response.data.calibration_points || observationTemplate === 'observationbiomedical')) {
+        const observationData = observationTemplate === 'observationbiomedical' ? response.data : (response.data.data || response.data);
 
         // ✅ ADD OBSERVATIONAVG CASE HERE
         if (observationTemplate === 'observationavg') {
@@ -7673,6 +7673,56 @@ const CalibrateStep3 = () => {
             ...safetySource.map(p => formatPoint(p, 'Source', true))
           ];
           setObservations(allPoints);
+
+          // Seed tableInputValues from API data so saved readings show on reload
+          const seeded = {};
+          allPoints.forEach(p => {
+            const pid = p.id;
+            if (Array.isArray(p.master_readings)) {
+              p.master_readings.forEach((r, i) => {
+                if (r.value !== null && r.value !== undefined) {
+                  seeded[`${pid}-master-${i}`] = r.value;
+                }
+              });
+            }
+            if (Array.isArray(p.uuc_readings)) {
+              p.uuc_readings.forEach((r, i) => {
+                if (r.value !== null && r.value !== undefined) {
+                  seeded[`${pid}-uuc-${i}`] = r.value;
+                }
+              });
+            }
+            if (p.deviation !== null && p.deviation !== undefined) {
+              seeded[`${pid}-error`] = p.deviation;
+            }
+            const rawTol = p.tolerance ?? p.tolerance_value ?? p.specification ?? '';
+            const tolType = (p.tolerance_type || '').trim();
+            const formattedTol = tolType === '%' && rawTol && !String(rawTol).includes('%')
+              ? `${rawTol}%`
+              : String(rawTol || '');
+            if (formattedTol) {
+              seeded[`${pid}-specification`] = formattedTol;
+            }
+          });
+
+          try {
+            const cacheKey = `bio_obs_${inwardId}_${instId}`;
+            const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+            Object.entries(cached).forEach(([k, v]) => {
+              const isIndividual = /-master-\d+$/.test(k) || /-uuc-\d+$/.test(k);
+              const isAverage = /-averagemaster$/.test(k) || /-averageuuc$/.test(k);
+              if (isAverage) return;
+              if (isIndividual) {
+                seeded[k] = v;
+              } else if (seeded[k] === undefined || seeded[k] === null || seeded[k] === '') {
+                seeded[k] = v;
+              }
+            });
+          } catch { /* ignore storage errors */ }
+
+          if (Object.keys(seeded).length > 0) {
+            setTableInputValues(prev => ({ ...prev, ...seeded }));
+          }
 
           const visualList = Array.isArray(rawData.visual_test) ? rawData.visual_test : (Array.isArray(rawData.visual_inspection) ? rawData.visual_inspection : null);
           if (visualList) {
