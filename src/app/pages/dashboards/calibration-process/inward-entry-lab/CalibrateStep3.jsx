@@ -1092,6 +1092,15 @@ const CalibrateStep3 = () => {
             newErrors[key] = 'This field is required';
           }
         }
+      } else if (selectedTableData.id === 'observationsw') {
+        // UUC Observations 1-5 (columns 2-6) and Master Observations 1-5 (columns 7-11) are required
+        for (let col = 2; col <= 11; col++) {
+          const key = `${rowIndex}-${col}`;
+          const value = tableInputValues[key] ?? (row[col]?.toString() || '');
+          if (!value.trim()) {
+            newErrors[key] = 'This field is required';
+          }
+        }
       } else if (selectedTableData.id === 'observationmt') {
         const calibPointId = selectedTableData.hiddenInputs?.calibrationPoints?.[rowIndex];
         const lcInfo = leastCountData[calibPointId] || leastCountData[String(calibPointId)];
@@ -2138,6 +2147,10 @@ const CalibrateStep3 = () => {
             }
             console.log('Final tsData:', tsData);
             setObservations(tsData);
+          } else if (observationTemplate === 'observationsw') {
+            console.log('Setting SW observations:', observationData);
+            const swData = Array.isArray(observationData) ? observationData : (observationData.data || []);
+            setObservations(Array.isArray(swData) ? swData : []);
           } else if (observationTemplate === 'observationcustom') {
             console.log('Setting Custom observations:', observationData);
             if (observationData.instrument_settings) {
@@ -3338,6 +3351,34 @@ const CalibrateStep3 = () => {
       return createDWRows(dataArray);
     } else if (template === 'observationts') {
       return createTSRows(dataArray);
+    } else if (template === 'observationsw') {
+      dataArray.forEach((point, idx) => {
+        if (!point) return;
+
+        const uucValues = safeGetArray(point.uuc_values, 5);
+        const masterValues = safeGetArray(point.master_values, 5);
+        while (uucValues.length < 5) uucValues.push('');
+        while (masterValues.length < 5) masterValues.push('');
+
+        const setpointVal = safeGetValue(point.setpoint ?? point.testpoint);
+
+        const row = [
+          point.sr_no?.toString() || (idx + 1).toString(),
+          setpointVal,
+          ...uucValues.slice(0, 5),
+          ...masterValues.slice(0, 5),
+          safeGetValue(point.average_uuc),
+          safeGetValue(point.average_master),
+          safeGetValue(point.error),
+          safeGetValue(point.uncertainty),
+        ];
+
+        rows.push(row);
+        calibrationPoints.push((point.calibrationpoint_id ?? point.calibration_point_id ?? point.point_id ?? point.id)?.toString() || '');
+        types.push('setpoint');
+        repeatables.push('0');
+        values.push(setpointVal || '0');
+      });
     } else if (template === 'observationutm') {
       const groups = normalizeUtmGroups(dataArray);
 
@@ -4031,6 +4072,21 @@ const CalibrateStep3 = () => {
       weighingCount: createObservationRows(observations, 'observationwb').weighingCount,
       repeatabilityCount: createObservationRows(observations, 'observationwb').repeatabilityCount,
       eccentricityCount: createObservationRows(observations, 'observationwb').eccentricityCount,
+    },
+    {
+      id: 'observationsw',
+      name: 'Observation SW',
+      category: 'Stop Watch',
+      structure: {
+        singleHeaders: ['Sr no', 'Setpoint'],
+        subHeaders: {
+          'Observation on UUC': ['1', '2', '3', '4', '5'],
+          'Observation on Master': ['1', '2', '3', '4', '5'],
+        },
+        remainingHeaders: ['Average UUC', 'Average Master', 'Error', 'Uncertainty'],
+      },
+      staticRows: createObservationRows(observations, 'observationsw').rows,
+      hiddenInputs: createObservationRows(observations, 'observationsw').hiddenInputs,
     },
     {
       id: 'observationupload',
@@ -7515,6 +7571,11 @@ const CalibrateStep3 = () => {
         else if (observationTemplate === 'observationapg') {
           setObservations(observationData);
         }
+        else if (observationTemplate === 'observationsw') {
+          console.log('🔄 Refetching SW observations:', observationData);
+          const swData = Array.isArray(observationData) ? observationData : (observationData.data || []);
+          setObservations(Array.isArray(swData) ? swData : []);
+        }
         else if (observationTemplate === 'observationdw') {
           console.log('🔄 Refetching DW observations:', observationData);
 
@@ -8475,6 +8536,59 @@ const CalibrateStep3 = () => {
         type: 'error',
         repeatable: '0',
         value: calculated.error || '0',
+      });
+    } else if (selectedTableData.id === 'observationsw') {
+      [2, 3, 4, 5, 6].forEach((colIdx, obsIdx) => {
+        payloads.push({
+          inwardid: inwardId,
+          instid: instId,
+          calibrationpoint: calibrationPointId,
+          type: 'uuc',
+          repeatable: obsIdx.toString(),
+          value: rowData[colIdx] || '0',
+        });
+      });
+      [7, 8, 9, 10, 11].forEach((colIdx, obsIdx) => {
+        payloads.push({
+          inwardid: inwardId,
+          instid: instId,
+          calibrationpoint: calibrationPointId,
+          type: 'master',
+          repeatable: obsIdx.toString(),
+          value: rowData[colIdx] || '0',
+        });
+      });
+      payloads.push({
+        inwardid: inwardId,
+        instid: instId,
+        calibrationpoint: calibrationPointId,
+        type: 'averageuuc',
+        repeatable: '0',
+        value: rowData[12] || '0',
+      });
+      payloads.push({
+        inwardid: inwardId,
+        instid: instId,
+        calibrationpoint: calibrationPointId,
+        type: 'averagemaster',
+        repeatable: '0',
+        value: rowData[13] || '0',
+      });
+      payloads.push({
+        inwardid: inwardId,
+        instid: instId,
+        calibrationpoint: calibrationPointId,
+        type: 'error',
+        repeatable: '0',
+        value: rowData[14] || '0',
+      });
+      payloads.push({
+        inwardid: inwardId,
+        instid: instId,
+        calibrationpoint: calibrationPointId,
+        type: 'uncertainty',
+        repeatable: '0',
+        value: rowData[15] || '0',
       });
     }
 
@@ -9944,6 +10058,42 @@ const CalibrateStep3 = () => {
         types.push('hysterisis');
         repeatables.push('0');
         values.push(calculated.hysteresis || '0');
+      }
+
+      else if (selectedTableData.id === 'observationsw') {
+        [2, 3, 4, 5, 6].forEach((colIndex, obsIndex) => {
+          calibrationPoints.push(calibPointId);
+          types.push('uuc');
+          repeatables.push(obsIndex.toString());
+          values.push(rowData[colIndex] || '0');
+        });
+
+        [7, 8, 9, 10, 11].forEach((colIndex, obsIndex) => {
+          calibrationPoints.push(calibPointId);
+          types.push('master');
+          repeatables.push(obsIndex.toString());
+          values.push(rowData[colIndex] || '0');
+        });
+
+        calibrationPoints.push(calibPointId);
+        types.push('averageuuc');
+        repeatables.push('0');
+        values.push(rowData[12] || '0');
+
+        calibrationPoints.push(calibPointId);
+        types.push('averagemaster');
+        repeatables.push('0');
+        values.push(rowData[13] || '0');
+
+        calibrationPoints.push(calibPointId);
+        types.push('error');
+        repeatables.push('0');
+        values.push(rowData[14] || '0');
+
+        calibrationPoints.push(calibPointId);
+        types.push('uncertainty');
+        repeatables.push('0');
+        values.push(rowData[15] || '0');
       }
 
       // 6. observationhg
@@ -11471,6 +11621,8 @@ const CalibrateStep3 = () => {
                                       isDisabled = isDisabled || [5, 6, 7].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationavg') {
                                       isDisabled = isDisabled || [5, 6, 7].includes(colIndex);
+                                    } else if (selectedTableData.id === 'observationsw') {
+                                      isDisabled = isDisabled || [1, 12, 13, 14, 15].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationit') {
                                       isDisabled = isDisabled || [1].includes(colIndex);
                                     } else if (selectedTableData.id === 'observationexm' || selectedTableData.id === 'observationvc') {
